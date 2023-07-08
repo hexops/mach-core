@@ -22,27 +22,40 @@ pub fn build(b: *std.Build) !void {
     const options = core.Options{ .gpu_dawn_options = gpu_dawn_options };
 
     if (target.getCpuArch() != .wasm32) {
-        const all_tests_step = b.step("test", "Run library tests");
-        const glfw_test_step = b.step("test-glfw", "Run GLFW library tests");
-        const gpu_test_step = b.step("test-gpu", "Run GPU library tests");
-        const core_test_step = b.step("test-core", "Run Mach Core library tests");
-
-        glfw_test_step.dependOn(&(try glfw.testStep(b, optimize, target)).step);
-        gpu_test_step.dependOn(&(try gpu.testStep(b, optimize, target, options.gpuOptions())).step);
-        core_test_step.dependOn(&(try core.testStep(b, optimize, target)).step);
-
-        all_tests_step.dependOn(glfw_test_step);
-        all_tests_step.dependOn(gpu_test_step);
-        all_tests_step.dependOn(core_test_step);
+        const test_step = b.step("test", "run tests");
+        test_step.dependOn(&(try core.testStep(b, optimize, target)).step);
 
         // Compiles the `libmachcore` shared library
         const shared_lib = try core.buildSharedLib(b, optimize, target, options);
 
         b.installArtifact(shared_lib);
     }
+}
 
-    const compile_all = b.step("compile-all", "Compile Mach");
-    compile_all.dependOn(b.getInstallStep());
+fn glfwLink(b: *std.Build, step: *std.build.CompileStep) void {
+    const glfw_dep = b.dependency("mach_glfw", .{
+        .target = step.target,
+        .optimize = step.optimize,
+    });
+    step.linkLibrary(glfw_dep.artifact("mach-glfw"));
+    step.addModule("glfw", glfw_dep.module("mach-glfw"));
+
+    // TODO(build-system): Zig package manager currently can't handle transitive deps like this, so we need to use
+    // these explicitly here:
+    @import("glfw").addPaths(step);
+    if (step.target.toTarget().isDarwin()) xcode_frameworks.addPaths(b, step);
+    step.linkLibrary(b.dependency("vulkan_headers", .{
+        .target = step.target,
+        .optimize = step.optimize,
+    }).artifact("vulkan-headers"));
+    step.linkLibrary(b.dependency("x11_headers", .{
+        .target = step.target,
+        .optimize = step.optimize,
+    }).artifact("x11-headers"));
+    step.linkLibrary(b.dependency("wayland_headers", .{
+        .target = step.target,
+        .optimize = step.optimize,
+    }).artifact("wayland-headers"));
 }
 
 fn sdkPath(comptime suffix: []const u8) []const u8 {
@@ -56,7 +69,6 @@ fn sdkPath(comptime suffix: []const u8) []const u8 {
 pub fn Sdk(comptime deps: anytype) type {
     return struct {
         pub const Options = struct {
-            glfw_options: deps.glfw.Options = .{},
             gpu_dawn_options: deps.gpu_dawn.Options = .{},
 
             pub fn gpuOptions(options: Options) deps.gpu.Options {
@@ -68,7 +80,7 @@ pub fn Sdk(comptime deps: anytype) type {
 
         var _module: ?*std.build.Module = null;
 
-        pub fn module(b: *std.Build) *std.build.Module {
+        pub fn module(b: *std.Build, optimize: std.builtin.OptimizeMode, target: std.zig.CrossTarget) *std.build.Module {
             if (_module) |m| return m;
 
             const gamemode_dep = b.dependency("mach_gamemode", .{});
@@ -77,7 +89,10 @@ pub fn Sdk(comptime deps: anytype) type {
                 .source_file = .{ .path = sdkPath("/src/main.zig") },
                 .dependencies = &.{
                     .{ .name = "gpu", .module = deps.gpu.module(b) },
-                    .{ .name = "glfw", .module = deps.glfw.module(b) },
+                    .{ .name = "glfw", .module = b.dependency("mach_glfw", .{
+                        .target = target,
+                        .optimize = optimize,
+                    }).module("mach-glfw") },
                     .{ .name = "gamemode", .module = gamemode_dep.module("mach-gamemode") },
                 },
             });
@@ -91,12 +106,15 @@ pub fn Sdk(comptime deps: anytype) type {
                 .target = target,
                 .optimize = optimize,
             });
-            var iter = module(b).dependencies.iterator();
+            var iter = module(b, optimize, target).dependencies.iterator();
             while (iter.next()) |e| {
                 main_tests.addModule(e.key_ptr.*, e.value_ptr.*);
             }
-            main_tests.addModule("glfw", deps.glfw.module(b));
-            try deps.glfw.link(b, main_tests, .{});
+            main_tests.addModule("glfw", b.dependency("mach_glfw", .{
+                .target = target,
+                .optimize = optimize,
+            }).module("mach-glfw"));
+            glfwLink(b, main_tests);
             if (target.isLinux()) {
                 const gamemode_dep = b.dependency("mach_gamemode", .{});
                 main_tests.addModule("gamemode", gamemode_dep.module("mach-gamemode"));
@@ -114,13 +132,16 @@ pub fn Sdk(comptime deps: anytype) type {
                 .source_file = .{ .path = "src/platform/libmachcore_app.zig" },
             });
             lib.addModule("app", app_module);
-            lib.addModule("glfw", deps.glfw.module(b));
+            lib.addModule("glfw", b.dependency("mach_glfw", .{
+                .target = target,
+                .optimize = optimize,
+            }).module("mach-glfw"));
             lib.addModule("gpu", deps.gpu.module(b));
             if (target.isLinux()) {
                 const gamemode_dep = b.dependency("mach_gamemode", .{});
                 lib.addModule("gamemode", gamemode_dep.module("mach-gamemode"));
             }
-            try deps.glfw.link(b, lib, options.glfw_options);
+            glfwLink(b, lib);
             try deps.gpu.link(b, lib, options.gpuOptions());
             return lib;
         }
@@ -195,7 +216,10 @@ pub fn Sdk(comptime deps: anytype) type {
                         });
                         // TODO(core): figure out why we need to disable LTO: https://github.com/hexops/mach/issues/597
                         exe.want_lto = false;
-                        exe.addModule("glfw", deps.glfw.module(b));
+                        exe.addModule("glfw", b.dependency("mach_glfw", .{
+                            .target = exe.target,
+                            .optimize = exe.optimize,
+                        }).module("mach-glfw"));
 
                         if (target.os.tag == .linux) {
                             const gamemode_dep = b.dependency("mach_gamemode", .{});
@@ -223,7 +247,7 @@ pub fn Sdk(comptime deps: anytype) type {
 
             pub fn link(app: *const App, options: Options) !void {
                 if (app.platform != .web) {
-                    try deps.glfw.link(app.b, app.step, options.glfw_options);
+                    glfwLink(app.b, app.step);
                     deps.gpu.link(app.b, app.step, options.gpuOptions()) catch return error.FailedToLinkGPU;
                 }
             }
@@ -271,3 +295,113 @@ pub fn Sdk(comptime deps: anytype) type {
         };
     };
 }
+
+// TODO(build-system): This is a workaround that we copy anywhere xcode_frameworks needs to be used.
+// With the Zig package manager, it should be possible to remove this entirely and instead just
+// write:
+//
+// ```
+// step.linkLibrary(b.dependency("xcode_frameworks", .{
+//     .target = step.target,
+//     .optimize = step.optimize,
+// }).artifact("xcode-frameworks"));
+// @import("xcode_frameworks").addPaths(step);
+// ```
+//
+// However, today this package cannot be imported with the Zig package manager due to `error: TarUnsupportedFileType`
+// which would be fixed by https://github.com/ziglang/zig/pull/15382 - so instead for now you must
+// copy+paste this struct into your `build.zig` and write:
+//
+// ```
+// try xcode_frameworks.addPaths(b, step);
+// ```
+const xcode_frameworks = struct {
+    pub fn addPaths(b: *std.Build, step: *std.build.CompileStep) void {
+        // branch: mach
+        xEnsureGitRepoCloned(b.allocator, "https://github.com/hexops/xcode-frameworks", "723aa55e9752c8c6c25d3413722b5fe13d72ac4f", xSdkPath("/zig-cache/xcode_frameworks")) catch |err| @panic(@errorName(err));
+
+        step.addFrameworkPath("zig-cache/xcode_frameworks/Frameworks");
+        step.addSystemIncludePath("zig-cache/xcode_frameworks/include");
+        step.addLibraryPath("zig-cache/xcode_frameworks/lib");
+    }
+
+    fn xEnsureGitRepoCloned(allocator: std.mem.Allocator, clone_url: []const u8, revision: []const u8, dir: []const u8) !void {
+        if (xIsEnvVarTruthy(allocator, "NO_ENSURE_SUBMODULES") or xIsEnvVarTruthy(allocator, "NO_ENSURE_GIT")) {
+            return;
+        }
+
+        xEnsureGit(allocator);
+
+        if (std.fs.openDirAbsolute(dir, .{})) |_| {
+            const current_revision = try xGetCurrentGitRevision(allocator, dir);
+            if (!std.mem.eql(u8, current_revision, revision)) {
+                // Reset to the desired revision
+                xExec(allocator, &[_][]const u8{ "git", "fetch" }, dir) catch |err| std.debug.print("warning: failed to 'git fetch' in {s}: {s}\n", .{ dir, @errorName(err) });
+                try xExec(allocator, &[_][]const u8{ "git", "checkout", "--quiet", "--force", revision }, dir);
+                try xExec(allocator, &[_][]const u8{ "git", "submodule", "update", "--init", "--recursive" }, dir);
+            }
+            return;
+        } else |err| return switch (err) {
+            error.FileNotFound => {
+                std.log.info("cloning required dependency..\ngit clone {s} {s}..\n", .{ clone_url, dir });
+
+                try xExec(allocator, &[_][]const u8{ "git", "clone", "-c", "core.longpaths=true", clone_url, dir }, ".");
+                try xExec(allocator, &[_][]const u8{ "git", "checkout", "--quiet", "--force", revision }, dir);
+                try xExec(allocator, &[_][]const u8{ "git", "submodule", "update", "--init", "--recursive" }, dir);
+                return;
+            },
+            else => err,
+        };
+    }
+
+    fn xExec(allocator: std.mem.Allocator, argv: []const []const u8, cwd: []const u8) !void {
+        var child = std.ChildProcess.init(argv, allocator);
+        child.cwd = cwd;
+        _ = try child.spawnAndWait();
+    }
+
+    fn xGetCurrentGitRevision(allocator: std.mem.Allocator, cwd: []const u8) ![]const u8 {
+        const result = try std.ChildProcess.exec(.{ .allocator = allocator, .argv = &.{ "git", "rev-parse", "HEAD" }, .cwd = cwd });
+        allocator.free(result.stderr);
+        if (result.stdout.len > 0) return result.stdout[0 .. result.stdout.len - 1]; // trim newline
+        return result.stdout;
+    }
+
+    fn xEnsureGit(allocator: std.mem.Allocator) void {
+        const argv = &[_][]const u8{ "git", "--version" };
+        const result = std.ChildProcess.exec(.{
+            .allocator = allocator,
+            .argv = argv,
+            .cwd = ".",
+        }) catch { // e.g. FileNotFound
+            std.log.err("mach: error: 'git --version' failed. Is git not installed?", .{});
+            std.process.exit(1);
+        };
+        defer {
+            allocator.free(result.stderr);
+            allocator.free(result.stdout);
+        }
+        if (result.term.Exited != 0) {
+            std.log.err("mach: error: 'git --version' failed. Is git not installed?", .{});
+            std.process.exit(1);
+        }
+    }
+
+    fn xIsEnvVarTruthy(allocator: std.mem.Allocator, name: []const u8) bool {
+        if (std.process.getEnvVarOwned(allocator, name)) |truthy| {
+            defer allocator.free(truthy);
+            if (std.mem.eql(u8, truthy, "true")) return true;
+            return false;
+        } else |_| {
+            return false;
+        }
+    }
+
+    fn xSdkPath(comptime suffix: []const u8) []const u8 {
+        if (suffix[0] != '/') @compileError("suffix must be an absolute path");
+        return comptime blk: {
+            const root_dir = std.fs.path.dirname(@src().file) orelse ".";
+            break :blk root_dir ++ suffix;
+        };
+    }
+};
