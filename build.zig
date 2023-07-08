@@ -231,7 +231,7 @@ pub fn Sdk(comptime deps: anytype) type {
                 };
 
                 step.main_pkg_path = sdkPath("/src");
-                step.addModule("core", module(b));
+                step.addModule("core", module(b, options.optimize, options.target));
                 step.addModule("app", app_module);
 
                 return .{
