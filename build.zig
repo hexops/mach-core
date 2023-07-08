@@ -183,7 +183,7 @@ pub fn Sdk(comptime deps: anytype) type {
                 const platform = Platform.fromTarget(target);
 
                 var dependencies = std.ArrayList(std.build.ModuleDependency).init(b.allocator);
-                try dependencies.append(.{ .name = "core", .module = module(b) });
+                try dependencies.append(.{ .name = "core", .module = module(b, options.optimize, options.target) });
                 if (options.deps) |app_deps| try dependencies.appendSlice(app_deps);
 
                 const app_module = b.createModule(.{
