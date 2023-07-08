@@ -1,4 +1,4 @@
-# mach/core: a modern alternative to SDL/etc
+# mach/core: Window+Input+GPU, truly cross-platform
 
 This repository is a separate copy of the same library in the [main Mach repository](https://github.com/hexops/mach), and is automatically kept in sync, so that anyone can use this library in their own project if they like!
 
