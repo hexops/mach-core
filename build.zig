@@ -15,12 +15,6 @@ pub fn build(b: *std.Build) !void {
     const optimize = b.standardOptimizeOption(.{});
     const target = b.standardTargetOptions(.{});
 
-    const gpu_dawn_options = gpu_dawn.Options{
-        .from_source = b.option(bool, "dawn-from-source", "Build Dawn from source") orelse false,
-        .debug = b.option(bool, "dawn-debug", "Use a debug build of Dawn") orelse false,
-    };
-    const options = core.Options{ .gpu_dawn_options = gpu_dawn_options };
-
     if (target.getCpuArch() != .wasm32) {
         const test_step = b.step("test", "run tests");
         test_step.dependOn(&(try core.testStep(b, optimize, target)).step);
