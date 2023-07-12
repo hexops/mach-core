@@ -24,11 +24,6 @@ pub fn build(b: *std.Build) !void {
     if (target.getCpuArch() != .wasm32) {
         const test_step = b.step("test", "run tests");
         test_step.dependOn(&(try core.testStep(b, optimize, target)).step);
-
-        // Compiles the `libmachcore` shared library
-        const shared_lib = try core.buildSharedLib(b, optimize, target, options);
-
-        b.installArtifact(shared_lib);
     }
 }
 
@@ -122,28 +117,6 @@ pub fn Sdk(comptime deps: anytype) type {
             main_tests.addIncludePath(sdkPath("/include"));
             b.installArtifact(main_tests);
             return b.addRunArtifact(main_tests);
-        }
-
-        pub fn buildSharedLib(b: *std.Build, optimize: std.builtin.OptimizeMode, target: std.zig.CrossTarget, options: Options) !*std.build.CompileStep {
-            // TODO(build): this should use the App abstraction instead of being built manually
-            const lib = b.addSharedLibrary(.{ .name = "machcore", .root_source_file = .{ .path = "src/platform/libmachcore.zig" }, .target = target, .optimize = optimize });
-            lib.main_pkg_path = "src/";
-            const app_module = b.createModule(.{
-                .source_file = .{ .path = "src/platform/libmachcore_app.zig" },
-            });
-            lib.addModule("app", app_module);
-            lib.addModule("glfw", b.dependency("mach_glfw", .{
-                .target = target,
-                .optimize = optimize,
-            }).module("mach-glfw"));
-            lib.addModule("gpu", deps.gpu.module(b));
-            if (target.isLinux()) {
-                const gamemode_dep = b.dependency("mach_gamemode", .{});
-                lib.addModule("gamemode", gamemode_dep.module("mach-gamemode"));
-            }
-            glfwLink(b, lib);
-            try deps.gpu.link(b, lib, options.gpuOptions());
-            return lib;
         }
 
         pub const App = struct {
