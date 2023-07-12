@@ -7,32 +7,32 @@
             .hash = "12208b30f1d9c229d1e64483354610207c9aa06350a46558560b818d597800ed86e0",
         },
         .mach_gamemode = .{
-            .url = "https://github.com/hexops/mach-gamemode/archive/6e71d19d7eecbf0230e5c445dbe9281e45393245.tar.gz",
-            .hash = "1220ff812193615e03375a342a7c8a52f368eab219bceab3039de1915f9c945f2a66",
+            .url = "https://github.com/hexops/mach-gamemode/archive/05784b39699e94d634428abf8e547b822de27041.tar.gz",
+            .hash = "122064a385aae04b1518735d2ff1d182eed68e424a9a12334b45962f3ca416442ee4",
         },
         .mach_glfw = .{
-            .url = "https://github.com/hexops/mach-glfw/archive/1b516bae925110d120bd6353a87fcca22eae8131.tar.gz",
-            .hash = "12200748b2fb192a567d63dacbbd471fb44a7291d2670e36326c4305b0de59cdc711",
+            .url = "https://github.com/hexops/mach-glfw/archive/c2b814963e7aa37d0138b111c9e05acc491f61e8.tar.gz",
+            .hash = "122014acdd8545ebfa583c8d3e92bfd90a6b84fde0fcfde9f510f7ad1c47d05c6039",
         },
         .glfw = .{
-            .url = "https://github.com/hexops/glfw/archive/06bd1276fb05c8bc999e104cf21c76788386f263.tar.gz",
-            .hash = "1220c4155e5e573bc39731e6e459cff44fb4a9c5fcf9087b5890a03cc349587d36ab",
+            .url = "https://github.com/hexops/glfw/archive/ab6a07601f85eb9d2fcfa74f6dc8716c05ee576a.tar.gz",
+            .hash = "1220f7ae9096603e97bcf8f34dcc221037d2179a0e8ce933952a11e0f909b09844b9",
         },
         .direct3d_headers = .{
-            .url = "https://github.com/hexops/direct3d-headers/archive/773dce3f079eecdccc7c71d1318a0741649d568b.tar.gz",
-            .hash = "12200d2155216c5eb5f111282cd355b5433cad6a68fd040294e695149cba329f7c12",
+            .url = "https://github.com/hexops/direct3d-headers/archive/78e9bba992898473f9a55c05d73f6194f3457e4d.tar.gz",
+            .hash = "1220ea0ee371a59732d24265f7f0a258151992a4f8384c91aff2503917248aca8690",
         },
         .vulkan_headers = .{
-            .url = "https://github.com/hexops/vulkan-headers/archive/e1b061ff624531e82a7daea5dbd56c07e08bf0be.tar.gz",
-            .hash = "12204967f9d07fda3af6a21d6ab71fb832da2186176c530a7a14aa96043537399e6b",
+            .url = "https://github.com/hexops/vulkan-headers/archive/2f343d295e8fc07fe014dee9639df18a58190e1d.tar.gz",
+            .hash = "1220390283d5b850be25c478ced249606d3e2bd9bcf88539c55d2941ab1546fd3d7e",
         },
         .wayland_headers = .{
-            .url = "https://github.com/hexops/wayland-headers/archive/7bf46f3d60edab2171643ff85770c392ef62704d.tar.gz",
-            .hash = "1220689912c40c0880b094f748199c490810d4fa4c58ce1ef9058ce97f46ee28496a",
+            .url = "https://github.com/hexops/wayland-headers/archive/614ce47af010b7ff291418ce6ae2ee27baf1110f.tar.gz",
+            .hash = "12209e3c3fc2f8f056bdae55a3862c40e89691f978ca2279d8b2ed92556417ca0615",
         },
         .x11_headers = .{
-            .url = "https://github.com/hexops/x11-headers/archive/99af89c7bfdc7db503f3a7003571f8e81bcd09f3.tar.gz",
-            .hash = "1220e6bd3186841c1da38d862d52ba88dec9633d24f409eda27627321937419a0ddb",
+            .url = "https://github.com/hexops/x11-headers/archive/94910ee551e2dfbd67dd5783360189e92ce9a427.tar.gz",
+            .hash = "12204a1f6373340fc6754e626d44c5eaa7e05b780168b56a7aeac6c7bcfd6e99b15f",
         },
     },
 }
