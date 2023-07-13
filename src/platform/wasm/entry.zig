@@ -1,3 +1,8 @@
+// Check that the user's app matches the required interface.
+comptime {
+    if (!@import("builtin").is_test) @import("core").AppInterface(@import("app"));
+}
+
 const std = @import("std");
 const core = @import("core");
 const gpu = core.gpu;

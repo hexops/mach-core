@@ -141,6 +141,7 @@ pub fn Sdk(comptime deps: anytype) type {
                     src: []const u8,
                     target: std.zig.CrossTarget,
                     optimize: std.builtin.OptimizeMode,
+                    custom_entrypoint: ?[]const u8 = null,
                     deps: ?[]const std.build.ModuleDependency = null,
                     res_dirs: ?[]const []const u8 = null,
                     watch_paths: ?[]const []const u8 = null,
@@ -167,7 +168,7 @@ pub fn Sdk(comptime deps: anytype) type {
                     if (platform == .web) {
                         const lib = b.addSharedLibrary(.{
                             .name = options.name,
-                            .root_source_file = .{ .path = sdkPath("/src/entry.zig") },
+                            .root_source_file = .{ .path = options.custom_entrypoint orelse sdkPath("/src/platform/wasm/entry.zig") },
                             .target = options.target,
                             .optimize = options.optimize,
                         });
@@ -177,7 +178,7 @@ pub fn Sdk(comptime deps: anytype) type {
                     } else {
                         const exe = b.addExecutable(.{
                             .name = options.name,
-                            .root_source_file = .{ .path = sdkPath("/src/entry.zig") },
+                            .root_source_file = .{ .path = options.custom_entrypoint orelse sdkPath("/src/platform/native/entry.zig") },
                             .target = options.target,
                             .optimize = options.optimize,
                         });
@@ -197,7 +198,7 @@ pub fn Sdk(comptime deps: anytype) type {
                     }
                 };
 
-                step.main_pkg_path = sdkPath("/src");
+                if (options.custom_entrypoint == null) step.main_pkg_path = sdkPath("/src");
                 step.addModule("core", module(b, options.optimize, options.target));
                 step.addModule("app", app_module);
 
