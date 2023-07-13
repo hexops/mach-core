@@ -33,8 +33,6 @@ pub fn main() !void {
     defer app.deinit();
 
     while (true) {
-        const pool = try core.platform_util.AutoReleasePool.init();
-        defer core.platform_util.AutoReleasePool.release(pool);
         if (try app.update()) return;
     }
 }

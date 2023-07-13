@@ -99,7 +99,7 @@ pub fn createSurfaceForWindow(
     instance: *gpu.Instance,
     window: glfw.Window,
     comptime glfw_options: glfw.BackendOptions,
-) *gpu.Surface {
+) !*gpu.Surface {
     const glfw_native = glfw.Native(glfw_options);
     const extension = if (glfw_options.win32) gpu.Surface.Descriptor.NextInChain{
         .from_windows_hwnd = &.{
@@ -117,6 +117,9 @@ pub fn createSurfaceForWindow(
             .surface = glfw_native.getWaylandWindow(window),
         },
     } else if (glfw_options.cocoa) blk: {
+        const pool = try AutoReleasePool.init();
+        defer AutoReleasePool.release(pool);
+
         const ns_window = glfw_native.getCocoaWindow(window);
         const ns_view = msgSend(ns_window, "contentView", .{}, *anyopaque); // [nsWindow contentView]
 

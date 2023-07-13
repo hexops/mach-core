@@ -125,7 +125,7 @@ pub fn init(core: *Core, allocator: std.mem.Allocator, options: Options) !void {
         log.err("failed to create GPU instance", .{});
         std.process.exit(1);
     };
-    const surface = util.createSurfaceForWindow(instance, window, comptime util.detectGLFWOptions());
+    const surface = try util.createSurfaceForWindow(instance, window, comptime util.detectGLFWOptions());
 
     var response: util.RequestAdapterResponse = undefined;
     instance.requestAdapter(&gpu.RequestAdapterOptions{
