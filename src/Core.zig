@@ -234,6 +234,8 @@ pub const MouseButton = enum {
     six,
     seven,
     eight,
+
+    pub const max = MouseButton.eight;
 };
 
 pub const Key = enum {
@@ -361,6 +363,8 @@ pub const Key = enum {
     grave,
 
     unknown,
+
+    pub const max = Key.unknown;
 };
 
 pub const KeyMods = packed struct(u8) {
