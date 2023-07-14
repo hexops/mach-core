@@ -51,6 +51,12 @@ comptime {
     assertHasDecl(@This().Core, "joystickButtons");
     assertHasDecl(@This().Core, "joystickAxes");
 
+    assertHasDecl(@This().Core, "keyPressed");
+    assertHasDecl(@This().Core, "keyReleased");
+    assertHasDecl(@This().Core, "mousePressed");
+    assertHasDecl(@This().Core, "mouseReleased");
+    assertHasDecl(@This().Core, "mousePosition");
+
     assertHasDecl(@This().Core, "adapter");
     assertHasDecl(@This().Core, "device");
     assertHasDecl(@This().Core, "swapChain");

@@ -17,6 +17,7 @@ const CursorMode = @import("../../Core.zig").CursorMode;
 const Key = @import("../../Core.zig").Key;
 const KeyMods = @import("../../Core.zig").KeyMods;
 const Joystick = @import("../../Core.zig").Joystick;
+const InputState = @import("../../InputState.zig");
 
 const log = std.log.scoped(.mach);
 
@@ -51,6 +52,7 @@ current_cursor: CursorShape,
 cursors: [@typeInfo(CursorShape).Enum.fields.len]?glfw.Cursor,
 cursors_tried: [@typeInfo(CursorShape).Enum.fields.len]bool,
 
+input_state: InputState,
 present_joysticks: std.StaticBitSet(@typeInfo(glfw.Joystick.Id).Enum.fields.len),
 
 linux_gamemode: ?bool,
@@ -223,6 +225,7 @@ pub fn init(core: *Core, allocator: std.mem.Allocator, options: Options) !void {
         .cursors = std.mem.zeroes([@typeInfo(CursorShape).Enum.fields.len]?glfw.Cursor),
         .cursors_tried = std.mem.zeroes([@typeInfo(CursorShape).Enum.fields.len]bool),
 
+        .input_state = .{},
         .present_joysticks = std.StaticBitSet(@typeInfo(glfw.Joystick.Id).Enum.fields.len).initEmpty(),
 
         .linux_gamemode = null,
@@ -250,9 +253,15 @@ fn initCallbacks(self: *Core) void {
                 .mods = toMachMods(mods),
             };
             switch (action) {
-                .press => pf.pushEvent(.{ .key_press = key_event }),
+                .press => {
+                    pf.input_state.keys.set(@intFromEnum(key_event.key));
+                    pf.pushEvent(.{ .key_press = key_event });
+                },
                 .repeat => pf.pushEvent(.{ .key_repeat = key_event }),
-                .release => pf.pushEvent(.{ .key_release = key_event }),
+                .release => {
+                    pf.input_state.keys.unset(@intFromEnum(key_event.key));
+                    pf.pushEvent(.{ .key_release = key_event });
+                },
             }
             _ = scancode;
         }
@@ -274,6 +283,9 @@ fn initCallbacks(self: *Core) void {
     const mouse_motion_callback = struct {
         fn callback(window: glfw.Window, xpos: f64, ypos: f64) void {
             const pf = (window.getUserPointer(UserPtr) orelse unreachable).self;
+
+            pf.input_state.mouse_position = .{ .x = xpos, .y = ypos };
+
             pf.pushEvent(.{
                 .mouse_motion = .{
                     .pos = .{
@@ -295,11 +307,18 @@ fn initCallbacks(self: *Core) void {
                 .pos = .{ .x = cursor_pos.xpos, .y = cursor_pos.ypos },
                 .mods = toMachMods(mods),
             };
+
+            pf.input_state.mouse_position = mouse_button_event.pos;
+
             switch (action) {
-                .press => pf.pushEvent(.{ .mouse_press = mouse_button_event }),
-                .release => pf.pushEvent(.{
-                    .mouse_release = mouse_button_event,
-                }),
+                .press => {
+                    pf.input_state.mouse_buttons.set(@intFromEnum(mouse_button_event.button));
+                    pf.pushEvent(.{ .mouse_press = mouse_button_event });
+                },
+                .release => {
+                    pf.input_state.mouse_buttons.unset(@intFromEnum(mouse_button_event.button));
+                    pf.pushEvent(.{ .mouse_release = mouse_button_event });
+                },
                 else => {},
             }
         }
@@ -674,6 +693,26 @@ pub fn joystickAxes(_: *Core, joystick: Joystick) []const f32 {
 
     const glfw_joystick = glfw.Joystick { .jid = @intCast(idx) };
     return glfw_joystick.getAxes();
+}
+
+pub fn keyPressed(self: *Core, key: Key) bool {
+    return self.input_state.isKeyPressed(key);
+}
+
+pub fn keyReleased(self: *Core, key: Key) bool {
+    return self.input_state.isKeyReleased(key);
+}
+
+pub fn mousePressed(self: *Core, button: MouseButton) bool {
+    return self.input_state.isMouseButtonPressed(button);
+}
+
+pub fn mouseReleased(self: *Core, button: MouseButton) bool {
+    return self.input_state.isMouseButtonReleased(button);
+}
+
+pub fn mousePosition(self: *Core) Core.Position {
+    return self.input_state.mouse_position;
 }
 
 pub fn adapter(self: *Core) *gpu.Adapter {

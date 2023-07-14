@@ -193,6 +193,26 @@ pub fn joystickAxes(core: *Core, joystick: Joystick) ?[]const f32 {
     return core.internal.joystickAxes(joystick);
 }
 
+pub fn keyPressed(core: *Core, key: Key) bool {
+    return core.internal.keyPressed(key);
+}
+
+pub fn keyReleased(core: *Core, key: Key) bool {
+    return core.internal.keyReleased(key);
+}
+
+pub fn mousePressed(core: *Core, button: MouseButton) bool {
+    return core.internal.mousePressed(button);
+}
+
+pub fn mouseReleased(core: *Core, button: MouseButton) bool {
+    return core.internal.mouseReleased(button);
+}
+
+pub fn mousePosition(core: *Core) Position {
+    return core.internal.mousePosition();
+}
+
 pub fn adapter(core: *Core) *gpu.Adapter {
     return core.internal.adapter();
 }
