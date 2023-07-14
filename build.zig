@@ -20,6 +20,11 @@ pub fn build(b: *std.Build) !void {
         test_step.dependOn(&(try core.testStep(b, optimize, target)).step);
     }
 
+    const gpu_dawn_options = gpu_dawn.Options{
+        .from_source = b.option(bool, "dawn-from-source", "Build Dawn from source") orelse false,
+        .debug = b.option(bool, "dawn-debug", "Use a debug build of Dawn") orelse false,
+    };
+    const options = core.Options{ .gpu_dawn_options = gpu_dawn_options };
     try @import("build_examples.zig").build(b, optimize, target, options);
 }
 

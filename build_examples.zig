@@ -97,11 +97,10 @@ pub fn build(
 
         var deps = std.ArrayList(std.Build.ModuleDependency).init(b.allocator);
         for (example.deps) |d| try deps.append(d.moduleDependency(b, target, optimize, options.gpu_dawn_options));
-        const example_name = "example-" ++ example.name;
         const app = try core.App.init(
             b,
             .{
-                .name = example_name,
+                .name = example.name,
                 .src = "examples/" ++ example.name ++ "/main.zig",
                 .target = target,
                 .optimize = optimize,
@@ -120,12 +119,12 @@ pub fn build(
         };
         app.install();
 
-        const compile_step = b.step(example_name, "Compile " ++ example.name);
+        const compile_step = b.step(example.name, "Compile " ++ example.name);
         compile_step.dependOn(&app.getInstallStep().?.step);
 
         const run_cmd = app.addRunArtifact();
         run_cmd.step.dependOn(compile_step);
-        const run_step = b.step("run-" ++ example_name, "Run " ++ example.name);
+        const run_step = b.step("run-" ++ example.name, "Run " ++ example.name);
         run_step.dependOn(&run_cmd.step);
     }
 
