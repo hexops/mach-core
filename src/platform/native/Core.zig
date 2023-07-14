@@ -268,8 +268,11 @@ pub fn init(core: *Core, allocator: std.mem.Allocator, options: Options) !void {
     core.current_title = ""; // options.title
     core.last_title = core.current_title;
 
-    core.current_border = true; // options.border TODO
-    core.last_border = core.current_border;
+    core.current_display_mode = options.display_mode;
+    core.last_display_mode = .windowed;
+
+    core.current_border = options.border;
+    core.last_border = true;
 
     core.current_headless = options.headless;
     core.last_headless = core.current_headless;
