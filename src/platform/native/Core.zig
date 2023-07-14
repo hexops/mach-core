@@ -280,10 +280,10 @@ pub fn init(core: *Core, allocator: std.mem.Allocator, options: Options) !void {
     const actual_size = core.window.getSize();
     core.current_size = .{ .width = actual_size.width, .height = actual_size.height };
     core.last_size = core.current_size;
+    core.state_update.set();
 
     core_instance = core;
     core.user_ptr = .{ .self = core };
-    core.setSizeLimit(core.current_size_limit);
 
     core.initCallbacks();
 
