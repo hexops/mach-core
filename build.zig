@@ -5,7 +5,7 @@ const gpu_dawn = @import("libs/mach-gpu-dawn/build.zig");
 const gpu = @import("libs/mach-gpu/build.zig").Sdk(.{
     .gpu_dawn = gpu_dawn,
 });
-const core = @import("build.zig").Sdk(.{
+pub const core = @import("build.zig").Sdk(.{
     .gpu = gpu,
     .gpu_dawn = gpu_dawn,
     .glfw = glfw,
@@ -19,6 +19,8 @@ pub fn build(b: *std.Build) !void {
         const test_step = b.step("test", "run tests");
         test_step.dependOn(&(try core.testStep(b, optimize, target)).step);
     }
+
+    try @import("build_examples.zig").build(b, optimize, target, options);
 }
 
 fn glfwLink(b: *std.Build, step: *std.build.CompileStep) void {
@@ -57,6 +59,8 @@ fn sdkPath(comptime suffix: []const u8) []const u8 {
 
 pub fn Sdk(comptime deps: anytype) type {
     return struct {
+        pub const gpu_dawn = deps.gpu_dawn;
+
         pub const Options = struct {
             gpu_dawn_options: deps.gpu_dawn.Options = .{},
 
