@@ -254,9 +254,7 @@ const material_names = [11][:0]const u8{
     "White", "Red",    "Blue",     "Black",
 };
 
-const object_names = [5][:0]const u8{
-    "Sphere", "Teapot", "Torusknot", "Venus", "Stanford Dragon"
-};
+const object_names = [5][:0]const u8{ "Sphere", "Teapot", "Torusknot", "Venus", "Stanford Dragon" };
 
 const materials = [_]Material{
     .{ .name = "Gold", .params = .{ .roughness = 0.1, .metallic = 1.0, .color = .{ 1.0, 0.765557, 0.336057 } } },

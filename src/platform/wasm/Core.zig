@@ -43,7 +43,7 @@ pub const EventIterator = struct {
                     switch (event_type) {
                         .key_press => {
                             self.core.input_state.keys.set(@intFromEnum(key));
-                            break :blk Event {
+                            break :blk Event{
                                 .key_press = .{
                                     .key = key,
                                     .mods = self.makeKeyMods(),
@@ -119,10 +119,8 @@ pub const EventIterator = struct {
                     const idx: u8 = @intCast(js.machEventShift());
                     const btn_count: usize = @intCast(js.machEventShift());
                     const axis_count: usize = @intCast(js.machEventShift());
+                    if (idx >= JoystickData.max_joysticks) continue;
 
-                    if( idx >= JoystickData.max_joysticks )
-                        continue;
-                    
                     var data = &self.core.joysticks[idx];
                     data.present = true;
                     data.button_count = @min(JoystickData.max_button_count, btn_count);
@@ -130,16 +128,12 @@ pub const EventIterator = struct {
 
                     js.machJoystickName(idx, &data.name, JoystickData.max_name_len);
 
-                    break :blk Event {
-                        .joystick_connected = @enumFromInt(idx),
-                    };
+                    break :blk Event{ .joystick_connected = @enumFromInt(idx) };
                 },
                 .joystick_disconnected => blk: {
-                    const idx: u8 = @intCast(js.machEventShift());  
+                    const idx: u8 = @intCast(js.machEventShift());
+                    if (idx >= JoystickData.max_joysticks) continue;
 
-                    if( idx >= JoystickData.max_joysticks )
-                        continue;
-                    
                     var data = &self.core.joysticks[idx];
                     data.present = false;
                     data.button_count = 0;
@@ -148,9 +142,7 @@ pub const EventIterator = struct {
                     @memset(&data.buttons, false);
                     @memset(&data.axes, 0);
 
-                    break :blk Event {
-                        .joystick_disconnected = @enumFromInt(idx),
-                    };
+                    break :blk Event{ .joystick_disconnected = @enumFromInt(idx) };
                 },
                 .framebuffer_resize => blk: {
                     const width = @as(u32, @intCast(js.machEventShift()));
@@ -343,19 +335,15 @@ pub fn joystickPresent(core: *Core, joystick: Joystick) bool {
 pub fn joystickName(core: *Core, joystick: Joystick) ?[:0]const u8 {
     const idx: u8 = @intFromEnum(joystick);
     var data = &core.joysticks[idx];
+    if (!data.present) return null;
 
-    if( !data.present )
-        return null;
-    
     return std.mem.span(&data.name);
 }
 
 pub fn joystickButtons(core: *Core, joystick: Joystick) ?[]const bool {
     const idx: u8 = @intFromEnum(joystick);
     var data = &core.joysticks[idx];
-
-    if( !data.present )
-        return null;
+    if (!data.present) return null;
 
     js.machJoystickButtons(idx, &data.buttons, JoystickData.max_button_count);
     return data.buttons[0..data.button_count];
@@ -364,9 +352,7 @@ pub fn joystickButtons(core: *Core, joystick: Joystick) ?[]const bool {
 pub fn joystickAxes(core: *Core, joystick: Joystick) ?[]const f32 {
     const idx: u8 = @intFromEnum(joystick);
     var data = &core.joysticks[idx];
-
-    if( !data.present )
-        return null;
+    if (!data.present) return null;
 
     js.machJoystickAxes(idx, &data.axes, JoystickData.max_axis_count);
     return data.buttons[0..data.button_count];
