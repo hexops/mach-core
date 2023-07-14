@@ -9,7 +9,9 @@ internal: platform.Core,
 
 pub const Options = struct {
     is_app: bool = false,
-    is_headless: bool = false,
+    is_headless: bool = false, // TODO: rename is_headless -> headless
+    // TODO: allow specifying display_mode, border
+    // TODO: better window title lifetime management
     title: [*:0]const u8 = "Mach core",
     size: Size = .{ .width = 1920 / 2, .height = 1080 / 2 },
     power_preference: gpu.PowerPreference = .undefined,
@@ -235,13 +237,26 @@ pub const Size = struct {
 };
 
 pub const SizeOptional = struct {
-    width: ?u32,
-    height: ?u32,
+    width: ?u32 = null,
+    height: ?u32 = null,
+
+    pub inline fn equals(a: SizeOptional, b: SizeOptional) bool {
+        if ((a.width != null) != (b.width != null)) return false;
+        if ((a.height != null) != (b.height != null)) return false;
+
+        if (a.width != null and a.width.? != b.width.?) return false;
+        if (a.height != null and a.height.? != b.height.?) return false;
+        return true;
+    }
 };
 
 pub const SizeLimit = struct {
     min: SizeOptional,
     max: SizeOptional,
+
+    pub inline fn equals(a: SizeLimit, b: SizeLimit) bool {
+        return a.min.equals(b.min) and a.max.equals(b.max);
+    }
 };
 
 pub const Position = struct {
