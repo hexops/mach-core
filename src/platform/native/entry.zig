@@ -33,6 +33,6 @@ pub fn main() !void {
     defer app.deinit();
 
     while (true) {
-        if (try app.update()) return;
+        if (try app.core.internal.update(&app)) return;
     }
 }
