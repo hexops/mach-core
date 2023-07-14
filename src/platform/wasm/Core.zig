@@ -211,6 +211,7 @@ pub fn init(core: *Core, allocator: std.mem.Allocator, options: Options) !void {
     core.* = Core{
         .allocator = allocator,
         .id = id,
+        .input_state = .{},
         .joysticks = std.mem.zeroes([JoystickData.max_joysticks]JoystickData),
     };
 }
@@ -222,18 +223,6 @@ pub fn deinit(self: *Core) void {
 pub inline fn pollEvents(self: *Core) EventIterator {
     return EventIterator{
         .core = self,
-        .key_mods = .{
-            .shift = false,
-            .control = false,
-            .alt = false,
-            .super = false,
-            .caps_lock = false,
-            .num_lock = false,
-        },
-        .last_cursor_position = .{
-            .x = 0,
-            .y = 0,
-        },
     };
 }
 
