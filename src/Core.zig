@@ -156,18 +156,39 @@ pub fn cursorShape(core: *Core) CursorShape {
     return core.internal.cursorShape();
 }
 
+/// Checks if the given joystick is still connected.
 pub fn joystickPresent(core: *Core, joystick: Joystick) bool {
     return core.internal.joystickPresent(joystick);
 }
 
+/// Retreives the name of the joystick.
+/// Returns `null` if the joystick isnt connected.
 pub fn joystickName(core: *Core, joystick: Joystick) ?[:0]const u8 {
     return core.internal.joystickName(joystick);
 }
 
+/// Retrieves the state of the buttons of the given joystick. 
+/// A value of `true` indicates the button is pressed, `false` the button is released.
+/// No remapping is done, so the order of these buttons are joystick-dependent and should be
+/// consistent across platforms.
+/// 
+/// Returns `null` if the joystick isnt connected.
+/// 
+/// Note: For WebAssembly, the remapping is done directly by the web browser, so on that platform
+/// the order of these buttons might be different than on others.
 pub fn joystickButtons(core: *Core, joystick: Joystick) ?[]const bool {
     return core.internal.joystickButtons(joystick);
 }
 
+/// Retreives the state of the axes of the given joystick.
+/// The values are always from -1 to 1.
+/// No remapping is done, so the order of these axes are joytstick-dependent and should be 
+/// consistent acrsoss platforms.
+/// 
+/// Returns `null` if the joystick isnt connected.
+/// 
+/// Note: For WebAssembly, the remapping is done directly by the web browser, so on that platform
+/// the order of these axes might be different than on others.
 pub fn joystickAxes(core: *Core, joystick: Joystick) ?[]const f32 {
     return core.internal.joystickAxes(joystick);
 }
