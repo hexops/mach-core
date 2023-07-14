@@ -17,18 +17,18 @@ const CursorMode = @import("../../Core.zig").CursorMode;
 const Key = @import("../../Core.zig").Key;
 const KeyMods = @import("../../Core.zig").KeyMods;
 const Joystick = @import("../../Core.zig").Joystick;
+const InputState = @import("../../InputState.zig");
 
 pub const Core = @This();
 
 allocator: std.mem.Allocator,
 id: js.CanvasId,
 
+input_state: InputState,
 joysticks: [JoystickData.max_joysticks]JoystickData,
 
 pub const EventIterator = struct {
     core: *Core,
-    key_mods: KeyMods,
-    last_cursor_position: Position,
 
     pub inline fn next(self: *EventIterator) ?Event {
         while (true) {
@@ -37,62 +37,45 @@ pub const EventIterator = struct {
 
             const event_type = @as(std.meta.Tag(Event), @enumFromInt(event_int));
             return switch (event_type) {
-                .key_press, .key_repeat => blk: {
+                .key_press, .key_repeat, .key_release => blk: {
                     const key = @as(Key, @enumFromInt(js.machEventShift()));
-                    switch (key) {
-                        .left_shift, .right_shift => self.key_mods.shift = true,
-                        .left_control, .right_control => self.key_mods.control = true,
-                        .left_alt, .right_alt => self.key_mods.alt = true,
-                        .left_super, .right_super => self.key_mods.super = true,
-                        .caps_lock => self.key_mods.caps_lock = true,
-                        .num_lock => self.key_mods.num_lock = true,
-                        else => {
-                            break :blk switch (event_type) {
-                                .key_press => Event{
-                                    .key_press = .{
-                                        .key = key,
-                                        .mods = self.key_mods,
-                                    },
+
+                    switch (event_type) {
+                        .key_press => {
+                            self.core.input_state.keys.set(@intFromEnum(key));
+                            break :blk Event {
+                                .key_press = .{
+                                    .key = key,
+                                    .mods = self.makeKeyMods(),
                                 },
-                                .key_repeat => Event{
-                                    .key_repeat = .{
-                                        .key = key,
-                                        .mods = self.key_mods,
-                                    },
-                                },
-                                else => unreachable,
                             };
                         },
-                    }
-                    continue;
-                },
-                .key_release => blk: {
-                    const key = @as(Key, @enumFromInt(js.machEventShift()));
-                    switch (key) {
-                        .left_shift, .right_shift => self.key_mods.shift = false,
-                        .left_control, .right_control => self.key_mods.control = false,
-                        .left_alt, .right_alt => self.key_mods.alt = false,
-                        .left_super, .right_super => self.key_mods.super = false,
-                        .caps_lock => self.key_mods.caps_lock = false,
-                        .num_lock => self.key_mods.num_lock = false,
-                        else => {
+                        .key_repeat => break :blk Event{
+                            .key_repeat = .{
+                                .key = key,
+                                .mods = self.makeKeyMods(),
+                            },
+                        },
+                        .key_release => {
+                            self.core.input_state.keys.unset(@intFromEnum(key));
                             break :blk Event{
                                 .key_release = .{
                                     .key = key,
-                                    .mods = self.key_mods,
+                                    .mods = self.makeKeyMods(),
                                 },
                             };
                         },
+                        else => unreachable,
                     }
+
                     continue;
                 },
                 .mouse_motion => blk: {
                     const x = @as(f64, @floatFromInt(js.machEventShift()));
                     const y = @as(f64, @floatFromInt(js.machEventShift()));
-                    self.last_cursor_position = .{
-                        .x = x,
-                        .y = y,
-                    };
+
+                    self.core.input_state.mouse_position = .{ .x = x, .y = y };
+
                     break :blk Event{
                         .mouse_motion = .{
                             .pos = .{
@@ -102,19 +85,29 @@ pub const EventIterator = struct {
                         },
                     };
                 },
-                .mouse_press => Event{
-                    .mouse_press = .{
-                        .button = toMachButton(js.machEventShift()),
-                        .pos = self.last_cursor_position,
-                        .mods = self.key_mods,
-                    },
+                .mouse_press => blk: {
+                    const button = toMachButton(js.machEventShift());
+                    self.core.input_state.mouse_buttons.set(@intFromEnum(button));
+
+                    break :blk Event{
+                        .mouse_press = .{
+                            .button = button,
+                            .pos = self.core.input_state.mouse_position,
+                            .mods = self.makeKeyMods(),
+                        },
+                    };
                 },
-                .mouse_release => Event{
-                    .mouse_release = .{
-                        .button = toMachButton(js.machEventShift()),
-                        .pos = self.last_cursor_position,
-                        .mods = self.key_mods,
-                    },
+                .mouse_release => blk: {
+                    const button = toMachButton(js.machEventShift());
+                    self.core.input_state.mouse_buttons.unset(@intFromEnum(button));
+
+                    break :blk Event{
+                        .mouse_release = .{
+                            .button = button,
+                            .pos = self.core.input_state.mouse_position,
+                            .mods = self.makeKeyMods(),
+                        },
+                    };
                 },
                 .mouse_scroll => Event{
                     .mouse_scroll = .{
@@ -175,6 +168,22 @@ pub const EventIterator = struct {
                 else => null,
             };
         }
+    }
+
+    fn makeKeyMods(self: EventIterator) KeyMods {
+        const is = self.core.input_state;
+
+        return .{
+            .shift = is.isKeyPressed(.left_shift) or is.isKeyPressed(.right_shift),
+            .control = is.isKeyPressed(.left_control) or is.isKeyPressed(.right_control),
+            .alt = is.isKeyPressed(.left_alt) or is.isKeyPressed(.right_alt),
+            .super = is.isKeyPressed(.left_super) or is.isKeyPressed(.right_super),
+            // FIXME(estel): I think the logic for these two are wrong, but unlikely it matters
+            // in a browser. To correct them we need to actually use `KeyboardEvent.getModifierState`
+            // in javascript and bring back that info in here.
+            .caps_lock = is.isKeyPressed(.caps_lock),
+            .num_lock = is.isKeyPressed(.num_lock),
+        };
     }
 };
 
@@ -372,6 +381,26 @@ pub fn joystickAxes(core: *Core, joystick: Joystick) ?[]const f32 {
 
     js.machJoystickAxes(idx, &data.axes, JoystickData.max_axis_count);
     return data.buttons[0..data.button_count];
+}
+
+pub fn keyPressed(self: *Core, key: Key) bool {
+    return self.input_state.isKeyPressed(key);
+}
+
+pub fn keyReleased(self: *Core, key: Key) bool {
+    return self.input_state.isKeyReleased(key);
+}
+
+pub fn mousePressed(self: *Core, button: MouseButton) bool {
+    return self.input_state.isMouseButtonPressed(button);
+}
+
+pub fn mouseReleased(self: *Core, button: MouseButton) bool {
+    return self.input_state.isMouseButtonReleased(button);
+}
+
+pub fn mousePosition(self: *Core) Core.Position {
+    return self.input_state.mouse_position;
 }
 
 pub fn adapter(_: *Core) *gpu.Adapter {
