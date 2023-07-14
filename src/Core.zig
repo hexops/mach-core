@@ -10,7 +10,8 @@ internal: platform.Core,
 pub const Options = struct {
     is_app: bool = false,
     headless: bool = false,
-    // TODO: allow specifying display_mode, border
+    display_mode: DisplayMode = .windowed,
+    border: bool = true,
     // TODO: better window title lifetime management
     title: [*:0]const u8 = "Mach core",
     size: Size = .{ .width = 1920 / 2, .height = 1080 / 2 },
