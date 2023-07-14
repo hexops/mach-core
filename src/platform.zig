@@ -46,6 +46,11 @@ comptime {
     assertHasDecl(@This().Core, "setCursorShape");
     assertHasDecl(@This().Core, "cursorShape");
 
+    assertHasDecl(@This().Core, "joystickPresent");
+    assertHasDecl(@This().Core, "joystickName");
+    assertHasDecl(@This().Core, "joystickButtons");
+    assertHasDecl(@This().Core, "joystickAxes");
+
     assertHasDecl(@This().Core, "adapter");
     assertHasDecl(@This().Core, "device");
     assertHasDecl(@This().Core, "swapChain");

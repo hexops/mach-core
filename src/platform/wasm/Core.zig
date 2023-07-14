@@ -16,13 +16,17 @@ const VSyncMode = @import("../../Core.zig").VSyncMode;
 const CursorMode = @import("../../Core.zig").CursorMode;
 const Key = @import("../../Core.zig").Key;
 const KeyMods = @import("../../Core.zig").KeyMods;
+const Joystick = @import("../../Core.zig").Joystick;
 
 pub const Core = @This();
 
 allocator: std.mem.Allocator,
 id: js.CanvasId,
 
+joysticks: [JoystickData.max_joysticks]JoystickData,
+
 pub const EventIterator = struct {
+    core: *Core,
     key_mods: KeyMods,
     last_cursor_position: Position,
 
@@ -118,6 +122,43 @@ pub const EventIterator = struct {
                         .yoffset = @as(f32, @floatCast(std.math.sign(js.machEventShiftFloat()))),
                     },
                 },
+                .joystick_connected => blk: {
+                    const idx: u8 = @intCast(js.machEventShift());
+                    const btn_count: usize = @intCast(js.machEventShift());
+                    const axis_count: usize = @intCast(js.machEventShift());
+
+                    if( idx >= JoystickData.max_joysticks )
+                        continue;
+                    
+                    var data = &self.core.joysticks[idx];
+                    data.present = true;
+                    data.button_count = @min(JoystickData.max_button_count, btn_count);
+                    data.axis_count = @min(JoystickData.max_axis_count, axis_count);
+
+                    js.machJoystickName(idx, &data.name, JoystickData.max_name_len);
+
+                    break :blk Event {
+                        .joystick_connected = @enumFromInt(idx),
+                    };
+                },
+                .joystick_disconnected => blk: {
+                    const idx: u8 = @intCast(js.machEventShift());  
+
+                    if( idx >= JoystickData.max_joysticks )
+                        continue;
+                    
+                    var data = &self.core.joysticks[idx];
+                    data.present = false;
+                    data.button_count = 0;
+                    data.axis_count = 0;
+
+                    @memset(&data.buttons, false);
+                    @memset(&data.axes, 0);
+
+                    break :blk Event {
+                        .joystick_disconnected = @enumFromInt(idx),
+                    };
+                },
                 .framebuffer_resize => blk: {
                     const width = @as(u32, @intCast(js.machEventShift()));
                     const height = @as(u32, @intCast(js.machEventShift()));
@@ -137,6 +178,22 @@ pub const EventIterator = struct {
     }
 };
 
+const JoystickData = struct {
+    present: bool,
+    button_count: usize,
+    axis_count: usize,
+
+    name: [max_name_len:0]u8,
+    buttons: [max_button_count]bool,
+    axes: [max_axis_count]f32,
+
+    // 16 as it's the maximum number of joysticks supported by GLFW.
+    const max_joysticks = 16;
+    const max_name_len = 64;
+    const max_button_count = 32;
+    const max_axis_count = 16;
+};
+
 pub fn init(core: *Core, allocator: std.mem.Allocator, options: Options) !void {
     _ = options;
     var selector = [1]u8{0} ** 15;
@@ -145,6 +202,7 @@ pub fn init(core: *Core, allocator: std.mem.Allocator, options: Options) !void {
     core.* = Core{
         .allocator = allocator,
         .id = id,
+        .joysticks = std.mem.zeroes([JoystickData.max_joysticks]JoystickData),
     };
 }
 
@@ -153,8 +211,8 @@ pub fn deinit(self: *Core) void {
 }
 
 pub inline fn pollEvents(self: *Core) EventIterator {
-    _ = self;
     return EventIterator{
+        .core = self,
         .key_mods = .{
             .shift = false,
             .control = false,
@@ -277,6 +335,43 @@ pub fn setCursorShape(self: *Core, shape: CursorShape) void {
 
 pub fn cursorShape(self: *Core) CursorShape {
     return @as(CursorShape, @enumFromInt(js.machCursorShape(self.id)));
+}
+
+pub fn joystickPresent(core: *Core, joystick: Joystick) bool {
+    const idx: u8 = @intFromEnum(joystick);
+    return core.joysticks[idx].present;
+}
+
+pub fn joystickName(core: *Core, joystick: Joystick) ?[:0]const u8 {
+    const idx: u8 = @intFromEnum(joystick);
+    var data = &core.joysticks[idx];
+
+    if( !data.present )
+        return null;
+    
+    return std.mem.span(&data.name);
+}
+
+pub fn joystickButtons(core: *Core, joystick: Joystick) ?[]const bool {
+    const idx: u8 = @intFromEnum(joystick);
+    var data = &core.joysticks[idx];
+
+    if( !data.present )
+        return null;
+
+    js.machJoystickButtons(idx, &data.buttons, JoystickData.max_button_count);
+    return data.buttons[0..data.button_count];
+}
+
+pub fn joystickAxes(core: *Core, joystick: Joystick) ?[]const f32 {
+    const idx: u8 = @intFromEnum(joystick);
+    var data = &core.joysticks[idx];
+
+    if( !data.present )
+        return null;
+
+    js.machJoystickAxes(idx, &data.axes, JoystickData.max_axis_count);
+    return data.buttons[0..data.button_count];
 }
 
 pub fn adapter(_: *Core) *gpu.Adapter {

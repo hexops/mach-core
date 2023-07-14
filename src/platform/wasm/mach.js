@@ -96,6 +96,17 @@ const mach = {
       mach.events.push(...[EventCode.mouse_scroll, ev.deltaX, ev.deltaY]);
     });
 
+    canvas.addEventListener("gamepadconnected", (ev) => {
+      mach.events.push(...[
+        EventCode.joystick_connected, ev.gamepad.index,
+        ev.gamepad.buttons.length, ev.gamepad.axes.length,
+      ]);
+    });
+
+    canvas.addEventListener("gamepaddisconnected", (ev) => {
+      mach.events.push(...[EventCode.joystick_disconnected, ev.gamepad.index]);
+    });
+
     canvas.addEventListener("mach-canvas-resize", (ev) => {
       const cv_index = mach.canvases.findIndex((el) => el === ev.currentTarget);
       const cv = mach.canvases[cv_index];
@@ -315,6 +326,52 @@ const mach = {
     }
   },
 
+  machJoystickName(idx, dest, dest_len) {
+    const gamepads = navigator.getGamepads();
+
+    if( idx < 0 || idx > gamepads.length )
+      return;
+
+    if( gamepads[idx] === null || gamepads[idx] === undefined )
+      return;
+
+    const name = gamepads[idx].id;
+    const strbuf = text_encoder.encode(name).slice(0, dest_len);
+    const dstbuf = new Uint8Array(mach.wasm.exports.memory.buffer, dest, dest_len+1);
+    dstbuf.set(strbuf);
+    dstbuf[dest_len] = 0;
+  },
+
+  machJoystickButtons(idx, dest, dest_len) {
+    const gamepads = navigator.getGamepads();
+
+    if( idx < 0 || idx > gamepads.length )
+      return;
+
+    if( gamepads[idx] === null || gamepads[idx] === undefined )
+      return;
+
+    const buttons = gamepads[idx].buttons.map(x => x.pressed ? 1 : 0);
+    const count = Math.min(dest_len, buttons.length);
+    const dstbuf = new Uint8Array(mach.wasm.exports.memory.buffer, dest, count);
+    dstbuf.set(buttons);
+  },
+  
+  machJoystickAxes(idx, dest, dest_len) {
+    const gamepads = navigator.getGamepads();
+
+    if( idx < 0 || idx > gamepads.length )
+      return;
+
+    if( gamepads[idx] === null || gamepads[idx] === undefined )
+      return;
+
+    const axes = gamepads[idx].axes;
+    const count = Math.min(dest_len, axes.length);
+    const dstbuf = new Float32Array(mach.wasm.exports.memory.buffer, dest, count);
+    dstbuf.set(axes);
+  },
+
   machSetWaitTimeout(timeout) {
     mach.wait_timeout = timeout;
   },
@@ -355,10 +412,12 @@ const EventCode = {
   mouse_press: 5,
   mouse_release: 6,
   mouse_scroll: 7,
-  framebuffer_resize: 8,
-  focus_gained: 9,
-  focus_lost: 10,
-  close: 11,
+  joystick_connected: 8,
+  joystick_disconnected: 9,
+  framebuffer_resize: 10,
+  focus_gained: 11,
+  focus_lost: 12,
+  close: 13,
 };
 
 const Key = {

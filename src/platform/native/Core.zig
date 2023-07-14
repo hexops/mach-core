@@ -16,10 +16,14 @@ const VSyncMode = @import("../../Core.zig").VSyncMode;
 const CursorMode = @import("../../Core.zig").CursorMode;
 const Key = @import("../../Core.zig").Key;
 const KeyMods = @import("../../Core.zig").KeyMods;
+const Joystick = @import("../../Core.zig").Joystick;
 
 const log = std.log.scoped(.mach);
 
 pub const Core = @This();
+
+// needed for the glfw joystick callback
+var core_instance: ?*Core = null;
 
 allocator: std.mem.Allocator,
 window: glfw.Window,
@@ -46,6 +50,8 @@ border: bool,
 current_cursor: CursorShape,
 cursors: [@typeInfo(CursorShape).Enum.fields.len]?glfw.Cursor,
 cursors_tried: [@typeInfo(CursorShape).Enum.fields.len]bool,
+
+present_joysticks: std.StaticBitSet(@typeInfo(glfw.Joystick.Id).Enum.fields.len),
 
 linux_gamemode: ?bool,
 
@@ -217,9 +223,12 @@ pub fn init(core: *Core, allocator: std.mem.Allocator, options: Options) !void {
         .cursors = std.mem.zeroes([@typeInfo(CursorShape).Enum.fields.len]?glfw.Cursor),
         .cursors_tried = std.mem.zeroes([@typeInfo(CursorShape).Enum.fields.len]bool),
 
+        .present_joysticks = std.StaticBitSet(@typeInfo(glfw.Joystick.Id).Enum.fields.len).initEmpty(),
+
         .linux_gamemode = null,
     };
 
+    core_instance = core;
     core.setSizeLimit(core.size_limit);
 
     core.initCallbacks();
@@ -309,6 +318,29 @@ fn initCallbacks(self: *Core) void {
         }
     }.callback;
     self.window.setScrollCallback(scroll_callback);
+
+    const joystick_callback = struct {
+        fn callback(joystick: glfw.Joystick, event: glfw.Joystick.Event) void {
+            const pf = core_instance.?;
+            const idx: u8 = @intCast(@intFromEnum(joystick.jid));
+
+            switch( event ) {
+                .connected => {
+                    pf.present_joysticks.set(idx);
+                    pf.pushEvent(.{
+                        .joystick_connected = @enumFromInt(idx),
+                    });
+                }, 
+                .disconnected => {
+                    pf.present_joysticks.unset(idx);
+                    pf.pushEvent(.{
+                        .joystick_disconnected = @enumFromInt(idx),
+                    });
+                }
+            }
+        }
+    }.callback;
+    glfw.Joystick.setCallback(joystick_callback);
 
     const focus_callback = struct {
         fn callback(window: glfw.Window, focused: bool) void {
@@ -603,6 +635,45 @@ pub fn setCursorShape(self: *Core, cursor: CursorShape) void {
 
 pub fn cursorShape(self: *Core) CursorShape {
     return self.current_cursor;
+}
+
+pub fn joystickPresent(self: *Core, joystick: Joystick) bool {
+    const idx: u8 = @intFromEnum(joystick);
+
+    if( idx >= @typeInfo(glfw.Joystick.Id).Enum.len )
+        return false;
+
+    return self.present_joysticks.isSet(idx);
+}
+
+pub fn joystickName(_: *Core, joystick: Joystick) ?[:0]const u8 {
+    const idx: u8 = @intFromEnum(joystick);
+
+    if( idx >= @typeInfo(glfw.Joystick.Id).Enum.len )
+        return null;
+
+    const glfw_joystick = glfw.Joystick { .jid = @intCast(idx) };
+    return glfw_joystick.getName();
+}
+
+pub fn joystickButtons(_: *Core, joystick: Joystick) []const bool {
+    const idx: u8 = @intFromEnum(joystick);
+
+    if( idx >= @typeInfo(glfw.Joystick.Id).Enum.len )
+        return null;
+
+    const glfw_joystick = glfw.Joystick { .jid = @intCast(idx) };
+    return @ptrCast(glfw_joystick.getButtons());
+}
+
+pub fn joystickAxes(_: *Core, joystick: Joystick) []const f32 {
+    const idx: u8 = @intFromEnum(joystick);
+
+    if( idx >= @typeInfo(glfw.Joystick.Id).Enum.len )
+        return null;
+
+    const glfw_joystick = glfw.Joystick { .jid = @intCast(idx) };
+    return glfw_joystick.getAxes();
 }
 
 pub fn adapter(self: *Core) *gpu.Adapter {
