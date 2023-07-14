@@ -26,43 +26,83 @@ pub const Core = @This();
 // needed for the glfw joystick callback
 var core_instance: ?*Core = null;
 
+// There are two threads:
+//
+// 1. Main thread (App.init, App.deinit) which may interact with GLFW and handles events
+// 2. App.update thread.
+
+// Read-only fields
 allocator: std.mem.Allocator,
 window: glfw.Window,
 backend_type: gpu.BackendType,
 user_ptr: UserPtr,
-
 instance: *gpu.Instance,
 surface: *gpu.Surface,
 gpu_adapter: *gpu.Adapter,
 gpu_device: *gpu.Device,
-swap_chain: *gpu.SwapChain,
-swap_chain_desc: gpu.SwapChain.Descriptor,
 
-events: EventQueue,
-wait_timeout: f64,
-
-last_size: glfw.Window.Size,
-last_pos: glfw.Window.Pos,
-size_limit: SizeLimit,
-frame_buffer_resized: bool,
-display_mode: DisplayMode,
-border: bool,
-
-current_cursor: CursorShape,
+// Mutable fields only used by main thread
+app_update_thread_started: bool = false,
+linux_gamemode: ?bool = null,
 cursors: [@typeInfo(CursorShape).Enum.fields.len]?glfw.Cursor,
 cursors_tried: [@typeInfo(CursorShape).Enum.fields.len]bool,
 
-input_state: InputState,
+// Event queue; written from main thread; read from any
+events_mu: std.Thread.RwLock = .{},
+events: EventQueue,
+
+// Input state; written from main thread; read from any
+input_mu: std.Thread.RwLock = .{},
+input_state: InputState = .{},
 present_joysticks: std.StaticBitSet(@typeInfo(glfw.Joystick.Id).Enum.fields.len),
 
-linux_gamemode: ?bool,
+// Signals to the App.update thread to do something
+swap_chain_update: std.Thread.ResetEvent = .{},
+state_update: std.Thread.ResetEvent = .{},
+
+// Mutable fields; written by the App.update thread, read from any
+swap_chain_mu: std.Thread.RwLock = .{},
+swap_chain_desc: gpu.SwapChain.Descriptor,
+swap_chain: *gpu.SwapChain,
+
+// Mutable state fields; read/write by any thread
+state_mu: std.Thread.Mutex = .{},
+current_title: []const u8,
+last_title: []const u8,
+current_display_mode: DisplayMode = .windowed,
+current_monitor_index: ?usize = null,
+last_display_mode: DisplayMode = .windowed,
+current_border: bool,
+last_border: bool,
+current_headless: bool,
+last_headless: bool,
+current_size: Size,
+last_size: Size,
+current_size_limit: SizeLimit = .{
+    .min = .{ .width = 350, .height = 350 },
+    .max = .{ .width = null, .height = null },
+},
+last_size_limit: SizeLimit = .{ .min = .{}, .max = .{} },
+current_cursor_mode: CursorMode = .normal,
+last_cursor_mode: CursorMode = .normal,
+current_cursor_shape: CursorShape = .arrow,
+last_cursor_shape: CursorShape = .arrow,
+
+// Mutable fields protected by mutex.
+wait_timeout: f64 = 0.0,
+last_pos: glfw.Window.Pos,
+display_mode: DisplayMode,
+border: bool = true,
 
 const EventQueue = std.fifo.LinearFifo(Event, .Dynamic);
 
 pub const EventIterator = struct {
+    events_mu: *std.Thread.RwLock,
     queue: *EventQueue,
 
     pub inline fn next(self: *EventIterator) ?Event {
+        self.events_mu.lockShared();
+        defer self.events_mu.unlockShared();
         return self.queue.readItem();
     }
 };
@@ -80,6 +120,7 @@ fn deviceLostCallback(reason: gpu.Device.LostReason, msg: [*:0]const u8, userdat
     @panic("mach: device lost");
 }
 
+// Called on the main thread
 pub fn init(core: *Core, allocator: std.mem.Allocator, options: Options) !void {
     const backend_type = try util.detectBackendType(allocator);
 
@@ -183,7 +224,7 @@ pub fn init(core: *Core, allocator: std.mem.Allocator, options: Options) !void {
         .format = .bgra8_unorm,
         .width = framebuffer_size.width,
         .height = framebuffer_size.height,
-        .present_mode = .fifo,
+        .present_mode = .fifo, // TODO: verify this is the present mode we want by default
     };
     const swap_chain = gpu_device.createSwapChain(surface, &swap_chain_desc);
 
@@ -195,54 +236,61 @@ pub fn init(core: *Core, allocator: std.mem.Allocator, options: Options) !void {
     var events = EventQueue.init(allocator);
     try events.ensureTotalCapacity(2048);
 
+    // TODO: order according to struct fields
     core.* = .{
         .allocator = allocator,
         .window = window,
         .backend_type = backend_type,
         .user_ptr = undefined,
-
         .instance = instance,
         .surface = surface,
         .gpu_adapter = response.adapter,
         .gpu_device = gpu_device,
         .swap_chain = swap_chain,
         .swap_chain_desc = swap_chain_desc,
-
         .events = events,
-        .wait_timeout = 0.0,
-
-        .last_size = window.getSize(),
+        .current_title = undefined,
+        .last_title = undefined,
+        .current_border = undefined,
+        .last_border = undefined,
+        .current_headless = undefined,
+        .last_headless = undefined,
+        .current_size = undefined,
+        .last_size = undefined,
         .last_pos = window.getPos(),
-        .size_limit = .{
-            .min = .{ .width = 350, .height = 350 },
-            .max = .{ .width = null, .height = null },
-        },
-        .frame_buffer_resized = false,
         .display_mode = .windowed,
-        .border = true,
-
-        .current_cursor = .arrow,
         .cursors = std.mem.zeroes([@typeInfo(CursorShape).Enum.fields.len]?glfw.Cursor),
         .cursors_tried = std.mem.zeroes([@typeInfo(CursorShape).Enum.fields.len]bool),
-
-        .input_state = .{},
         .present_joysticks = std.StaticBitSet(@typeInfo(glfw.Joystick.Id).Enum.fields.len).initEmpty(),
-
-        .linux_gamemode = null,
     };
 
+    // TODO: lifetime/ownership guarantee
+    core.current_title = ""; // options.title
+    core.last_title = core.current_title;
+
+    core.current_border = true; // options.border TODO
+    core.last_border = core.current_border;
+
+    core.current_headless = options.is_headless;
+    core.last_headless = core.current_headless;
+
+    const actual_size = core.window.getSize();
+    core.current_size = .{ .width = actual_size.width, .height = actual_size.height };
+    core.last_size = core.current_size;
+
     core_instance = core;
-    core.setSizeLimit(core.size_limit);
+    core.user_ptr = .{ .self = core };
+    core.setSizeLimit(core.current_size_limit);
 
     core.initCallbacks();
+
     if (builtin.os.tag == .linux and !options.is_app and
         core.linux_gamemode == null and try wantGamemode(core.allocator))
         core.linux_gamemode = initLinuxGamemode();
 }
 
+// Called on the main thread
 fn initCallbacks(self: *Core) void {
-    self.user_ptr = UserPtr{ .self = self };
-
     self.window.setUserPointer(&self.user_ptr);
 
     const key_callback = struct {
@@ -254,12 +302,16 @@ fn initCallbacks(self: *Core) void {
             };
             switch (action) {
                 .press => {
+                    pf.input_mu.lock();
                     pf.input_state.keys.set(@intFromEnum(key_event.key));
+                    pf.input_mu.unlock();
                     pf.pushEvent(.{ .key_press = key_event });
                 },
                 .repeat => pf.pushEvent(.{ .key_repeat = key_event }),
                 .release => {
+                    pf.input_mu.lock();
                     pf.input_state.keys.unset(@intFromEnum(key_event.key));
+                    pf.input_mu.unlock();
                     pf.pushEvent(.{ .key_release = key_event });
                 },
             }
@@ -284,7 +336,9 @@ fn initCallbacks(self: *Core) void {
         fn callback(window: glfw.Window, xpos: f64, ypos: f64) void {
             const pf = (window.getUserPointer(UserPtr) orelse unreachable).self;
 
+            pf.input_mu.lock();
             pf.input_state.mouse_position = .{ .x = xpos, .y = ypos };
+            pf.input_mu.unlock();
 
             pf.pushEvent(.{
                 .mouse_motion = .{
@@ -308,15 +362,21 @@ fn initCallbacks(self: *Core) void {
                 .mods = toMachMods(mods),
             };
 
+            pf.input_mu.lock();
             pf.input_state.mouse_position = mouse_button_event.pos;
+            pf.input_mu.unlock();
 
             switch (action) {
                 .press => {
+                    pf.input_mu.lock();
                     pf.input_state.mouse_buttons.set(@intFromEnum(mouse_button_event.button));
+                    pf.input_mu.unlock();
                     pf.pushEvent(.{ .mouse_press = mouse_button_event });
                 },
                 .release => {
+                    pf.input_mu.lock();
                     pf.input_state.mouse_buttons.unset(@intFromEnum(mouse_button_event.button));
+                    pf.input_mu.unlock();
                     pf.pushEvent(.{ .mouse_release = mouse_button_event });
                 },
                 else => {},
@@ -343,19 +403,23 @@ fn initCallbacks(self: *Core) void {
             const pf = core_instance.?;
             const idx: u8 = @intCast(@intFromEnum(joystick.jid));
 
-            switch( event ) {
+            switch (event) {
                 .connected => {
+                    pf.input_mu.lock();
                     pf.present_joysticks.set(idx);
+                    pf.input_mu.unlock();
                     pf.pushEvent(.{
                         .joystick_connected = @enumFromInt(idx),
                     });
-                }, 
+                },
                 .disconnected => {
+                    pf.input_mu.lock();
                     pf.present_joysticks.unset(idx);
+                    pf.input_mu.unlock();
                     pf.pushEvent(.{
                         .joystick_disconnected = @enumFromInt(idx),
                     });
-                }
+                },
             }
         }
     }.callback;
@@ -372,17 +436,33 @@ fn initCallbacks(self: *Core) void {
     const framebuffer_size_callback = struct {
         fn callback(window: glfw.Window, _: u32, _: u32) void {
             const pf = (window.getUserPointer(UserPtr) orelse unreachable).self;
-            pf.frame_buffer_resized = true;
+            pf.swap_chain_update.set();
         }
     }.callback;
     self.window.setFramebufferSizeCallback(framebuffer_size_callback);
+
+    const window_size_callback = struct {
+        fn callback(window: glfw.Window, width: i32, height: i32) void {
+            const pf = (window.getUserPointer(UserPtr) orelse unreachable).self;
+            pf.state_mu.lock();
+            defer pf.state_mu.unlock();
+            pf.current_size.width = @intCast(width);
+            pf.current_size.height = @intCast(height);
+            pf.last_size.width = @intCast(width);
+            pf.last_size.height = @intCast(height);
+        }
+    }.callback;
+    self.window.setSizeCallback(window_size_callback);
 }
 
 fn pushEvent(self: *Core, event: Event) void {
     // TODO(core): handle OOM via error flag
+    self.events_mu.lock();
+    defer self.events_mu.unlock();
     self.events.writeItem(event) catch unreachable;
 }
 
+// Called on the main thread
 pub fn deinit(self: *Core) void {
     for (self.cursors) |glfw_cursor| {
         if (glfw_cursor) |cur| {
@@ -397,36 +477,24 @@ pub fn deinit(self: *Core) void {
         deinitLinuxGamemode();
 }
 
-pub inline fn pollEvents(self: *Core) EventIterator {
-    if (self.wait_timeout > 0.0) {
-        if (self.wait_timeout == std.math.inf(f64)) {
-            // Wait for an event
-            glfw.waitEvents();
-        } else {
-            // Wait for an event with a timeout
-            glfw.waitEventsTimeout(self.wait_timeout);
-        }
-    } else {
-        // Don't wait for events
-        glfw.pollEvents();
-    }
+// Secondary app-update thread
+pub fn appUpdateThread(self: *Core, app: anytype) void {
+    while (true) {
+        if (self.swap_chain_update.isSet()) blk: {
+            self.swap_chain_update.reset();
 
-    glfw.getErrorCode() catch |err| switch (err) {
-        error.PlatformError => log.err("glfw: failed to poll events", .{}),
-        error.InvalidValue => unreachable,
-        else => unreachable,
-    };
+            const framebuffer_size = self.window.getFramebufferSize();
+            glfw.getErrorCode() catch break :blk;
+            if (framebuffer_size.width == 0 or framebuffer_size.height == 0) break :blk;
 
-    if (self.frame_buffer_resized) blk: {
-        self.frame_buffer_resized = false;
+            {
+                self.swap_chain_mu.lock();
+                defer self.swap_chain_mu.unlock();
+                self.swap_chain_desc.width = framebuffer_size.width;
+                self.swap_chain_desc.height = framebuffer_size.height;
+                self.swap_chain = self.gpu_device.createSwapChain(self.surface, &self.swap_chain_desc);
+            }
 
-        const framebuffer_size = self.window.getFramebufferSize();
-        glfw.getErrorCode() catch break :blk;
-
-        if (framebuffer_size.width != 0 and framebuffer_size.height != 0) {
-            self.swap_chain_desc.width = framebuffer_size.width;
-            self.swap_chain_desc.height = framebuffer_size.height;
-            self.swap_chain = self.gpu_device.createSwapChain(self.surface, &self.swap_chain_desc);
             self.pushEvent(.{
                 .framebuffer_resize = .{
                     .width = framebuffer_size.width,
@@ -434,19 +502,195 @@ pub inline fn pollEvents(self: *Core) EventIterator {
                 },
             });
         }
+
+        // TODO: pass error back via update() call
+        if (app.update() catch unreachable) return;
+        self.gpu_device.tick();
     }
+}
+
+// Called on the main thread
+pub fn update(self: *Core, app: anytype) !bool {
+    if (!self.app_update_thread_started) {
+        self.app_update_thread_started = true;
+        const thread = try std.Thread.spawn(.{}, appUpdateThread, .{ self, app });
+        thread.detach();
+    }
+
+    if (self.state_update.isSet()) {
+        self.state_update.reset();
+
+        // TODO: title changes
+        // self.window.setTitle(title);
+
+        // Display mode changes
+        if (self.current_display_mode != self.last_display_mode) {
+            const monitor_index = self.current_monitor_index;
+            switch (self.current_display_mode) {
+                .windowed => {
+                    self.window.setAttrib(.decorated, self.border);
+                    self.window.setAttrib(.floating, false);
+                    self.window.setMonitor(
+                        null,
+                        @intCast(self.last_pos.x),
+                        @intCast(self.last_pos.y),
+                        self.last_size.width,
+                        self.last_size.height,
+                        null,
+                    );
+                },
+                .fullscreen => {
+                    // TODO: restoration of original window size/position
+                    // if (self.last_display_mode == .windowed) {
+                    //     self.last_size = self.window.getSize();
+                    //     self.last_pos = self.window.getPos();
+                    // }
+
+                    const monitor = blk: {
+                        if (monitor_index) |i| {
+                            // TODO(core): handle OOM via error flag
+                            const monitor_list = glfw.Monitor.getAll(self.allocator) catch unreachable;
+                            defer self.allocator.free(monitor_list);
+                            break :blk monitor_list[i];
+                        }
+                        break :blk glfw.Monitor.getPrimary();
+                    };
+                    if (monitor) |m| {
+                        const video_mode = m.getVideoMode();
+                        if (video_mode) |v| {
+                            self.window.setMonitor(m, 0, 0, v.getWidth(), v.getHeight(), null);
+                        }
+                    }
+                },
+                .borderless => {
+                    // TODO: restoration of original window size/position
+                    // if (self.last_display_mode == .windowed) {
+                    //     self.last_size = self.window.getSize();
+                    //     self.last_pos = self.window.getPos();
+                    // }
+
+                    const monitor = blk: {
+                        if (monitor_index) |i| {
+                            // TODO(core): handle OOM via error flag
+                            const monitor_list = glfw.Monitor.getAll(self.allocator) catch unreachable;
+                            defer self.allocator.free(monitor_list);
+                            break :blk monitor_list[i];
+                        }
+                        break :blk glfw.Monitor.getPrimary();
+                    };
+                    if (monitor) |m| {
+                        const video_mode = m.getVideoMode();
+                        if (video_mode) |v| {
+                            self.window.setAttrib(.decorated, false);
+                            self.window.setAttrib(.floating, true);
+                            self.window.setMonitor(null, 0, 0, v.getWidth(), v.getHeight(), null);
+                        }
+                    }
+                },
+            }
+            self.last_display_mode = self.current_display_mode;
+        }
+
+        // Border changes
+        if (self.current_border != self.last_border) {
+            self.last_border = self.current_border;
+            if (self.current_display_mode != .borderless) self.window.setAttrib(.decorated, self.current_border);
+        }
+
+        // Headless changes
+        if (self.current_headless != self.last_headless) {
+            self.current_headless = self.last_headless;
+            if (self.current_headless) self.window.hide() else self.window.show();
+        }
+
+        // Size changes
+        if (self.current_size.width != self.last_size.width or self.current_size.height != self.last_size.height) {
+            self.last_size = self.current_size;
+            self.window.setSize(.{
+                .width = self.current_size.width,
+                .height = self.current_size.height,
+            });
+        }
+
+        // Size limit changes
+        if (!self.current_size_limit.equals(self.last_size_limit)) {
+            self.last_size_limit = self.current_size_limit;
+            self.window.setSizeLimits(
+                .{ .width = self.current_size_limit.min.width, .height = self.current_size_limit.min.height },
+                .{ .width = self.current_size_limit.max.width, .height = self.current_size_limit.max.height },
+            );
+        }
+
+        // Cursor mode changes
+        if (self.current_cursor_mode != self.last_cursor_mode) {
+            self.last_cursor_mode = self.current_cursor_mode;
+            self.window.setInputModeCursor(switch (self.current_cursor_mode) {
+                .normal => .normal,
+                .hidden => .hidden,
+                .disabled => .disabled,
+            });
+        }
+
+        // Cursor shape changes
+        if (self.current_cursor_shape != self.last_cursor_shape) {
+            self.last_cursor_shape = self.current_cursor_shape;
+            // TODO: creating a GLFW standard cursor could fail, we should provide custom backup
+            // images for these. https://github.com/hexops/mach/pull/352
+            const enum_int = @intFromEnum(self.current_cursor_shape);
+            const tried = self.cursors_tried[enum_int];
+            if (!tried) {
+                self.cursors_tried[enum_int] = true;
+                self.cursors[enum_int] = switch (self.current_cursor_shape) {
+                    .arrow => glfw.Cursor.createStandard(.arrow),
+                    .ibeam => glfw.Cursor.createStandard(.ibeam),
+                    .crosshair => glfw.Cursor.createStandard(.crosshair),
+                    .pointing_hand => glfw.Cursor.createStandard(.pointing_hand),
+                    .resize_ew => glfw.Cursor.createStandard(.resize_ew),
+                    .resize_ns => glfw.Cursor.createStandard(.resize_ns),
+                    .resize_nwse => glfw.Cursor.createStandard(.resize_nwse),
+                    .resize_nesw => glfw.Cursor.createStandard(.resize_nesw),
+                    .resize_all => glfw.Cursor.createStandard(.resize_all),
+                    .not_allowed => glfw.Cursor.createStandard(.not_allowed),
+                };
+            }
+
+            if (self.cursors[enum_int]) |cur| {
+                self.window.setCursor(cur);
+            } else {
+                glfw.getErrorCode() catch {}; // discard error
+                // TODO: creating a GLFW standard cursor could fail, we should provide custom backup
+                // images for these. https://github.com/hexops/mach/pull/352
+                log.warn("mach: setCursorShape: {s} not yet supported\n", .{@tagName(self.current_cursor_shape)});
+            }
+        }
+    }
+
+    // TODO: allow configurable wait period here
+    // TODO: instead of pushEvent locking/unlocking, consider grabbing mutex here?
+    glfw.waitEventsTimeout(10);
+
+    glfw.getErrorCode() catch |err| switch (err) {
+        error.PlatformError => log.err("glfw: failed to poll events", .{}),
+        error.InvalidValue => unreachable,
+        else => unreachable,
+    };
 
     if (self.window.shouldClose()) {
         self.pushEvent(.close);
     }
-
-    return EventIterator{ .queue = &self.events };
+    return false;
 }
 
-pub fn shouldClose(self: *Core) bool {
-    return self.window.shouldClose();
+// May be called from any thread.
+pub inline fn pollEvents(self: *Core) EventIterator {
+    // TODO: block for wait_timeout
+    return EventIterator{ .events_mu = &self.events_mu, .queue = &self.events };
 }
 
+// TODO: one of descriptor() or framebufferSize() should go away.
+
+// May be called from any thread.
+// TODO: thread-safety
 pub fn framebufferSize(self: *Core) Size {
     const framebuffer_size = self.window.getFramebufferSize();
     return .{
@@ -455,119 +699,87 @@ pub fn framebufferSize(self: *Core) Size {
     };
 }
 
+// May be called from any thread.
 pub fn setWaitTimeout(self: *Core, timeout: f64) void {
+    // TODO: thread-safety
+    // TODO: reimplement wait_timeout
     self.wait_timeout = timeout;
 }
 
+// May be called from any thread.
 pub fn setTitle(self: *Core, title: [:0]const u8) void {
-    self.window.setTitle(title);
+    _ = self;
+    _ = title;
+
+    // TODO: lifetime management
+    // self.state_mu.lock();
+    // defer self.state_mu.unlock();
+    // self.current_title = title;
+    // self.state_update.set(); // TODO: only set if changed from last
 }
 
+// May be called from any thread.
 pub fn setDisplayMode(self: *Core, mode: DisplayMode, monitor_index: ?usize) void {
-    switch (mode) {
-        .windowed => {
-            self.window.setAttrib(.decorated, self.border);
-            self.window.setAttrib(.floating, false);
-            self.window.setMonitor(
-                null,
-                @as(i32, @intCast(self.last_pos.x)),
-                @as(i32, @intCast(self.last_pos.y)),
-                self.last_size.width,
-                self.last_size.height,
-                null,
-            );
-        },
-        .fullscreen => {
-            if (self.display_mode == .windowed) {
-                self.last_size = self.window.getSize();
-                self.last_pos = self.window.getPos();
-            }
-
-            const monitor = blk: {
-                if (monitor_index) |i| {
-                    // TODO(core): handle OOM via error flag
-                    const monitor_list = glfw.Monitor.getAll(self.allocator) catch unreachable;
-                    defer self.allocator.free(monitor_list);
-                    break :blk monitor_list[i];
-                }
-                break :blk glfw.Monitor.getPrimary();
-            };
-            if (monitor) |m| {
-                const video_mode = m.getVideoMode();
-                if (video_mode) |v| {
-                    self.window.setMonitor(m, 0, 0, v.getWidth(), v.getHeight(), null);
-                }
-            }
-        },
-        .borderless => {
-            if (self.display_mode == .windowed) {
-                self.last_size = self.window.getSize();
-                self.last_pos = self.window.getPos();
-            }
-
-            const monitor = blk: {
-                if (monitor_index) |i| {
-                    // TODO(core): handle OOM via error flag
-                    const monitor_list = glfw.Monitor.getAll(self.allocator) catch unreachable;
-                    defer self.allocator.free(monitor_list);
-                    break :blk monitor_list[i];
-                }
-                break :blk glfw.Monitor.getPrimary();
-            };
-            if (monitor) |m| {
-                const video_mode = m.getVideoMode();
-                if (video_mode) |v| {
-                    self.window.setAttrib(.decorated, false);
-                    self.window.setAttrib(.floating, true);
-                    self.window.setMonitor(null, 0, 0, v.getWidth(), v.getHeight(), null);
-                }
-            }
-        },
-    }
-    self.display_mode = mode;
+    self.state_mu.lock();
+    defer self.state_mu.unlock();
+    self.current_display_mode = mode;
+    self.current_monitor_index = monitor_index;
+    self.state_update.set(); // TODO: only set if changed from last
 }
 
+// May be called from any thread.
 pub fn displayMode(self: *Core) DisplayMode {
-    return self.display_mode;
+    self.state_mu.lock();
+    defer self.state_mu.unlock();
+    return self.current_display_mode;
 }
 
+// May be called from any thread.
 pub fn setBorder(self: *Core, value: bool) void {
-    if (self.border != value) {
-        self.border = value;
-        if (self.display_mode != .borderless) self.window.setAttrib(.decorated, value);
-    }
+    self.state_mu.lock();
+    defer self.state_mu.unlock();
+    self.current_border = value;
+    self.state_update.set(); // TODO: only set if changed from last
 }
 
+// May be called from any thread.
 pub fn border(self: *Core) bool {
-    return self.border;
+    self.state_mu.lock();
+    defer self.state_mu.unlock();
+    return self.current_border;
 }
 
+// May be called from any thread.
 pub fn setHeadless(self: *Core, value: bool) void {
-    if (value) {
-        self.window.hide();
-    } else {
-        self.window.show();
-    }
+    self.state_mu.lock();
+    defer self.state_mu.unlock();
+    self.current_headless = value;
+    self.state_update.set(); // TODO: only set if changed from last
 }
 
+// May be called from any thread.
 pub fn headless(self: *Core) bool {
-    const visible = self.window.getAttrib(.visible);
-    return visible == 0;
+    self.state_mu.lock();
+    defer self.state_mu.unlock();
+    return self.current_headless;
 }
 
+// May be called from any thread.
 pub fn setVSync(self: *Core, mode: VSyncMode) void {
-    const framebuffer_size = self.framebufferSize();
+    self.swap_chain_mu.lock();
     self.swap_chain_desc.present_mode = switch (mode) {
         .none => .immediate,
         .double => .fifo,
         .triple => .mailbox,
     };
-    self.swap_chain_desc.width = framebuffer_size.width;
-    self.swap_chain_desc.height = framebuffer_size.height;
-    self.swap_chain = self.gpu_device.createSwapChain(self.surface, &self.swap_chain_desc);
+    self.swap_chain_mu.unlock();
+    self.swap_chain_update.set();
 }
 
+// May be called from any thread.
 pub fn vsync(self: *Core) VSyncMode {
+    self.swap_chain_mu.lockShared();
+    defer self.swap_chain_mu.unlockShared();
     return switch (self.swap_chain_desc.present_mode) {
         .immediate => .none,
         .fifo => .double,
@@ -575,159 +787,163 @@ pub fn vsync(self: *Core) VSyncMode {
     };
 }
 
+// May be called from any thread.
 pub fn setSize(self: *Core, value: Size) void {
-    self.window.setSize(.{
-        .width = value.width,
-        .height = value.height,
-    });
+    self.state_mu.lock();
+    defer self.state_mu.unlock();
+    self.current_size = value;
+    self.state_update.set(); // TODO: only set if changed from last
 }
 
+// May be called from any thread.
 pub fn size(self: *Core) Size {
-    const window_size = self.window.getSize();
-    return .{ .width = window_size.width, .height = window_size.height };
+    self.state_mu.lock();
+    defer self.state_mu.unlock();
+    return self.current_size;
 }
 
+// May be called from any thread.
 pub fn setSizeLimit(self: *Core, limit: SizeLimit) void {
-    self.window.setSizeLimits(
-        .{ .width = limit.min.width, .height = limit.min.height },
-        .{ .width = limit.max.width, .height = limit.max.height },
-    );
-    self.size_limit = limit;
+    self.state_mu.lock();
+    defer self.state_mu.unlock();
+    self.current_size_limit = limit;
+    self.state_update.set(); // TODO: only set if changed from last
 }
 
+// May be called from any thread.
 pub fn sizeLimit(self: *Core) SizeLimit {
-    return self.size_limit;
+    self.state_mu.lock();
+    defer self.state_mu.unlock();
+    return self.current_size_limit;
 }
 
+// May be called from any thread.
 pub fn setCursorMode(self: *Core, mode: CursorMode) void {
-    const glfw_mode: glfw.Window.InputModeCursor = switch (mode) {
-        .normal => .normal,
-        .hidden => .hidden,
-        .disabled => .disabled,
-    };
-    self.window.setInputModeCursor(glfw_mode);
+    self.state_mu.lock();
+    defer self.state_mu.unlock();
+    self.current_cursor_mode = mode;
+    self.state_update.set();
 }
 
+// May be called from any thread.
 pub fn cursorMode(self: *Core) CursorMode {
-    const glfw_mode = self.window.getInputModeCursor();
-    return switch (glfw_mode) {
-        .normal => .normal,
-        .hidden => .hidden,
-        .disabled => .disabled,
-    };
+    self.state_mu.lock();
+    defer self.state_mu.unlock();
+    return self.current_cursor_mode;
 }
 
-pub fn setCursorShape(self: *Core, cursor: CursorShape) void {
-    // Try to create glfw standard cursor, but could fail.  In the future
-    // we hope to provide custom backup images for these.
-    // See https://github.com/hexops/mach/pull/352 for more info
-
-    const enum_int = @intFromEnum(cursor);
-    const tried = self.cursors_tried[enum_int];
-    if (!tried) {
-        self.cursors_tried[enum_int] = true;
-        self.cursors[enum_int] = switch (cursor) {
-            .arrow => glfw.Cursor.createStandard(.arrow) catch null,
-            .ibeam => glfw.Cursor.createStandard(.ibeam) catch null,
-            .crosshair => glfw.Cursor.createStandard(.crosshair) catch null,
-            .pointing_hand => glfw.Cursor.createStandard(.pointing_hand) catch null,
-            .resize_ew => glfw.Cursor.createStandard(.resize_ew) catch null,
-            .resize_ns => glfw.Cursor.createStandard(.resize_ns) catch null,
-            .resize_nwse => glfw.Cursor.createStandard(.resize_nwse) catch null,
-            .resize_nesw => glfw.Cursor.createStandard(.resize_nesw) catch null,
-            .resize_all => glfw.Cursor.createStandard(.resize_all) catch null,
-            .not_allowed => glfw.Cursor.createStandard(.not_allowed) catch null,
-        };
-    }
-
-    if (self.cursors[enum_int]) |cur| {
-        self.window.setCursor(cur);
-    } else {
-        // TODO: In the future we shouldn't hit this because we'll provide backup
-        // custom cursors.
-        // See https://github.com/hexops/mach/pull/352 for more info
-        log.warn("setCursorShape: {s} not yet supported\n", .{@tagName(cursor)});
-    }
-
-    self.current_cursor = cursor;
+// May be called from any thread.
+pub fn setCursorShape(self: *Core, shape: CursorShape) void {
+    self.state_mu.lock();
+    defer self.state_mu.unlock();
+    self.current_cursor_shape = shape;
+    self.state_update.set();
 }
 
+// May be called from any thread.
 pub fn cursorShape(self: *Core) CursorShape {
-    return self.current_cursor;
+    self.state_mu.lock();
+    defer self.state_mu.unlock();
+    return self.current_cursor_shape;
 }
 
-pub fn joystickPresent(self: *Core, joystick: Joystick) bool {
-    const idx: u8 = @intFromEnum(joystick);
+// May be called from any thread.
+pub fn joystickPresent(_: *Core, _: Joystick) bool {
+    @panic("TODO: thread safe API");
+    // const idx: u8 = @intFromEnum(joystick);
+    // if (idx >= @typeInfo(glfw.Joystick.Id).Enum.len) return false;
 
-    if( idx >= @typeInfo(glfw.Joystick.Id).Enum.len )
-        return false;
-
-    return self.present_joysticks.isSet(idx);
+    // self.input_mu.lockShared();
+    // defer self.input_mu.unlockShared();
+    // return self.present_joysticks.isSet(idx);
 }
 
-pub fn joystickName(_: *Core, joystick: Joystick) ?[:0]const u8 {
-    const idx: u8 = @intFromEnum(joystick);
+// May be called from any thread.
+pub fn joystickName(_: *Core, _: Joystick) ?[:0]const u8 {
+    @panic("TODO: thread safe API");
+    // const idx: u8 = @intFromEnum(joystick);
+    // if (idx >= @typeInfo(glfw.Joystick.Id).Enum.len) return null;
 
-    if( idx >= @typeInfo(glfw.Joystick.Id).Enum.len )
-        return null;
-
-    const glfw_joystick = glfw.Joystick { .jid = @intCast(idx) };
-    return glfw_joystick.getName();
+    // const glfw_joystick = glfw.Joystick{ .jid = @intCast(idx) };
+    // return glfw_joystick.getName();
 }
 
-pub fn joystickButtons(_: *Core, joystick: Joystick) []const bool {
-    const idx: u8 = @intFromEnum(joystick);
+// May be called from any thread.
+pub fn joystickButtons(_: *Core, _: Joystick) ?[]const bool {
+    @panic("TODO: thread safe API");
+    // const idx: u8 = @intFromEnum(joystick);
+    // if (idx >= @typeInfo(glfw.Joystick.Id).Enum.len) return null;
 
-    if( idx >= @typeInfo(glfw.Joystick.Id).Enum.len )
-        return null;
-
-    const glfw_joystick = glfw.Joystick { .jid = @intCast(idx) };
-    return @ptrCast(glfw_joystick.getButtons());
+    // const glfw_joystick = glfw.Joystick{ .jid = @intCast(idx) };
+    // return @ptrCast(glfw_joystick.getButtons());
 }
 
-pub fn joystickAxes(_: *Core, joystick: Joystick) []const f32 {
-    const idx: u8 = @intFromEnum(joystick);
+// May be called from any thread.
+pub fn joystickAxes(_: *Core, _: Joystick) ?[]const f32 {
+    @panic("TODO: thread safe API");
+    // const idx: u8 = @intFromEnum(joystick);
+    // if (idx >= @typeInfo(glfw.Joystick.Id).Enum.len) return null;
 
-    if( idx >= @typeInfo(glfw.Joystick.Id).Enum.len )
-        return null;
-
-    const glfw_joystick = glfw.Joystick { .jid = @intCast(idx) };
-    return glfw_joystick.getAxes();
+    // const glfw_joystick = glfw.Joystick{ .jid = @intCast(idx) };
+    // return glfw_joystick.getAxes();
 }
 
+// May be called from any thread.
 pub fn keyPressed(self: *Core, key: Key) bool {
+    self.input_mu.lockShared();
+    defer self.input_mu.unlockShared();
     return self.input_state.isKeyPressed(key);
 }
 
+// May be called from any thread.
 pub fn keyReleased(self: *Core, key: Key) bool {
+    self.input_mu.lockShared();
+    defer self.input_mu.unlockShared();
     return self.input_state.isKeyReleased(key);
 }
 
+// May be called from any thread.
 pub fn mousePressed(self: *Core, button: MouseButton) bool {
+    self.input_mu.lockShared();
+    defer self.input_mu.unlockShared();
     return self.input_state.isMouseButtonPressed(button);
 }
 
+// May be called from any thread.
 pub fn mouseReleased(self: *Core, button: MouseButton) bool {
+    self.input_mu.lockShared();
+    defer self.input_mu.unlockShared();
     return self.input_state.isMouseButtonReleased(button);
 }
 
+// May be called from any thread.
 pub fn mousePosition(self: *Core) Core.Position {
+    self.input_mu.lockShared();
+    defer self.input_mu.unlockShared();
     return self.input_state.mouse_position;
 }
 
+// May be called from any thread.
 pub fn adapter(self: *Core) *gpu.Adapter {
     return self.gpu_adapter;
 }
 
+// May be called from any thread.
 pub fn device(self: *Core) *gpu.Device {
     return self.gpu_device;
 }
 
+// May be called from any thread.
 pub fn swapChain(self: *Core) *gpu.SwapChain {
+    self.swap_chain_mu.lockShared();
+    defer self.swap_chain_mu.unlockShared();
     return self.swap_chain;
 }
 
+// May be called from any thread.
 pub fn descriptor(self: *Core) gpu.SwapChain.Descriptor {
+    self.swap_chain_mu.lockShared();
+    defer self.swap_chain_mu.unlockShared();
     return self.swap_chain_desc;
 }
 
@@ -886,7 +1102,12 @@ fn toMachMods(mods: glfw.Mods) KeyMods {
     };
 }
 
-/// Default GLFW error handling callback
+/// GLFW error handling callback
+///
+/// This only logs errors, and doesn't e.g. exit the application, because many simple operations of
+/// GLFW can result in an error on the stack when running under different Wayland Linux systems.
+/// Doing anything else here would result in a good chance of applications not working on Wayland,
+/// so the best thing to do really is to just log the error. See the mach-glfw README for more info.
 fn errorCallback(error_code: glfw.ErrorCode, description: [:0]const u8) void {
     log.err("glfw: {}: {s}\n", .{ error_code, description });
 }
