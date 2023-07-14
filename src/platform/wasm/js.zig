@@ -29,6 +29,9 @@ pub extern "mach" fn machSetCursorMode(canvas: CanvasId, mode: u32) void;
 pub extern "mach" fn machCursorMode(canvas: CanvasId) u32;
 pub extern "mach" fn machSetCursorShape(canvas: CanvasId, shape: u32) void;
 pub extern "mach" fn machCursorShape(canvas: CanvasId) u32;
+pub extern "mach" fn machJoystickName(idx: u8, dest: [*:0]u8, dest_len: usize) void;
+pub extern "mach" fn machJoystickButtons(idx: u8, dest: [*]u8, dest_len: usize) void;
+pub extern "mach" fn machJoystickAxes(idx: u8, dest: [*]f32, dest_len: usize) void;
 
 pub extern "mach" fn machShouldClose() bool;
 pub extern "mach" fn machHasEvent() bool;

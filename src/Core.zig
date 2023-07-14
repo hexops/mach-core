@@ -156,6 +156,22 @@ pub fn cursorShape(core: *Core) CursorShape {
     return core.internal.cursorShape();
 }
 
+pub fn joystickPresent(core: *Core, joystick: Joystick) bool {
+    return core.internal.joystickPresent(joystick);
+}
+
+pub fn joystickName(core: *Core, joystick: Joystick) ?[:0]const u8 {
+    return core.internal.joystickName(joystick);
+}
+
+pub fn joystickButtons(core: *Core, joystick: Joystick) ?[]const bool {
+    return core.internal.joystickButtons(joystick);
+}
+
+pub fn joystickAxes(core: *Core, joystick: Joystick) ?[]const f32 {
+    return core.internal.joystickAxes(joystick);
+}
+
 pub fn adapter(core: *Core) *gpu.Adapter {
     return core.internal.adapter();
 }
@@ -208,6 +224,8 @@ pub const Event = union(enum) {
         xoffset: f32,
         yoffset: f32,
     },
+    joystick_connected: Joystick,
+    joystick_disconnected: Joystick,
     framebuffer_resize: Size,
     focus_gained,
     focus_lost,
@@ -420,3 +438,5 @@ pub const CursorShape = enum {
     resize_all,
     not_allowed,
 };
+
+pub const Joystick = enum(u8) {};
