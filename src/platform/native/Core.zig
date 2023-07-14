@@ -136,7 +136,7 @@ pub fn init(core: *Core, allocator: std.mem.Allocator, options: Options) !void {
     // Create the test window and discover adapters using it (esp. for OpenGL)
     var hints = util.glfwWindowHintsForBackend(backend_type);
     hints.cocoa_retina_framebuffer = true;
-    if (options.is_headless) {
+    if (options.headless) {
         hints.visible = false; // Hiding window before creation otherwise you get the window showing up for a little bit then hiding.
     }
 
@@ -271,7 +271,7 @@ pub fn init(core: *Core, allocator: std.mem.Allocator, options: Options) !void {
     core.current_border = true; // options.border TODO
     core.last_border = core.current_border;
 
-    core.current_headless = options.is_headless;
+    core.current_headless = options.headless;
     core.last_headless = core.current_headless;
 
     const actual_size = core.window.getSize();
