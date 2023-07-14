@@ -9,7 +9,7 @@ internal: platform.Core,
 
 pub const Options = struct {
     is_app: bool = false,
-    is_headless: bool = false, // TODO: rename is_headless -> headless
+    headless: bool = false,
     // TODO: allow specifying display_mode, border
     // TODO: better window title lifetime management
     title: [*:0]const u8 = "Mach core",
