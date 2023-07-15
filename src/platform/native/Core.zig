@@ -46,6 +46,8 @@ app_update_thread_started: bool = false,
 linux_gamemode: ?bool = null,
 cursors: [@typeInfo(CursorShape).Enum.fields.len]?glfw.Cursor,
 cursors_tried: [@typeInfo(CursorShape).Enum.fields.len]bool,
+last_windowed_size: glfw.Window.Size,
+last_windowed_pos: glfw.Window.Pos,
 
 // Event queue; written from main thread; read from any
 events_mu: std.Thread.RwLock = .{},
@@ -88,9 +90,8 @@ last_cursor_mode: CursorMode = .normal,
 current_cursor_shape: CursorShape = .arrow,
 last_cursor_shape: CursorShape = .arrow,
 
-// Mutable fields protected by mutex.
-wait_timeout: f64 = 0.0,
-last_pos: glfw.Window.Pos,
+// TODO(feature): iimplement wait_timeout
+// wait_timeout: f64 = 0.0,
 
 const EventQueue = std.fifo.LinearFifo(Event, .Dynamic);
 
@@ -253,7 +254,8 @@ pub fn init(core: *Core, allocator: std.mem.Allocator, options: Options) !void {
         .last_headless = undefined,
         .current_size = undefined,
         .last_size = undefined,
-        .last_pos = window.getPos(),
+        .last_windowed_size = window.getSize(),
+        .last_windowed_pos = window.getPos(),
         .cursors = std.mem.zeroes([@typeInfo(CursorShape).Enum.fields.len]?glfw.Cursor),
         .cursors_tried = std.mem.zeroes([@typeInfo(CursorShape).Enum.fields.len]bool),
         .present_joysticks = std.StaticBitSet(@typeInfo(glfw.Joystick.Id).Enum.fields.len).initEmpty(),
@@ -532,19 +534,18 @@ pub fn update(self: *Core, app: anytype) !bool {
                     self.window.setAttrib(.floating, false);
                     self.window.setMonitor(
                         null,
-                        @intCast(self.last_pos.x),
-                        @intCast(self.last_pos.y),
+                        @intCast(self.last_windowed_pos.x),
+                        @intCast(self.last_windowed_pos.y),
                         self.last_size.width,
                         self.last_size.height,
                         null,
                     );
                 },
                 .fullscreen => {
-                    // TODO(feature): restoration of original window size/position
-                    // if (self.last_display_mode == .windowed) {
-                    //     self.last_size = self.window.getSize();
-                    //     self.last_pos = self.window.getPos();
-                    // }
+                    if (self.last_display_mode == .windowed) {
+                        self.last_windowed_size = self.window.getSize();
+                        self.last_windowed_pos = self.window.getPos();
+                    }
 
                     const monitor = blk: {
                         if (monitor_index) |i| {
@@ -563,11 +564,10 @@ pub fn update(self: *Core, app: anytype) !bool {
                     }
                 },
                 .borderless => {
-                    // TODO(feature): restoration of original window size/position
-                    // if (self.last_display_mode == .windowed) {
-                    //     self.last_size = self.window.getSize();
-                    //     self.last_pos = self.window.getPos();
-                    // }
+                    if (self.last_display_mode == .windowed) {
+                        self.last_windowed_size = self.window.getSize();
+                        self.last_windowed_pos = self.window.getPos();
+                    }
 
                     const monitor = blk: {
                         if (monitor_index) |i| {
@@ -688,6 +688,8 @@ pub inline fn pollEvents(self: *Core) EventIterator {
 
 // May be called from any thread.
 pub fn setWaitTimeout(self: *Core, timeout: f64) void {
+    _ = self;
+    _ = timeout;
     // TODO(feature): implement wait_timeout
     // self.wait_timeout = timeout;
 }
