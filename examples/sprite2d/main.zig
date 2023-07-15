@@ -258,10 +258,10 @@ pub fn update(app: *App) !bool {
     try app.render();
 
     // Every second, update the window title with the FPS
+    // TODO: this is a terrible FPS calculation
     if (app.window_title_timer.read() >= 1.0) {
         app.window_title_timer.reset();
-        var buf: [32]u8 = undefined;
-        const title = try std.fmt.bufPrintZ(&buf, "Sprite2D [ FPS: {d} ]", .{@floor(1 / delta_time)});
+        const title = try std.fmt.bufPrintZ(&app.core.title, "Sprite2D [ FPS: {d} ]", .{@floor(1 / delta_time)});
         app.core.setTitle(title);
     }
     return false;
