@@ -724,7 +724,7 @@ pub fn setDisplayMode(self: *Core, mode: DisplayMode, monitor_index: ?usize) voi
     defer self.state_mu.unlock();
     self.current_display_mode = mode;
     self.current_monitor_index = monitor_index;
-    self.state_update.set(); // TODO: only set if changed from last
+    if (self.current_display_mode != self.last_display_mode) self.state_update.set();
 }
 
 // May be called from any thread.
@@ -739,7 +739,7 @@ pub fn setBorder(self: *Core, value: bool) void {
     self.state_mu.lock();
     defer self.state_mu.unlock();
     self.current_border = value;
-    self.state_update.set(); // TODO: only set if changed from last
+    if (self.current_border != self.last_border) self.state_update.set();
 }
 
 // May be called from any thread.
@@ -754,7 +754,7 @@ pub fn setHeadless(self: *Core, value: bool) void {
     self.state_mu.lock();
     defer self.state_mu.unlock();
     self.current_headless = value;
-    self.state_update.set(); // TODO: only set if changed from last
+    if (self.current_headless != self.last_headless) self.state_update.set();
 }
 
 // May be called from any thread.
@@ -792,7 +792,7 @@ pub fn setSize(self: *Core, value: Size) void {
     self.state_mu.lock();
     defer self.state_mu.unlock();
     self.current_size = value;
-    self.state_update.set(); // TODO: only set if changed from last
+    if (self.current_size != self.last_size) self.state_update.set();
 }
 
 // May be called from any thread.
@@ -807,7 +807,7 @@ pub fn setSizeLimit(self: *Core, limit: SizeLimit) void {
     self.state_mu.lock();
     defer self.state_mu.unlock();
     self.current_size_limit = limit;
-    self.state_update.set(); // TODO: only set if changed from last
+    if (!self.current_size_limit.equal(self.last_size_limit)) self.state_update.set();
 }
 
 // May be called from any thread.
@@ -822,7 +822,7 @@ pub fn setCursorMode(self: *Core, mode: CursorMode) void {
     self.state_mu.lock();
     defer self.state_mu.unlock();
     self.current_cursor_mode = mode;
-    self.state_update.set();
+    if (self.current_cursor_mode != self.last_cursor_mode) self.state_update.set();
 }
 
 // May be called from any thread.
@@ -837,7 +837,7 @@ pub fn setCursorShape(self: *Core, shape: CursorShape) void {
     self.state_mu.lock();
     defer self.state_mu.unlock();
     self.current_cursor_shape = shape;
-    self.state_update.set();
+    if (self.current_cursor_shape != self.last_cursor_shape) self.state_update.set();
 }
 
 // May be called from any thread.
