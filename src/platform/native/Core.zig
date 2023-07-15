@@ -91,8 +91,6 @@ last_cursor_shape: CursorShape = .arrow,
 // Mutable fields protected by mutex.
 wait_timeout: f64 = 0.0,
 last_pos: glfw.Window.Pos,
-display_mode: DisplayMode,
-border: bool = true,
 
 const EventQueue = std.fifo.LinearFifo(Event, .Dynamic);
 
@@ -257,7 +255,6 @@ pub fn init(core: *Core, allocator: std.mem.Allocator, options: Options) !void {
         .current_size = undefined,
         .last_size = undefined,
         .last_pos = window.getPos(),
-        .display_mode = .windowed,
         .cursors = std.mem.zeroes([@typeInfo(CursorShape).Enum.fields.len]?glfw.Cursor),
         .cursors_tried = std.mem.zeroes([@typeInfo(CursorShape).Enum.fields.len]bool),
         .present_joysticks = std.StaticBitSet(@typeInfo(glfw.Joystick.Id).Enum.fields.len).initEmpty(),
@@ -529,9 +526,10 @@ pub fn update(self: *Core, app: anytype) !bool {
         // Display mode changes
         if (self.current_display_mode != self.last_display_mode) {
             const monitor_index = self.current_monitor_index;
+            const current_border = self.current_border;
             switch (self.current_display_mode) {
                 .windowed => {
-                    self.window.setAttrib(.decorated, self.border);
+                    self.window.setAttrib(.decorated, current_border);
                     self.window.setAttrib(.floating, false);
                     self.window.setMonitor(
                         null,
