@@ -109,7 +109,7 @@ const UserPtr = struct {
     self: *Core,
 };
 
-// TODO(core): expose device loss to users, this can happen especially in the web and on mobile
+// TODO(important): expose device loss to users, this can happen especially in the web and on mobile
 // devices. Users will need to re-upload all assets to the GPU in this event.
 fn deviceLostCallback(reason: gpu.Device.LostReason, msg: [*:0]const u8, userdata: ?*anyopaque) callconv(.C) void {
     _ = userdata;
@@ -234,7 +234,6 @@ pub fn init(core: *Core, allocator: std.mem.Allocator, options: Options) !void {
     var events = EventQueue.init(allocator);
     try events.ensureTotalCapacity(2048);
 
-    // TODO: order according to struct fields
     core.* = .{
         .allocator = allocator,
         .window = window,
@@ -453,7 +452,7 @@ fn initCallbacks(self: *Core) void {
 }
 
 fn pushEvent(self: *Core, event: Event) void {
-    // TODO(core): handle OOM via error flag
+    // TODO(oom): handle OOM via error flag
     self.events_mu.lock();
     defer self.events_mu.unlock();
     self.events.writeItem(event) catch unreachable;
@@ -500,7 +499,7 @@ pub fn appUpdateThread(self: *Core, app: anytype) void {
             });
         }
 
-        // TODO: pass error back via update() call
+        // TODO(important): pass error back via update() call
         if (app.update() catch unreachable) return;
         self.gpu_device.tick();
     }
@@ -541,7 +540,7 @@ pub fn update(self: *Core, app: anytype) !bool {
                     );
                 },
                 .fullscreen => {
-                    // TODO: restoration of original window size/position
+                    // TODO(feature): restoration of original window size/position
                     // if (self.last_display_mode == .windowed) {
                     //     self.last_size = self.window.getSize();
                     //     self.last_pos = self.window.getPos();
@@ -549,7 +548,7 @@ pub fn update(self: *Core, app: anytype) !bool {
 
                     const monitor = blk: {
                         if (monitor_index) |i| {
-                            // TODO(core): handle OOM via error flag
+                            // TODO(oom): handle OOM via error flag
                             const monitor_list = glfw.Monitor.getAll(self.allocator) catch unreachable;
                             defer self.allocator.free(monitor_list);
                             break :blk monitor_list[i];
@@ -564,7 +563,7 @@ pub fn update(self: *Core, app: anytype) !bool {
                     }
                 },
                 .borderless => {
-                    // TODO: restoration of original window size/position
+                    // TODO(feature): restoration of original window size/position
                     // if (self.last_display_mode == .windowed) {
                     //     self.last_size = self.window.getSize();
                     //     self.last_pos = self.window.getPos();
@@ -572,7 +571,7 @@ pub fn update(self: *Core, app: anytype) !bool {
 
                     const monitor = blk: {
                         if (monitor_index) |i| {
-                            // TODO(core): handle OOM via error flag
+                            // TODO(oom): handle OOM via error flag
                             const monitor_list = glfw.Monitor.getAll(self.allocator) catch unreachable;
                             defer self.allocator.free(monitor_list);
                             break :blk monitor_list[i];
@@ -635,7 +634,7 @@ pub fn update(self: *Core, app: anytype) !bool {
         // Cursor shape changes
         if (self.current_cursor_shape != self.last_cursor_shape) {
             self.last_cursor_shape = self.current_cursor_shape;
-            // TODO: creating a GLFW standard cursor could fail, we should provide custom backup
+            // TODO(feature): creating a GLFW standard cursor could fail, we should provide custom backup
             // images for these. https://github.com/hexops/mach/pull/352
             const enum_int = @intFromEnum(self.current_cursor_shape);
             const tried = self.cursors_tried[enum_int];
@@ -659,15 +658,14 @@ pub fn update(self: *Core, app: anytype) !bool {
                 self.window.setCursor(cur);
             } else {
                 glfw.getErrorCode() catch {}; // discard error
-                // TODO: creating a GLFW standard cursor could fail, we should provide custom backup
+                // TODO(feature): creating a GLFW standard cursor could fail, we should provide custom backup
                 // images for these. https://github.com/hexops/mach/pull/352
                 log.warn("mach: setCursorShape: {s} not yet supported\n", .{@tagName(self.current_cursor_shape)});
             }
         }
     }
 
-    // TODO: allow configurable wait period here
-    // TODO: instead of pushEvent locking/unlocking, consider grabbing mutex here?
+    // TODO(important): allow configurable wait period here
     glfw.waitEventsTimeout(1.0 / 240.0);
 
     glfw.getErrorCode() catch |err| switch (err) {
@@ -684,15 +682,14 @@ pub fn update(self: *Core, app: anytype) !bool {
 
 // May be called from any thread.
 pub inline fn pollEvents(self: *Core) EventIterator {
-    // TODO: block for wait_timeout
+    // TODO(feature): implement wait_timeout
     return EventIterator{ .events_mu = &self.events_mu, .queue = &self.events };
 }
 
 // May be called from any thread.
 pub fn setWaitTimeout(self: *Core, timeout: f64) void {
-    // TODO: thread-safety
-    // TODO: reimplement wait_timeout
-    self.wait_timeout = timeout;
+    // TODO(feature): implement wait_timeout
+    // self.wait_timeout = timeout;
 }
 
 // May be called from any thread.
