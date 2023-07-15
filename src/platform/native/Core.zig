@@ -67,8 +67,8 @@ swap_chain: *gpu.SwapChain,
 
 // Mutable state fields; read/write by any thread
 state_mu: std.Thread.Mutex = .{},
-current_title: []const u8,
-last_title: []const u8,
+current_title: [:0]const u8,
+current_title_changed: bool = false,
 current_display_mode: DisplayMode = .windowed,
 current_monitor_index: ?usize = null,
 last_display_mode: DisplayMode = .windowed,
@@ -250,7 +250,6 @@ pub fn init(core: *Core, allocator: std.mem.Allocator, options: Options) !void {
         .swap_chain_desc = swap_chain_desc,
         .events = events,
         .current_title = undefined,
-        .last_title = undefined,
         .current_border = undefined,
         .last_border = undefined,
         .current_headless = undefined,
@@ -264,9 +263,7 @@ pub fn init(core: *Core, allocator: std.mem.Allocator, options: Options) !void {
         .present_joysticks = std.StaticBitSet(@typeInfo(glfw.Joystick.Id).Enum.fields.len).initEmpty(),
     };
 
-    // TODO: lifetime/ownership guarantee
-    core.current_title = ""; // options.title
-    core.last_title = core.current_title;
+    core.current_title = options.title;
 
     core.current_display_mode = options.display_mode;
     core.last_display_mode = .windowed;
@@ -523,8 +520,11 @@ pub fn update(self: *Core, app: anytype) !bool {
     if (self.state_update.isSet()) {
         self.state_update.reset();
 
-        // TODO: title changes
-        // self.window.setTitle(title);
+        // Title changes
+        if (self.current_title_changed) {
+            self.current_title_changed = false;
+            self.window.setTitle(self.current_title);
+        }
 
         // Display mode changes
         if (self.current_display_mode != self.last_display_mode) {
@@ -670,7 +670,7 @@ pub fn update(self: *Core, app: anytype) !bool {
 
     // TODO: allow configurable wait period here
     // TODO: instead of pushEvent locking/unlocking, consider grabbing mutex here?
-    glfw.waitEventsTimeout(10);
+    glfw.waitEventsTimeout(1.0/240.0);
 
     glfw.getErrorCode() catch |err| switch (err) {
         error.PlatformError => log.err("glfw: failed to poll events", .{}),
@@ -711,14 +711,11 @@ pub fn setWaitTimeout(self: *Core, timeout: f64) void {
 
 // May be called from any thread.
 pub fn setTitle(self: *Core, title: [:0]const u8) void {
-    _ = self;
-    _ = title;
-
-    // TODO: lifetime management
-    // self.state_mu.lock();
-    // defer self.state_mu.unlock();
-    // self.current_title = title;
-    // self.state_update.set(); // TODO: only set if changed from last
+    self.state_mu.lock();
+    defer self.state_mu.unlock();
+    self.current_title = title;
+    self.current_title_changed = true;
+    self.state_update.set();
 }
 
 // May be called from any thread.

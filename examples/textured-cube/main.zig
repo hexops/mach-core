@@ -290,10 +290,10 @@ pub fn update(app: *App) !bool {
     back_buffer_view.release();
 
     const delta_time = app.fps_timer.lap();
+    // TODO: this is a terrible FPS calculation
     if (app.window_title_timer.read() >= 1.0) {
         app.window_title_timer.reset();
-        var buf: [32]u8 = undefined;
-        const title = try std.fmt.bufPrintZ(&buf, "Textured Cube [ FPS: {d} ]", .{@floor(1 / delta_time)});
+        const title = try std.fmt.bufPrintZ(&app.core.title, "Textured Cube [ FPS: {d} ]", .{@floor(1 / delta_time)});
         app.core.setTitle(title);
     }
 

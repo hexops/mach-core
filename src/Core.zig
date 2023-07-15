@@ -5,15 +5,18 @@ const platform = @import("platform.zig");
 
 pub const Core = @This();
 
+/// A buffer which you may use to write the window title to.
+title: [256:0]u8,
+
 internal: platform.Core,
 
+/// All memory will be copied or returned to the caller once init() finishes.
 pub const Options = struct {
     is_app: bool = false,
     headless: bool = false,
     display_mode: DisplayMode = .windowed,
     border: bool = true,
-    // TODO: better window title lifetime management
-    title: [*:0]const u8 = "Mach core",
+    title: [:0]const u8 = "Mach core",
     size: Size = .{ .width = 1920 / 2, .height = 1080 / 2 },
     power_preference: gpu.PowerPreference = .undefined,
     required_features: ?[]const gpu.FeatureName = null,
@@ -21,7 +24,15 @@ pub const Options = struct {
 };
 
 pub fn init(core: *Core, allocator: std.mem.Allocator, options: Options) !void {
-    try platform.Core.init(&core.internal, allocator, options);
+    // Copy window title into owned buffer.
+    var opt = options;
+    if (opt.title.len < core.title.len) {
+        std.mem.copy(u8, core.title[0..], opt.title);
+        core.title[opt.title.len] = 0;
+        opt.title = core.title[0..opt.title.len :0];
+    }
+
+    try platform.Core.init(&core.internal, allocator, opt);
 }
 
 pub fn deinit(core: *Core) void {
@@ -60,7 +71,13 @@ pub fn setWaitTimeout(core: *Core, timeout: f64) void {
     return core.internal.setWaitTimeout(timeout);
 }
 
-/// Set the window title
+/// Sets the window title. The string must be owned by Core, and will not be copied or freed. It is
+/// advised to use the Core.title buffer for this purpose, e.g.:
+/// 
+/// ```
+/// const title = try std.fmt.bufPrintZ(&core.title, "Hello, world!", .{});
+/// core.setTitle(title);
+/// ```
 pub fn setTitle(core: *Core, title: [:0]const u8) void {
     return core.internal.setTitle(title);
 }
