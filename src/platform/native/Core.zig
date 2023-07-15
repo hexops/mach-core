@@ -62,6 +62,7 @@ present_joysticks: std.StaticBitSet(@typeInfo(glfw.Joystick.Id).Enum.fields.len)
 swap_chain_update: std.Thread.ResetEvent = .{},
 state_update: std.Thread.ResetEvent = .{},
 done: std.Thread.ResetEvent = .{},
+oom: std.Thread.ResetEvent = .{},
 
 // Mutable fields; written by the App.update thread, read from any
 swap_chain_mu: std.Thread.RwLock = .{},
@@ -455,10 +456,9 @@ fn initCallbacks(self: *Core) void {
 }
 
 fn pushEvent(self: *Core, event: Event) void {
-    // TODO(oom): handle OOM via error flag
     self.events_mu.lock();
     defer self.events_mu.unlock();
-    self.events.writeItem(event) catch unreachable;
+    self.events.writeItem(event) catch self.oom.set();
 }
 
 // Called on the main thread
@@ -502,8 +502,6 @@ pub fn appUpdateThread(self: *Core, app: anytype) void {
             });
         }
 
-        // TODO(oom): handle OOM via error flag
-        // TODO(important): handle error somehow
         if (app.update() catch unreachable) {
             self.done.set();
             return;
@@ -555,8 +553,10 @@ pub fn update(self: *Core, app: anytype) !bool {
 
                     const monitor = blk: {
                         if (monitor_index) |i| {
-                            // TODO(oom): handle OOM via error flag
-                            const monitor_list = glfw.Monitor.getAll(self.allocator) catch unreachable;
+                            const monitor_list = glfw.Monitor.getAll(self.allocator) catch {
+                                self.oom.set();
+                                break :blk null;
+                            };
                             defer self.allocator.free(monitor_list);
                             break :blk monitor_list[i];
                         }
@@ -577,8 +577,10 @@ pub fn update(self: *Core, app: anytype) !bool {
 
                     const monitor = blk: {
                         if (monitor_index) |i| {
-                            // TODO(oom): handle OOM via error flag
-                            const monitor_list = glfw.Monitor.getAll(self.allocator) catch unreachable;
+                            const monitor_list = glfw.Monitor.getAll(self.allocator) catch {
+                                self.oom.set();
+                                break :blk null;
+                            };
                             defer self.allocator.free(monitor_list);
                             break :blk monitor_list[i];
                         }
@@ -672,7 +674,7 @@ pub fn update(self: *Core, app: anytype) !bool {
     }
 
     // TODO(important): allow configurable wait period here
-    glfw.waitEventsTimeout(1.0 / 240.0);
+    glfw.waitEventsTimeout(1.0 / 240.0); // 240hz
 
     glfw.getErrorCode() catch |err| switch (err) {
         error.PlatformError => log.err("glfw: failed to poll events", .{}),
@@ -936,6 +938,15 @@ pub fn descriptor(self: *Core) gpu.SwapChain.Descriptor {
     self.swap_chain_mu.lockShared();
     defer self.swap_chain_mu.unlockShared();
     return self.swap_chain_desc;
+}
+
+// May be called from any thread.
+pub fn outOfMemory(self: *Core) bool {
+    if (self.oom.isSet()) {
+        self.oom.reset();
+        return true;
+    }
+    return false;
 }
 
 fn toMachButton(button: glfw.mouse_button.MouseButton) MouseButton {

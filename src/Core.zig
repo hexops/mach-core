@@ -244,6 +244,17 @@ pub fn descriptor(core: *Core) gpu.SwapChain.Descriptor {
     return core.internal.descriptor();
 }
 
+/// Whether mach core has run out of memory. If true, freeing memory should restore it to a
+/// functional state.
+///
+/// Once called, future calls will return false until another OOM error occurs.
+///
+/// Note that if an App.update function returns any error, including errors.OutOfMemory, it will
+/// exit the application.
+pub fn outOfMemory(core: *Core) bool {
+    return core.internal.outOfMemory();
+}
+
 pub const Size = struct {
     width: u32,
     height: u32,

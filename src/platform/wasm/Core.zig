@@ -395,6 +395,11 @@ pub fn descriptor(self: *Core) gpu.SwapChain.Descriptor {
     };
 }
 
+pub fn outOfMemory(self: *Core) bool {
+    _ = self;
+    return false;
+}
+
 fn toMachButton(button: i32) MouseButton {
     return switch (button) {
         0 => .left,
