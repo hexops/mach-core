@@ -224,7 +224,7 @@ pub fn init(core: *Core, allocator: std.mem.Allocator, options: Options) !void {
         .format = .bgra8_unorm,
         .width = framebuffer_size.width,
         .height = framebuffer_size.height,
-        .present_mode = .fifo, // TODO: verify this is the present mode we want by default
+        .present_mode = .mailbox,
     };
     const swap_chain = gpu_device.createSwapChain(surface, &swap_chain_desc);
 
