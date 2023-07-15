@@ -106,16 +106,22 @@ pub fn createSurfaceForWindow(
             .hinstance = std.os.windows.kernel32.GetModuleHandleW(null).?,
             .hwnd = glfw_native.getWin32Window(window),
         },
-    } else if (glfw_options.x11) gpu.Surface.Descriptor.NextInChain{
-        .from_xlib_window = &.{
-            .display = glfw_native.getX11Display(),
-            .window = glfw_native.getX11Window(window),
-        },
-    } else if (glfw_options.wayland) gpu.Surface.Descriptor.NextInChain{
-        .from_wayland_surface = &.{
-            .display = glfw_native.getWaylandDisplay(),
-            .surface = glfw_native.getWaylandWindow(window),
-        },
+    } else if (glfw_options.x11 or glfw_options.wayland) blk: {
+        break :blk switch (glfw.getPlatform()) {
+            .wayland => gpu.Surface.Descriptor.NextInChain{
+                .from_wayland_surface = &.{
+                    .display = glfw_native.getWaylandDisplay(),
+                    .surface = glfw_native.getWaylandWindow(window),
+                },
+            },
+            .x11 => gpu.Surface.Descriptor.NextInChain{
+                .from_xlib_window = &.{
+                    .display = glfw_native.getX11Display(),
+                    .window = glfw_native.getX11Window(window),
+                },
+            },
+            else => unreachable,
+        };
     } else if (glfw_options.cocoa) blk: {
         const pool = try AutoReleasePool.init();
         defer AutoReleasePool.release(pool);
