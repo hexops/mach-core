@@ -668,7 +668,7 @@ pub fn update(self: *Core, app: anytype) !bool {
 
     // TODO: allow configurable wait period here
     // TODO: instead of pushEvent locking/unlocking, consider grabbing mutex here?
-    glfw.waitEventsTimeout(1.0/240.0);
+    glfw.waitEventsTimeout(1.0 / 240.0);
 
     glfw.getErrorCode() catch |err| switch (err) {
         error.PlatformError => log.err("glfw: failed to poll events", .{}),
@@ -686,18 +686,6 @@ pub fn update(self: *Core, app: anytype) !bool {
 pub inline fn pollEvents(self: *Core) EventIterator {
     // TODO: block for wait_timeout
     return EventIterator{ .events_mu = &self.events_mu, .queue = &self.events };
-}
-
-// TODO: one of descriptor() or framebufferSize() should go away.
-
-// May be called from any thread.
-// TODO: thread-safety
-pub fn framebufferSize(self: *Core) Size {
-    const framebuffer_size = self.window.getFramebufferSize();
-    return .{
-        .width = framebuffer_size.width,
-        .height = framebuffer_size.height,
-    };
 }
 
 // May be called from any thread.

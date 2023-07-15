@@ -218,13 +218,6 @@ pub inline fn pollEvents(self: *Core) EventIterator {
     };
 }
 
-pub fn framebufferSize(self: *Core) Size {
-    return .{
-        .width = js.machCanvasFramebufferWidth(self.id),
-        .height = js.machCanvasFramebufferHeight(self.id),
-    };
-}
-
 pub fn setWaitTimeout(_: *Core, timeout: f64) void {
     js.machSetWaitTimeout(timeout);
 }
@@ -233,8 +226,9 @@ pub fn setTitle(self: *Core, title: [:0]const u8) void {
     js.machCanvasSetTitle(self.id, title.ptr, title.len);
 }
 
-pub fn setDisplayMode(self: *Core, mode: DisplayMode, monitor: ?usize) void {
+pub fn setDisplayMode(self: *Core, _mode: DisplayMode, monitor: ?usize) void {
     _ = monitor;
+    var mode = _mode;
     if (mode == .borderless) {
         // borderless fullscreen window has no meaning in web
         mode = .fullscreen;
@@ -390,8 +384,15 @@ pub fn swapChain(_: *Core) *gpu.SwapChain {
     unreachable;
 }
 
-pub fn descriptor(_: *Core) gpu.SwapChain.Descriptor {
-    unreachable;
+pub fn descriptor(self: *Core) gpu.SwapChain.Descriptor {
+    return .{
+        .label = "main swap chain",
+        .usage = .{ .render_attachment = true },
+        .format = .bgra8_unorm, // TODO: is this correct?
+        .width = js.machCanvasFramebufferWidth(self.id),
+        .height = js.machCanvasFramebufferHeight(self.id),
+        .present_mode = .fifo, // TODO: https://github.com/gpuweb/gpuweb/issues/1224
+    };
 }
 
 fn toMachButton(button: i32) MouseButton {

@@ -17,7 +17,6 @@ comptime {
     assertHasDecl(@This().Core, "init");
     assertHasDecl(@This().Core, "deinit");
     assertHasDecl(@This().Core, "pollEvents");
-    assertHasDecl(@This().Core, "framebufferSize");
 
     assertHasDecl(@This().Core, "setWaitTimeout");
     assertHasDecl(@This().Core, "setTitle");
