@@ -3,6 +3,19 @@ on:
   - push
   - pull_request
 jobs:
+  wasm32-freestanding:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v2
+        with:
+          submodules: 'recursive'
+      - name: Setup Zig
+        run: |
+          sudo apt install xz-utils
+          sudo sh -c 'wget -c https://pkg.machengine.org/zig/zig-linux-x86_64-0.11.0-dev.3947+89396ff02.tar.xz -O - | tar -xJ --strip-components=1 -C /usr/local/bin'
+      - name: build
+        run: zig build -Dtarget=wasm32-freestanding
   x86_64-linux:
     runs-on: ubuntu-latest
     steps:
