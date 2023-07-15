@@ -43,13 +43,13 @@ pub fn init(app: *App) !void {
     const eye = vec3(5.0, 7.0, 5.0);
     const target = vec3(0.0, 0.0, 0.0);
 
-    const size = app.core.framebufferSize();
-    const aspect_ratio = @as(f32, @floatFromInt(size.width)) / @as(f32, @floatFromInt(size.height));
+    const framebuffer = app.core.descriptor();
+    const aspect_ratio = @as(f32, @floatFromInt(framebuffer.width)) / @as(f32, @floatFromInt(framebuffer.height));
 
     app.queue = app.core.device().getQueue();
     app.cube = Cube.init(&app.core);
     app.light = Light.init(&app.core);
-    app.depth = Texture.depth(app.core.device(), size.width, size.height);
+    app.depth = Texture.depth(app.core.device(), framebuffer.width, framebuffer.height);
     app.camera = Camera.init(app.core.device(), eye, target, vec3(0.0, 1.0, 0.0), aspect_ratio, 45.0, 0.1, 100.0);
     app.keys = 0;
 }
