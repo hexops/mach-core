@@ -51,11 +51,6 @@ pub inline fn pollEvents(core: *Core) EventIterator {
     return .{ .internal = core.internal.pollEvents() };
 }
 
-/// Returns the framebuffer size, in subpixel units.
-pub fn framebufferSize(core: *Core) Size {
-    return core.internal.framebufferSize();
-}
-
 /// Sets seconds to wait for an event with timeout when calling `Core.update()`
 /// again.
 ///
@@ -73,7 +68,7 @@ pub fn setWaitTimeout(core: *Core, timeout: f64) void {
 
 /// Sets the window title. The string must be owned by Core, and will not be copied or freed. It is
 /// advised to use the Core.title buffer for this purpose, e.g.:
-/// 
+///
 /// ```
 /// const title = try std.fmt.bufPrintZ(&core.title, "Hello, world!", .{});
 /// core.setTitle(title);
