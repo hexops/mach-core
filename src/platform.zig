@@ -60,6 +60,7 @@ comptime {
     assertHasDecl(@This().Core, "device");
     assertHasDecl(@This().Core, "swapChain");
     assertHasDecl(@This().Core, "descriptor");
+    assertHasDecl(@This().Core, "outOfMemory");
 
     // Timer
     assertHasDecl(@This().Timer, "start");
