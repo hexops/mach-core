@@ -10,7 +10,7 @@ pub fn start() !Timer {
 }
 
 pub fn read(timer: *Timer) u64 {
-    return (js.machPerfNow() - timer.initial) * std.time.ns_per_ms;
+    return @intFromFloat((js.machPerfNow() - timer.initial) * std.time.ns_per_ms);
 }
 
 pub fn reset(timer: *Timer) void {
