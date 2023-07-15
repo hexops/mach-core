@@ -256,15 +256,15 @@ pub fn update(app: *App) !bool {
         }
     }
 
+    if (!app.is_paused) {
+        app.updateUniformBuffers();
+    }
+
     const command = try app.buildCommandBuffer();
     app.queue.submit(&[_]*gpu.CommandBuffer{command});
     command.release();
     app.core.swapChain().present();
     app.core.swapChain().getCurrentTextureView().?.release();
-
-    if (!app.is_paused) {
-        app.updateUniformBuffers();
-    }
 
     return false;
 }
