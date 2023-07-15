@@ -69,10 +69,6 @@ pub fn build(
         .{ .name = "instanced-cube", .deps = &.{.zmath} },
         .{ .name = "advanced-gen-texture-light", .deps = &.{.zmath} },
         .{ .name = "fractal-cube", .deps = &.{.zmath} },
-        .{ .name = "textured-cube", .deps = &.{ .zmath, .zigimg, .assets } },
-        .{ .name = "sprite2d", .deps = &.{ .zmath, .zigimg, .assets } },
-        .{ .name = "image-blur", .deps = &.{ .zigimg, .assets } },
-        .{ .name = "cubemap", .deps = &.{ .zmath, .zigimg, .assets } },
         .{ .name = "map-async", .deps = &.{} },
         .{
             .name = "pbr-basic",
@@ -84,6 +80,10 @@ pub fn build(
             .deps = &.{ .zmath, .model3d, .assets },
             .std_platform_only = true,
         },
+        .{ .name = "textured-cube", .deps = &.{ .zmath, .zigimg, .assets } },
+        .{ .name = "sprite2d", .deps = &.{ .zmath, .zigimg, .assets } },
+        .{ .name = "image-blur", .deps = &.{ .zigimg, .assets } },
+        .{ .name = "cubemap", .deps = &.{ .zmath, .zigimg, .assets } },
     }) |example| {
         // FIXME: this is workaround for a problem that some examples
         // (having the std_platform_only=true field) as well as zigimg
