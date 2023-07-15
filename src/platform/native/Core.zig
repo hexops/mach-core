@@ -61,6 +61,7 @@ present_joysticks: std.StaticBitSet(@typeInfo(glfw.Joystick.Id).Enum.fields.len)
 // Signals to the App.update thread to do something
 swap_chain_update: std.Thread.ResetEvent = .{},
 state_update: std.Thread.ResetEvent = .{},
+done: std.Thread.ResetEvent = .{},
 
 // Mutable fields; written by the App.update thread, read from any
 swap_chain_mu: std.Thread.RwLock = .{},
@@ -501,14 +502,19 @@ pub fn appUpdateThread(self: *Core, app: anytype) void {
             });
         }
 
-        // TODO(important): pass error back via update() call
-        if (app.update() catch unreachable) return;
+        // TODO(oom): handle OOM via error flag
+        // TODO(important): handle error somehow
+        if (app.update() catch unreachable) {
+            self.done.set();
+            return;
+        }
         self.gpu_device.tick();
     }
 }
 
 // Called on the main thread
 pub fn update(self: *Core, app: anytype) !bool {
+    if (self.done.isSet()) return true;
     if (!self.app_update_thread_started) {
         self.app_update_thread_started = true;
         const thread = try std.Thread.spawn(.{}, appUpdateThread, .{ self, app });
