@@ -684,6 +684,7 @@ pub fn update(self: *Core, app: anytype) !bool {
 
     if (self.window.shouldClose()) {
         self.pushEvent(.close);
+        self.window.setShouldClose(false);
     }
     return false;
 }
