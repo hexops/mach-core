@@ -5,7 +5,6 @@ pub fn build(
     b: *std.Build,
     optimize: std.builtin.OptimizeMode,
     target: std.zig.CrossTarget,
-    options: core.Options,
 ) !void {
     try ensureDependencies(b.allocator);
 
@@ -96,7 +95,7 @@ pub fn build(
                 break;
 
         var deps = std.ArrayList(std.Build.ModuleDependency).init(b.allocator);
-        for (example.deps) |d| try deps.append(d.moduleDependency(b, target, optimize, options.gpu_dawn_options));
+        for (example.deps) |d| try deps.append(d.moduleDependency(b, target, optimize, .{}));
         const app = try core.App.init(
             b,
             .{
@@ -109,27 +108,21 @@ pub fn build(
             },
         );
 
-        try app.link(options);
         for (example.deps) |dep| switch (dep) {
-            .model3d => app.step.linkLibrary(b.dependency("mach_model3d", .{
+            .model3d => app.compile.linkLibrary(b.dependency("mach_model3d", .{
                 .target = target,
                 .optimize = optimize,
             }).artifact("mach-model3d")),
             else => {},
         };
-        app.install();
 
-        const compile_step = b.step(example.name, "Compile " ++ example.name);
-        compile_step.dependOn(&app.getInstallStep().?.step);
+        const install_step = b.step(example.name, "Install " ++ example.name);
+        install_step.dependOn(&app.install.step);
+        b.getInstallStep().dependOn(install_step);
 
-        const run_cmd = app.addRunArtifact();
-        run_cmd.step.dependOn(compile_step);
         const run_step = b.step("run-" ++ example.name, "Run " ++ example.name);
-        run_step.dependOn(&run_cmd.step);
+        run_step.dependOn(&app.run.step);
     }
-
-    const compile_all = b.step("compile-all", "Compile all examples and applications");
-    compile_all.dependOn(b.getInstallStep());
 }
 
 pub fn copyFile(src_path: []const u8, dst_path: []const u8) void {

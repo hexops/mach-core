@@ -20,12 +20,7 @@ pub fn build(b: *std.Build) !void {
         test_step.dependOn(&(try core.testStep(b, optimize, target)).step);
     }
 
-    const gpu_dawn_options = gpu_dawn.Options{
-        .from_source = b.option(bool, "dawn-from-source", "Build Dawn from source") orelse false,
-        .debug = b.option(bool, "dawn-debug", "Use a debug build of Dawn") orelse false,
-    };
-    const options = core.Options{ .gpu_dawn_options = gpu_dawn_options };
-    try @import("build_examples.zig").build(b, optimize, target, options);
+    try @import("build_examples.zig").build(b, optimize, target);
 }
 
 fn glfwLink(b: *std.Build, step: *std.build.CompileStep) void {
@@ -65,16 +60,6 @@ fn sdkPath(comptime suffix: []const u8) []const u8 {
 pub fn Sdk(comptime deps: anytype) type {
     return struct {
         pub const gpu_dawn = deps.gpu_dawn;
-
-        pub const Options = struct {
-            gpu_dawn_options: deps.gpu_dawn.Options = .{},
-
-            pub fn gpuOptions(options: Options) deps.gpu.Options {
-                return .{
-                    .gpu_dawn_options = options.gpu_dawn_options,
-                };
-            }
-        };
 
         var _module: ?*std.build.Module = null;
 
@@ -125,13 +110,13 @@ pub fn Sdk(comptime deps: anytype) type {
         pub const App = struct {
             b: *std.Build,
             name: []const u8,
-            step: *std.build.CompileStep,
+            compile: *std.build.Step.Compile,
+            install: *std.build.Step.InstallArtifact,
+            run: *std.build.Step.Run,
             platform: Platform,
             res_dirs: ?[]const []const u8,
             watch_paths: ?[]const []const u8,
             sysjs_dep: ?*std.Build.Dependency,
-
-            const web_install_dir = std.build.InstallDir{ .custom = "www" };
 
             pub const Platform = enum {
                 native,
@@ -154,6 +139,7 @@ pub fn Sdk(comptime deps: anytype) type {
                     deps: ?[]const std.build.ModuleDependency = null,
                     res_dirs: ?[]const []const u8 = null,
                     watch_paths: ?[]const []const u8 = null,
+                    gpu_dawn_options: deps.gpu_dawn.Options = .{},
                 },
             ) !App {
                 const target = (try std.zig.system.NativeTargetInfo.detect(options.target)).target;
@@ -173,8 +159,11 @@ pub fn Sdk(comptime deps: anytype) type {
                     .optimize = options.optimize,
                 }) else null;
 
-                const step = blk: {
+                const compile = blk: {
                     if (platform == .web) {
+                        // wasm libraries should go into zig-out/www/
+                        b.lib_dir = b.fmt("{s}/www", .{b.install_path});
+
                         const lib = b.addSharedLibrary(.{
                             .name = options.name,
                             .root_source_file = .{ .path = options.custom_entrypoint orelse sdkPath("/src/platform/wasm/entry.zig") },
@@ -183,6 +172,7 @@ pub fn Sdk(comptime deps: anytype) type {
                         });
                         lib.rdynamic = true;
                         lib.addModule("sysjs", sysjs_dep.?.module("mach-sysjs"));
+
                         break :blk lib;
                     } else {
                         const exe = b.addExecutable(.{
@@ -207,67 +197,53 @@ pub fn Sdk(comptime deps: anytype) type {
                     }
                 };
 
-                if (options.custom_entrypoint == null) step.main_pkg_path = sdkPath("/src");
-                step.addModule("core", module(b, options.optimize, options.target));
-                step.addModule("app", app_module);
+                if (options.custom_entrypoint == null) compile.main_pkg_path = sdkPath("/src");
+                compile.addModule("core", module(b, options.optimize, options.target));
+                compile.addModule("app", app_module);
 
+                // Installation step
+                b.installArtifact(compile);
+                const install = b.addInstallArtifact(compile);
+                if (options.res_dirs) |res_dirs| {
+                    for (res_dirs) |res| {
+                        const install_res = b.addInstallDirectory(.{
+                            .source_dir = .{ .path = res },
+                            .install_dir = install.dest_dir,
+                            .install_subdir = std.fs.path.basename(res),
+                            .exclude_extensions = &.{},
+                        });
+                        install.step.dependOn(&install_res.step);
+                    }
+                }
+                if (platform == .web) {
+                    inline for (.{ sdkPath("/src/platform/wasm/mach.js"), @import("mach_sysjs").getJSPath() }) |js| {
+                        const install_js = b.addInstallFileWithDir(
+                            .{ .path = js },
+                            std.build.InstallDir{ .custom = "www" },
+                            std.fs.path.basename(js),
+                        );
+                        install.step.dependOn(&install_js.step);
+                    }
+                }
+
+                // Link dependencies
+                if (platform != .web) {
+                    glfwLink(b, compile);
+                    deps.gpu.link(b, compile, .{ .gpu_dawn_options = options.gpu_dawn_options }) catch return error.FailedToLinkGPU;
+                }
+
+                const run = b.addRunArtifact(compile);
                 return .{
                     .b = b,
-                    .step = step,
+                    .compile = compile,
+                    .install = install,
+                    .run = run,
                     .name = options.name,
                     .platform = platform,
                     .res_dirs = options.res_dirs,
                     .watch_paths = options.watch_paths,
                     .sysjs_dep = sysjs_dep,
                 };
-            }
-
-            pub fn link(app: *const App, options: Options) !void {
-                if (app.platform != .web) {
-                    glfwLink(app.b, app.step);
-                    deps.gpu.link(app.b, app.step, options.gpuOptions()) catch return error.FailedToLinkGPU;
-                }
-            }
-
-            pub fn install(app: *const App) void {
-                app.b.installArtifact(app.step);
-
-                // Install additional files (mach.js and mach-sysjs.js)
-                // in case of wasm
-                if (app.platform == .web) {
-                    // Set install directory to '{prefix}/www'
-                    app.getInstallStep().?.dest_dir = web_install_dir;
-
-                    inline for (.{ sdkPath("/src/platform/wasm/mach.js"), @import("mach_sysjs").getJSPath() }) |js| {
-                        const install_js = app.b.addInstallFileWithDir(
-                            .{ .path = js },
-                            web_install_dir,
-                            std.fs.path.basename(js),
-                        );
-                        app.getInstallStep().?.step.dependOn(&install_js.step);
-                    }
-                }
-
-                // Install resources
-                if (app.res_dirs) |res_dirs| {
-                    for (res_dirs) |res| {
-                        const install_res = app.b.addInstallDirectory(.{
-                            .source_dir = .{ .path = res },
-                            .install_dir = app.getInstallStep().?.dest_dir,
-                            .install_subdir = std.fs.path.basename(res),
-                            .exclude_extensions = &.{},
-                        });
-                        app.getInstallStep().?.step.dependOn(&install_res.step);
-                    }
-                }
-            }
-
-            pub fn addRunArtifact(app: *const App) *std.build.RunStep {
-                return app.b.addRunArtifact(app.step);
-            }
-
-            pub fn getInstallStep(app: *const App) ?*std.build.InstallArtifactStep {
-                return app.b.addInstallArtifact(app.step);
             }
         };
     };
