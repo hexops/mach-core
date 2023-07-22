@@ -507,6 +507,7 @@ pub fn appUpdateThread(self: *Core, app: anytype) void {
             return;
         }
         self.gpu_device.tick();
+        self.gpu_device.machWaitForCommandsToBeScheduled();
     }
 }
 
