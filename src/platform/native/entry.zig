@@ -8,7 +8,7 @@ const App = @import("app").App;
 const core = @import("core");
 const gpu = core.gpu;
 
-pub const GPUInterface = gpu.dawn.Interface;
+pub const GPUInterface = if (@hasDecl(App, "GPUInterface")) App.GPUInterface else gpu.dawn.Interface;
 
 const app_std_options = if (@hasDecl(App, "std_options")) App.std_options else struct {};
 
