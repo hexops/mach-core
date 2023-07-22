@@ -17,6 +17,7 @@ var gpa = std.heap.GeneralPurposeAllocator(.{}){};
 core: mach.Core,
 timer: mach.Timer,
 fps_timer: mach.Timer,
+frame_count: usize,
 window_title_timer: mach.Timer,
 pipeline: *gpu.RenderPipeline,
 queue: *gpu.Queue,
@@ -167,6 +168,7 @@ pub fn init(app: *App) !void {
 
     app.timer = try mach.Timer.start();
     app.fps_timer = try mach.Timer.start();
+    app.frame_count = 0;
     app.window_title_timer = try mach.Timer.start();
     app.pipeline = pipeline;
     app.queue = queue;
@@ -289,12 +291,12 @@ pub fn update(app: *App) !bool {
     app.core.swapChain().present();
     back_buffer_view.release();
 
-    const delta_time = app.fps_timer.lap();
-    // TODO: this is a terrible FPS calculation
+    app.frame_count += 1;
     if (app.window_title_timer.read() >= 1.0) {
         app.window_title_timer.reset();
-        const title = try std.fmt.bufPrintZ(&app.core.title, "Textured Cube [ FPS: {d} ]", .{@floor(1 / delta_time)});
+        const title = try std.fmt.bufPrintZ(&app.core.title, "Textured Cube [ FPS: {d} ]", .{app.frame_count});
         app.core.setTitle(title);
+        app.frame_count = 0;
     }
 
     return false;
