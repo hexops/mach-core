@@ -679,6 +679,13 @@ pub fn update(self: *Core, app: anytype) !bool {
     // TODO(important): allow configurable wait period here
     glfw.waitEventsTimeout(1.0 / 240.0); // 240hz
 
+    if (@hasDecl(std.meta.Child(@TypeOf(app)), "updateMainThread")) {
+        if (app.updateMainThread() catch unreachable) {
+            self.done.set();
+            return true;
+        }
+    }
+
     glfw.getErrorCode() catch |err| switch (err) {
         error.PlatformError => log.err("glfw: failed to poll events", .{}),
         error.InvalidValue => unreachable,

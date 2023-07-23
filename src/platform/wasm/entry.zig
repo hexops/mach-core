@@ -39,7 +39,15 @@ export fn wasmInit() void {
 }
 
 export fn wasmUpdate() bool {
-    return app.update() catch unreachable;
+    if (app.update() catch unreachable) {
+        return true;
+    }
+    if (@hasDecl(std.meta.Child(@TypeOf(app)), "updateMainThread")) {
+        if (app.updateMainThread() catch unreachable) {
+            return true;
+        }
+    }
+    return false;
 }
 
 export fn wasmDeinit() void {

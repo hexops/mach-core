@@ -31,6 +31,12 @@ pub fn AppInterface(comptime app_entry: anytype) void {
         @compileError("App must export 'pub fn update(app: *App) !bool'");
     }
 
+    if (@hasDecl(App, "updateMainThread")) {
+        const UpdateMainThreadFn = @TypeOf(@field(App, "updateMainThread"));
+        if (UpdateMainThreadFn != fn (app: *App) @typeInfo(@typeInfo(UpdateMainThreadFn).Fn.return_type.?).ErrorUnion.error_set!bool)
+            @compileError("expected 'pub fn updateMainThread(app: *App) !bool' found '" ++ @typeName(UpdateMainThreadFn) ++ "'");
+    }
+
     if (@hasDecl(App, "deinit")) {
         const DeinitFn = @TypeOf(@field(App, "deinit"));
         if (DeinitFn != fn (app: *App) void)
