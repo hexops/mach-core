@@ -97,8 +97,6 @@ last_cursor_shape: CursorShape = .arrow,
 
 const EventQueue = std.fifo.LinearFifo(Event, .Dynamic);
 
-const _ = gpu.Export(@import("root").GPUInterface);
-
 pub const EventIterator = struct {
     events_mu: *std.Thread.RwLock,
     queue: *EventQueue,
@@ -125,6 +123,8 @@ fn deviceLostCallback(reason: gpu.Device.LostReason, msg: [*:0]const u8, userdat
 
 // Called on the main thread
 pub fn init(core: *Core, allocator: std.mem.Allocator, options: Options) !void {
+    _ = gpu.Export(@import("root").GPUInterface);
+
     const backend_type = try util.detectBackendType(allocator);
 
     glfw.setErrorCallback(errorCallback);
