@@ -3,6 +3,7 @@ pub const Timer = @import("Timer.zig");
 pub const gpu = @import("gpu");
 pub const sysjs = @import("sysjs");
 const builtin = @import("builtin");
+const std = @import("std");
 pub const platform_util = if (builtin.cpu.arch == .wasm32) {} else @import("platform/native/util.zig");
 
 pub fn AppInterface(comptime app_entry: anytype) void {
@@ -13,6 +14,20 @@ pub fn AppInterface(comptime app_entry: anytype) void {
     const App = app_entry.App;
     if (@typeInfo(App) != .Struct) {
         @compileError("App must be a struct type. Found:" ++ @typeName(App));
+    }
+
+    const core_field: ?type = blk: {
+        for (std.meta.fields(App)) |f| {
+            if (std.mem.eql(u8, f.name, "core")) break :blk f.type;
+        }
+        break :blk null;
+    };
+    if (core_field) |typ| {
+        if (typ != Core) {
+            @compileError("App.core field has wrong type, want: `core: mach.Core,`");
+        }
+    } else {
+        @compileError("App.core field missing, want: `core: mach.Core,`");
     }
 
     if (@hasDecl(App, "init")) {
