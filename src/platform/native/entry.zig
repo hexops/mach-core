@@ -3,30 +3,35 @@ comptime {
     if (!@import("builtin").is_test) @import("core").AppInterface(@import("app"));
 }
 
-const std = @import("std");
+// Forward "app" declarations into our namespace, such that @import("root").foo works as expected.
+pub usingnamespace @import("app");
 const App = @import("app").App;
+
+const std = @import("std");
 const core = @import("core");
 const gpu = core.gpu;
 
 pub const GPUInterface = if (@hasDecl(App, "GPUInterface")) App.GPUInterface else gpu.dawn.Interface;
 
-const app_std_options = if (@hasDecl(App, "std_options")) App.std_options else struct {};
-
-pub const std_options = struct {
-    pub const log_level = if (@hasDecl(app_std_options, "log_level"))
-        app_std_options.log_level
-    else
-        std.log.default_level;
-
-    pub const log_scope_levels = if (@hasDecl(App, "log_scope_levels"))
-        app_std_options.log_scope_levels
-    else
-        &[0]std.log.ScopeLevel{};
-};
+// For compatibility with the wasm platform. Allows one to define custom std_options without having
+// to deal with a platform-specific logFn:
+//
+// ```
+// pub const std_options = struct {
+//     pub const logFn = @import("root").machLogFn;
+// };
+// ```
+pub fn machLogFn(
+    comptime message_level: std.log.Level,
+    comptime scope: @Type(.EnumLiteral),
+    comptime format: []const u8,
+    args: anytype,
+) void {
+    std.log.defaultLog(message_level, scope, format, args);
+}
 
 pub fn main() !void {
     gpu.Impl.init();
-    _ = gpu.Export(GPUInterface);
 
     var app: App = undefined;
     try app.init();

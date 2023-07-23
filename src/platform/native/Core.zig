@@ -97,6 +97,8 @@ last_cursor_shape: CursorShape = .arrow,
 
 const EventQueue = std.fifo.LinearFifo(Event, .Dynamic);
 
+const _ = gpu.Export(@import("root").GPUInterface);
+
 pub const EventIterator = struct {
     events_mu: *std.Thread.RwLock,
     queue: *EventQueue,
