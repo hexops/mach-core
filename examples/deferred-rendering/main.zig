@@ -1113,7 +1113,7 @@ fn updateUI(app: *App, event: mach.Core.Event) void {
                 },
                 .comma => {
                     update_lights = true;
-                    app.settings.lights_count -= 25;
+                    if (app.settings.lights_count >= 25) app.settings.lights_count -= 25;
                 },
                 .period => {
                     update_lights = true;
