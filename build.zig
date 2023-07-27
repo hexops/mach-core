@@ -233,6 +233,7 @@ pub fn Sdk(comptime deps: anytype) type {
                 }
 
                 const run = b.addRunArtifact(compile);
+                run.step.dependOn(&install.step);
                 return .{
                     .b = b,
                     .compile = compile,
