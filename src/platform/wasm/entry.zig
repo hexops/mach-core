@@ -42,7 +42,7 @@ export fn wasmUpdate() bool {
     if (app.update() catch unreachable) {
         return true;
     }
-    if (@hasDecl(std.meta.Child(@TypeOf(app)), "updateMainThread")) {
+    if (@hasDecl(@TypeOf(app), "updateMainThread")) {
         if (app.updateMainThread() catch unreachable) {
             return true;
         }
