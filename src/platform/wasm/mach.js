@@ -141,7 +141,7 @@ const mach = {
   },
 
   machCanvasSetTitle(canvas, title, len) {
-    // TODO
+    // TODO(wasm)
   },
 
   machCanvasSetDisplayMode(canvas, mode) {
@@ -165,27 +165,27 @@ const mach = {
   },
 
   machCanvasSetBorder(canvas, value) {
-    // TODO
+    // TODO(wasm)
   },
 
   machCanvasBorder(canvas) {
-    // TODO
+    // TODO(wasm)
   },
 
   machCanvasSetHeadless(canvas, value) {
-    // TODO
+    // TODO(wasm)
   },
 
   machCanvasHeadless(canvas) {
-    // TODO
+    // TODO(wasm)
   },
 
   machCanvasSetVSync(canvas, mode) {
-    // TODO
+    // TODO(wasm)
   },
 
   machCanvasVSync(canvas) {
-    // TODO
+    // TODO(wasm)
   },
 
   machCanvasSetSize(canvas, width, height) {

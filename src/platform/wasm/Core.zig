@@ -272,7 +272,7 @@ pub fn setVSync(self: *Core, mode: VSyncMode) void {
     _ = mode;
 }
 
-// TODO: https://github.com/gpuweb/gpuweb/issues/1224
+// TODO(wasm): https://github.com/gpuweb/gpuweb/issues/1224
 pub fn vsync(self: *Core) VSyncMode {
     _ = self;
     return .double;
@@ -395,10 +395,10 @@ pub fn descriptor(self: *Core) gpu.SwapChain.Descriptor {
     return .{
         .label = "main swap chain",
         .usage = .{ .render_attachment = true },
-        .format = .bgra8_unorm, // TODO: is this correct?
+        .format = .bgra8_unorm, // TODO(wasm): is this correct?
         .width = js.machCanvasFramebufferWidth(self.id),
         .height = js.machCanvasFramebufferHeight(self.id),
-        .present_mode = .fifo, // TODO: https://github.com/gpuweb/gpuweb/issues/1224
+        .present_mode = .fifo, // TODO(wasm): https://github.com/gpuweb/gpuweb/issues/1224
     };
 }
 
