@@ -18,6 +18,7 @@ const Key = @import("../../Core.zig").Key;
 const KeyMods = @import("../../Core.zig").KeyMods;
 const Joystick = @import("../../Core.zig").Joystick;
 const InputState = @import("../../InputState.zig");
+const Frequency = @import("../../Frequency.zig");
 
 const log = std.log.scoped(.mach);
 
@@ -33,6 +34,8 @@ var core_instance: ?*Core = null;
 
 // Read-only fields
 allocator: std.mem.Allocator,
+frame: *Frequency,
+input: *Frequency,
 window: glfw.Window,
 backend_type: gpu.BackendType,
 user_ptr: UserPtr,
@@ -92,9 +95,6 @@ last_cursor_mode: CursorMode = .normal,
 current_cursor_shape: CursorShape = .arrow,
 last_cursor_shape: CursorShape = .arrow,
 
-// TODO(feature): iimplement wait_timeout
-// wait_timeout: f64 = 0.0,
-
 const EventQueue = std.fifo.LinearFifo(Event, .Dynamic);
 
 pub const EventIterator = struct {
@@ -122,7 +122,13 @@ fn deviceLostCallback(reason: gpu.Device.LostReason, msg: [*:0]const u8, userdat
 }
 
 // Called on the main thread
-pub fn init(core: *Core, allocator: std.mem.Allocator, options: Options) !void {
+pub fn init(
+    core: *Core,
+    allocator: std.mem.Allocator,
+    frame: *Frequency,
+    input: *Frequency,
+    options: Options,
+) !void {
     _ = gpu.Export(@import("root").GPUInterface);
 
     const backend_type = try util.detectBackendType(allocator);
@@ -241,6 +247,8 @@ pub fn init(core: *Core, allocator: std.mem.Allocator, options: Options) !void {
 
     core.* = .{
         .allocator = allocator,
+        .frame = frame,
+        .input = input,
         .window = window,
         .backend_type = backend_type,
         .user_ptr = undefined,
@@ -285,6 +293,8 @@ pub fn init(core: *Core, allocator: std.mem.Allocator, options: Options) !void {
     core.user_ptr = .{ .self = core };
 
     core.initCallbacks();
+
+    try core.input.start();
 
     if (builtin.os.tag == .linux and !options.is_app and
         core.linux_gamemode == null and try wantGamemode(core.allocator))
@@ -480,6 +490,7 @@ pub fn deinit(self: *Core) void {
 
 // Secondary app-update thread
 pub fn appUpdateThread(self: *Core, app: anytype) void {
+    self.frame.start() catch unreachable;
     while (true) {
         if (self.swap_chain_update.isSet()) blk: {
             self.swap_chain_update.reset();
@@ -510,6 +521,8 @@ pub fn appUpdateThread(self: *Core, app: anytype) void {
         }
         self.gpu_device.tick();
         self.gpu_device.machWaitForCommandsToBeScheduled();
+        self.frame.tick();
+        if (self.frame.delay_ns != 0) std.time.sleep(self.frame.delay_ns);
     }
 }
 
@@ -676,8 +689,8 @@ pub fn update(self: *Core, app: anytype) !bool {
         }
     }
 
-    // TODO(important): allow configurable wait period here
-    glfw.waitEventsTimeout(1.0 / 240.0); // 240hz
+    const frequency_delay = @as(f32, @floatFromInt(self.input.delay_ns)) / @as(f32, @floatFromInt(std.time.ns_per_s));
+    glfw.waitEventsTimeout(frequency_delay);
 
     if (@hasDecl(std.meta.Child(@TypeOf(app)), "updateMainThread")) {
         if (app.updateMainThread() catch unreachable) {
@@ -696,21 +709,13 @@ pub fn update(self: *Core, app: anytype) !bool {
         self.window.setShouldClose(false);
         self.pushEvent(.close);
     }
+    self.input.tick();
     return false;
 }
 
 // May be called from any thread.
 pub inline fn pollEvents(self: *Core) EventIterator {
-    // TODO(feature): implement wait_timeout
     return EventIterator{ .events_mu = &self.events_mu, .queue = &self.events };
-}
-
-// May be called from any thread.
-pub fn setWaitTimeout(self: *Core, timeout: f64) void {
-    _ = self;
-    _ = timeout;
-    // TODO(feature): implement wait_timeout
-    // self.wait_timeout = timeout;
 }
 
 // May be called from any thread.

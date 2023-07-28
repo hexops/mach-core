@@ -18,10 +18,13 @@ const Key = @import("../../Core.zig").Key;
 const KeyMods = @import("../../Core.zig").KeyMods;
 const Joystick = @import("../../Core.zig").Joystick;
 const InputState = @import("../../InputState.zig");
+const Frequency = @import("../../Frequency.zig");
 
 pub const Core = @This();
 
 allocator: std.mem.Allocator,
+frame: *Frequency,
+input: *Frequency,
 id: js.CanvasId,
 
 input_state: InputState,
@@ -195,13 +198,21 @@ const JoystickData = struct {
     const max_axis_count = 16;
 };
 
-pub fn init(core: *Core, allocator: std.mem.Allocator, options: Options) !void {
+pub fn init(
+    core: *Core,
+    allocator: std.mem.Allocator,
+    frame: *Frequency,
+    input: *Frequency,
+    options: Options,
+) !void {
     _ = options;
     var selector = [1]u8{0} ** 15;
     const id = js.machCanvasInit(&selector[0]);
 
     core.* = Core{
         .allocator = allocator,
+        .frame = frame,
+        .input = input,
         .id = id,
         .input_state = .{},
         .joysticks = std.mem.zeroes([JoystickData.max_joysticks]JoystickData),
@@ -216,10 +227,6 @@ pub inline fn pollEvents(self: *Core) EventIterator {
     return EventIterator{
         .core = self,
     };
-}
-
-pub fn setWaitTimeout(_: *Core, timeout: f64) void {
-    js.machSetWaitTimeout(timeout);
 }
 
 pub fn setTitle(self: *Core, title: [:0]const u8) void {

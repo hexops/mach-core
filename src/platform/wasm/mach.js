@@ -7,7 +7,6 @@ const mach = {
   observer: undefined,
   events: [],
   changes: [],
-  wait_timeout: 0,
   log_buf: "",
 
   init(wasm) {
@@ -370,10 +369,6 @@ const mach = {
     const count = Math.min(dest_len, axes.length);
     const dstbuf = new Float32Array(mach.wasm.exports.memory.buffer, dest, count);
     dstbuf.set(axes);
-  },
-
-  machSetWaitTimeout(timeout) {
-    mach.wait_timeout = timeout;
   },
 
   machHasEvent() {

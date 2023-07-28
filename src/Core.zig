@@ -2,12 +2,15 @@ const builtin = @import("builtin");
 const std = @import("std");
 const gpu = @import("gpu");
 const platform = @import("platform.zig");
+const Frequency = @import("Frequency.zig");
 
 pub const Core = @This();
 
 /// A buffer which you may use to write the window title to.
 title: [256:0]u8,
 
+frame: Frequency,
+input: Frequency,
 internal: platform.Core,
 
 /// All memory will be copied or returned to the caller once init() finishes.
@@ -32,7 +35,16 @@ pub fn init(core: *Core, allocator: std.mem.Allocator, options: Options) !void {
         opt.title = core.title[0..opt.title.len :0];
     }
 
-    try platform.Core.init(&core.internal, allocator, opt);
+    core.frame = .{ .target = 0 };
+    core.input = .{ .target = 1 };
+
+    try platform.Core.init(
+        &core.internal,
+        allocator,
+        &core.frame,
+        &core.input,
+        opt,
+    );
 }
 
 pub fn deinit(core: *Core) void {
@@ -49,21 +61,6 @@ pub const EventIterator = struct {
 
 pub inline fn pollEvents(core: *Core) EventIterator {
     return .{ .internal = core.internal.pollEvents() };
-}
-
-/// Sets seconds to wait for an event with timeout when calling `Core.update()`
-/// again.
-///
-/// timeout is in seconds (<= `0.0` disables waiting)
-/// - pass `std.math.inf(f64)` to wait with no timeout
-///
-/// `Core.update()` will return earlier than timeout if an event happens (key press,
-/// mouse motion, etc.)
-///
-/// `Core.update()` can return a bit later than timeout due to timer precision and
-/// process scheduling.
-pub fn setWaitTimeout(core: *Core, timeout: f64) void {
-    return core.internal.setWaitTimeout(timeout);
 }
 
 /// Sets the window title. The string must be owned by Core, and will not be copied or freed. It is
@@ -125,14 +122,26 @@ pub const VSyncMode = enum {
     triple,
 };
 
-/// Set monitor synchronization mode.
+/// Set refresh rate synchronization mode. Default `.triple`
 pub fn setVSync(core: *Core, mode: VSyncMode) void {
     return core.internal.setVSync(mode);
 }
 
-/// Returns monitor synchronization mode.
+/// Returns refresh rate synchronization mode.
 pub fn vsync(core: *Core) VSyncMode {
     return core.internal.vsync();
+}
+
+/// Sets the frame rate limit. Default 0 (unlimited)
+/// 
+/// This is applied *in addition* to the vsync mode.
+pub fn setFrameRateLimit(core: *Core, limit: u32) void {
+    core.frame.target = limit;
+}
+
+/// Returns the frame rate limit, or zero if unlimited.
+pub fn frameRateLimit(core: *Core) u32 {
+    return core.frame.target;
 }
 
 /// Set the window size, in subpixel units.
@@ -253,6 +262,67 @@ pub fn descriptor(core: *Core) gpu.SwapChain.Descriptor {
 /// exit the application.
 pub fn outOfMemory(core: *Core) bool {
     return core.internal.outOfMemory();
+}
+
+/// Sets the minimum target frequency of the input handling thread.
+/// 
+/// Input handling (the main thread) runs at a variable frequency. The thread blocks until there are
+/// input events available, or until it needs to unblock in order to achieve the minimum target
+/// frequency which is your collaboration point of opportunity with the main thread.
+/// 
+/// For example, by default (`setInputFrequency(1)`) mach-core will aim to invoke `updateMainThread`
+/// at least once per second (but potentially much more, e.g. once per every mouse movement or
+/// keyboard button press.) If you were to increase the input frequency to say 60hz e.g.
+/// `setInputFrequency(60)` then mach-core will aim to invoke your `updateMainThread` 60 times per
+/// second.
+/// 
+/// An input frequency of zero implies unlimited, in which case the main thread will busy-wait.
+/// 
+/// # Multithreaded mach-core behavior
+/// 
+/// On some platforms, mach-core is able to handle input and rendering independently for
+/// improved performance and responsiveness.
+/// 
+/// | Platform | Threading       |
+/// |----------|-----------------|
+/// | Desktop  | Multi threaded  |
+/// | Browser  | Single threaded |
+/// | Mobile   | TBD             |
+/// 
+/// On single-threaded platforms, `update` and the (optional) `updateMainThread` callback are
+/// invoked in sequence, one after the other, on the same thread.
+/// 
+/// On multi-threaded platforms, `init` and `deinit` are called on the main thread, while `update`
+/// is called on a separate rendering thread. The (optional) `updateMainThread` callback can be
+/// used in cases where you must run a function on the main OS thread (such as to open a native
+/// file dialog on macOS, since many system GUI APIs must be run on the main OS thread.) It is
+/// advised you do not use this callback to run any code except when absolutely neccessary, as
+/// it is in direct contention with input handling.
+/// 
+/// It is illegal to use the `core.device()` or `core.swapchain()` from the main thread, and all
+/// other APIs are internally synchronized with a mutex for you.
+pub fn setInputFrequency(core: *Core, input_frequency: u32) void {
+    core.input.target = input_frequency;
+}
+
+/// Returns the input frequency, or zero if unlimited (busy-waiting mode)
+pub fn inputFrequency(core: *Core) u32 {
+    return core.input.target;
+}
+
+/// Returns the actual number of frames rendered (`update` calls that returned) in the last second.
+/// 
+/// This is updated once per second.
+pub fn frameRate(core: *Core) u32 {
+    return core.frame.rate;
+}
+
+/// Returns the actual number of input thread iterations in the last second. See setInputFrequency
+/// for what this means.
+/// 
+/// This is updated once per second.
+pub fn inputRate(core: *Core) u32 {
+    return core.input.rate;
 }
 
 pub const Size = struct {

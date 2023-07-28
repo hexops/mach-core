@@ -17,8 +17,6 @@ var gpa = std.heap.GeneralPurposeAllocator(.{}){};
 core: mach.Core,
 timer: mach.Timer,
 fps_timer: mach.Timer,
-frame_count: usize,
-window_title_timer: mach.Timer,
 pipeline: *gpu.RenderPipeline,
 queue: *gpu.Queue,
 vertex_buffer: *gpu.Buffer,
@@ -168,8 +166,6 @@ pub fn init(app: *App) !void {
 
     app.timer = try mach.Timer.start();
     app.fps_timer = try mach.Timer.start();
-    app.frame_count = 0;
-    app.window_title_timer = try mach.Timer.start();
     app.pipeline = pipeline;
     app.queue = queue;
     app.vertex_buffer = vertex_buffer;
@@ -291,13 +287,13 @@ pub fn update(app: *App) !bool {
     app.core.swapChain().present();
     back_buffer_view.release();
 
-    app.frame_count += 1;
-    if (app.window_title_timer.read() >= 1.0) {
-        app.window_title_timer.reset();
-        const title = try std.fmt.bufPrintZ(&app.core.title, "Textured Cube [ FPS: {d} ]", .{app.frame_count});
-        app.core.setTitle(title);
-        app.frame_count = 0;
-    }
+    // TODO: add an easier way to get these dynamic variables into window title without footguns
+    // See https://github.com/hexops/mach/issues/461
+    const title = try std.fmt.bufPrintZ(&app.core.title, "Textured cube [ {d}fps ] [ Input {d}hz ]", .{
+        app.core.frameRate(),
+        app.core.inputRate(),
+    });
+    app.core.setTitle(title);
 
     return false;
 }

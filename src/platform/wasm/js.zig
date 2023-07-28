@@ -35,7 +35,6 @@ pub extern "mach" fn machJoystickAxes(idx: u8, dest: [*]f32, dest_len: usize) vo
 
 pub extern "mach" fn machShouldClose() bool;
 pub extern "mach" fn machHasEvent() bool;
-pub extern "mach" fn machSetWaitTimeout(timeout: f64) void;
 pub extern "mach" fn machEventShift() i32;
 pub extern "mach" fn machEventShiftFloat() f64;
 pub extern "mach" fn machChangeShift() u32;
