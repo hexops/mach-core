@@ -145,6 +145,9 @@ is_paused: bool,
 pub fn init(app: *App) !void {
     try app.core.init(gpa.allocator(), .{});
 
+    // This example has some frame-rate-dependent animation, so restrict frame rate to 60hz.
+    app.core.setFrameRateLimit(60);
+
     app.timer = try mach.Timer.start();
 
     app.queue = app.core.device().getQueue();
