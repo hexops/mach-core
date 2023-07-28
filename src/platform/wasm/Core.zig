@@ -217,10 +217,17 @@ pub fn init(
         .input_state = .{},
         .joysticks = std.mem.zeroes([JoystickData.max_joysticks]JoystickData),
     };
+    try core.frame.start();
+    try core.input.start();
 }
 
 pub fn deinit(self: *Core) void {
     js.machCanvasDeinit(self.id);
+}
+
+pub inline fn update(self: *Core) void {
+    self.frame.tick();
+    self.input.tick();
 }
 
 pub inline fn pollEvents(self: *Core) EventIterator {

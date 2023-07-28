@@ -47,6 +47,7 @@ export fn wasmUpdate() bool {
             return true;
         }
     }
+    app.core.internal.update();
     return false;
 }
 
