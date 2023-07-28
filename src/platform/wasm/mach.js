@@ -45,7 +45,7 @@ const mach = {
   },
 
   machLogFlush() {
-    console.log(log_buf);
+    console.log(mach.log_buf);
     mach.log_buf = "";
   },
 
