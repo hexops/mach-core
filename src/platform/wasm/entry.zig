@@ -35,15 +35,15 @@ pub usingnamespace if (@hasDecl(App, "std_options")) struct {} else struct {
 
 var app: App = undefined;
 export fn wasmInit() void {
-    app.init() catch unreachable;
+    app.init() catch |err| @panic(@errorName(err));
 }
 
 export fn wasmUpdate() bool {
-    if (app.update() catch unreachable) {
+    if (app.update() catch |err| @panic(@errorName(err))) {
         return true;
     }
     if (@hasDecl(@TypeOf(app), "updateMainThread")) {
-        if (app.updateMainThread() catch unreachable) {
+        if (app.updateMainThread() catch |err| @panic(@errorName(err))) {
             return true;
         }
     }
