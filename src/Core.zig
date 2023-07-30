@@ -133,7 +133,7 @@ pub fn vsync(core: *Core) VSyncMode {
 }
 
 /// Sets the frame rate limit. Default 0 (unlimited)
-/// 
+///
 /// This is applied *in addition* to the vsync mode.
 pub fn setFrameRateLimit(core: *Core, limit: u32) void {
     core.frame.target = limit;
@@ -267,40 +267,40 @@ pub fn outOfMemory(core: *Core) bool {
 }
 
 /// Sets the minimum target frequency of the input handling thread.
-/// 
+///
 /// Input handling (the main thread) runs at a variable frequency. The thread blocks until there are
 /// input events available, or until it needs to unblock in order to achieve the minimum target
 /// frequency which is your collaboration point of opportunity with the main thread.
-/// 
+///
 /// For example, by default (`setInputFrequency(1)`) mach-core will aim to invoke `updateMainThread`
 /// at least once per second (but potentially much more, e.g. once per every mouse movement or
 /// keyboard button press.) If you were to increase the input frequency to say 60hz e.g.
 /// `setInputFrequency(60)` then mach-core will aim to invoke your `updateMainThread` 60 times per
 /// second.
-/// 
+///
 /// An input frequency of zero implies unlimited, in which case the main thread will busy-wait.
-/// 
+///
 /// # Multithreaded mach-core behavior
-/// 
+///
 /// On some platforms, mach-core is able to handle input and rendering independently for
 /// improved performance and responsiveness.
-/// 
+///
 /// | Platform | Threading       |
 /// |----------|-----------------|
 /// | Desktop  | Multi threaded  |
 /// | Browser  | Single threaded |
 /// | Mobile   | TBD             |
-/// 
+///
 /// On single-threaded platforms, `update` and the (optional) `updateMainThread` callback are
 /// invoked in sequence, one after the other, on the same thread.
-/// 
+///
 /// On multi-threaded platforms, `init` and `deinit` are called on the main thread, while `update`
 /// is called on a separate rendering thread. The (optional) `updateMainThread` callback can be
 /// used in cases where you must run a function on the main OS thread (such as to open a native
 /// file dialog on macOS, since many system GUI APIs must be run on the main OS thread.) It is
 /// advised you do not use this callback to run any code except when absolutely neccessary, as
 /// it is in direct contention with input handling.
-/// 
+///
 /// It is illegal to use the `core.device()` or `core.swapchain()` from the main thread, and all
 /// other APIs are internally synchronized with a mutex for you.
 pub fn setInputFrequency(core: *Core, input_frequency: u32) void {
@@ -313,7 +313,7 @@ pub fn inputFrequency(core: *Core) u32 {
 }
 
 /// Returns the actual number of frames rendered (`update` calls that returned) in the last second.
-/// 
+///
 /// This is updated once per second.
 pub fn frameRate(core: *Core) u32 {
     return core.frame.rate;
@@ -321,7 +321,7 @@ pub fn frameRate(core: *Core) u32 {
 
 /// Returns the actual number of input thread iterations in the last second. See setInputFrequency
 /// for what this means.
-/// 
+///
 /// This is updated once per second.
 pub fn inputRate(core: *Core) u32 {
     return core.input.rate;
@@ -330,13 +330,17 @@ pub fn inputRate(core: *Core) u32 {
 pub const Size = struct {
     width: u32,
     height: u32,
+
+    pub inline fn eql(a: Size, b: Size) bool {
+        return a.width == b.width and a.height == b.height;
+    }
 };
 
 pub const SizeOptional = struct {
     width: ?u32 = null,
     height: ?u32 = null,
 
-    pub inline fn equals(a: SizeOptional, b: SizeOptional) bool {
+    pub inline fn eql(a: SizeOptional, b: SizeOptional) bool {
         if ((a.width != null) != (b.width != null)) return false;
         if ((a.height != null) != (b.height != null)) return false;
 
@@ -350,8 +354,8 @@ pub const SizeLimit = struct {
     min: SizeOptional,
     max: SizeOptional,
 
-    pub inline fn equals(a: SizeLimit, b: SizeLimit) bool {
-        return a.min.equals(b.min) and a.max.equals(b.max);
+    pub inline fn eql(a: SizeLimit, b: SizeLimit) bool {
+        return a.min.eql(b.min) and a.max.eql(b.max);
     }
 };
 

@@ -637,7 +637,7 @@ pub fn update(self: *Core, app: anytype) !bool {
         }
 
         // Size limit changes
-        if (!self.current_size_limit.equals(self.last_size_limit)) {
+        if (!self.current_size_limit.eql(self.last_size_limit)) {
             self.last_size_limit = self.current_size_limit;
             self.window.setSizeLimits(
                 .{ .width = self.current_size_limit.min.width, .height = self.current_size_limit.min.height },
@@ -801,7 +801,7 @@ pub fn setSize(self: *Core, value: Size) void {
     self.state_mu.lock();
     defer self.state_mu.unlock();
     self.current_size = value;
-    if (self.current_size != self.last_size) self.state_update.set();
+    if (!self.current_size.eql(self.last_size)) self.state_update.set();
 }
 
 // May be called from any thread.
