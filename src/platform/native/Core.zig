@@ -666,6 +666,9 @@ pub fn update(self: *Core, app: anytype) !bool {
                 .hidden => .hidden,
                 .disabled => .disabled,
             });
+            // on e.g. macOS raw mouse motion is not supported. If an error occurs here, there is
+            // nothing meaningful we can do anyway so just silence the warning.
+            glfw.getErrorCode() catch {};
         }
 
         // Cursor shape changes
@@ -1141,6 +1144,7 @@ fn toMachMods(mods: glfw.Mods) KeyMods {
 /// Doing anything else here would result in a good chance of applications not working on Wayland,
 /// so the best thing to do really is to just log the error. See the mach-glfw README for more info.
 fn errorCallback(error_code: glfw.ErrorCode, description: [:0]const u8) void {
+    if (std.mem.eql(u8, description, "Raw mouse motion is not supported on this system")) return;
     log.err("glfw: {}: {s}\n", .{ error_code, description });
 }
 
