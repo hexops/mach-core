@@ -70,7 +70,7 @@ pub fn init(app: *App) !void {
     const allocator = gpa.allocator();
     try app.core.init(allocator, .{});
 
-    const sprites_file = try std.fs.cwd().openFile("examples/sprite2d/sprites.json", .{ .mode = .read_only });
+    const sprites_file = try std.fs.cwd().openFile("../../examples/sprite2d/sprites.json", .{ .mode = .read_only });
     defer sprites_file.close();
     const file_size = (try sprites_file.stat()).size;
     var buffer = try allocator.alloc(u8, file_size);
