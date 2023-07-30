@@ -973,6 +973,12 @@ pub fn outOfMemory(self: *Core) bool {
     return false;
 }
 
+// May be called from any thread.
+pub fn wakeMainThread(self: *Core) void {
+    _ = self;
+    glfw.postEmptyEvent();
+}
+
 fn toMachButton(button: glfw.mouse_button.MouseButton) MouseButton {
     return switch (button) {
         .left => .left,

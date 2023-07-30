@@ -414,6 +414,10 @@ pub fn outOfMemory(self: *Core) bool {
     return false;
 }
 
+pub fn wakeMainThread(self: *Core) void {
+    _ = self;
+}
+
 fn toMachButton(button: i32) MouseButton {
     return switch (button) {
         0 => .left,

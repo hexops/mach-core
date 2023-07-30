@@ -266,6 +266,18 @@ pub fn outOfMemory(core: *Core) bool {
     return core.internal.outOfMemory();
 }
 
+/// Asks to wake the main thread. This e.g. allows your `pub fn update` to ask that the main thread
+/// transition away from waiting for input, and execute another cycle which involves calling the
+/// optional `updateMainThread` callback.
+///
+/// For example, instead of increasing the input thread target frequency, you may just call this
+/// function to wake the main thread when your `updateMainThread` callback needs to be ran.
+///
+/// May be called from any thread.
+pub fn wakeMainThread(core: *Core) void {
+    core.internal.wakeMainThread();
+}
+
 /// Sets the minimum target frequency of the input handling thread.
 ///
 /// Input handling (the main thread) runs at a variable frequency. The thread blocks until there are
