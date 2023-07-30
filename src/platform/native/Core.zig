@@ -437,6 +437,15 @@ fn initCallbacks(self: *Core) void {
     }.callback;
     glfw.Joystick.setCallback(joystick_callback);
 
+    const close_callback = struct {
+        fn callback(window: glfw.Window) void {
+            window.setShouldClose(false);
+            const pf = (window.getUserPointer(UserPtr) orelse unreachable).self;
+            pf.pushEvent(.close);
+        }
+    }.callback;
+    self.window.setCloseCallback(close_callback);
+
     const focus_callback = struct {
         fn callback(window: glfw.Window, focused: bool) void {
             const pf = (window.getUserPointer(UserPtr) orelse unreachable).self;
@@ -517,6 +526,10 @@ pub fn appUpdateThread(self: *Core, app: anytype) void {
 
         if (app.update() catch unreachable) {
             self.done.set();
+
+            // Wake the main thread from any event handling, so there is not e.g. a one second delay
+            // in exiting the application.
+            glfw.postEmptyEvent();
             return;
         }
         self.gpu_device.tick();
@@ -704,11 +717,6 @@ pub fn update(self: *Core, app: anytype) !bool {
         error.InvalidValue => unreachable,
         else => unreachable,
     };
-
-    if (self.window.shouldClose()) {
-        self.window.setShouldClose(false);
-        self.pushEvent(.close);
-    }
     self.input.tick();
     return false;
 }
