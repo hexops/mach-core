@@ -359,3 +359,10 @@ const xcode_frameworks = struct {
         };
     }
 };
+
+comptime {
+    const min_zig = std.SemanticVersion.parse("0.11.0-dev.3947+89396ff02") catch unreachable;
+    if (builtin.zig_version.order(min_zig) == .lt) {
+        @compileError(std.fmt.comptimePrint("Your Zig version v{} does not meet the minimum build requirement of v{}", .{ builtin.zig_version, min_zig }));
+    }
+}
