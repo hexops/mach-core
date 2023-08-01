@@ -231,8 +231,11 @@ pub fn update(app: *App) !bool {
                 app.screen_dimensions.width = ev.width;
                 app.screen_dimensions.height = ev.height;
 
-                app.gbuffer.texture_2d_float16.release();
-                app.gbuffer.texture_albedo.release();
+                // TODO: we use destroy() here instead of release() because our reference counting
+                // is wrong somewhere else.
+                app.gbuffer.texture_2d_float16.destroy();
+                app.gbuffer.texture_albedo.destroy();
+                app.gbuffer.texture_depth.destroy();
                 app.gbuffer.texture_views[0].release();
                 app.gbuffer.texture_views[1].release();
                 app.gbuffer.texture_views[2].release();
