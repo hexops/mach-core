@@ -168,9 +168,9 @@ pub fn update(app: *App) !bool {
         const model1 = zm.mul(rotation1, zm.translation(-2, 0, 0));
         const model2 = zm.mul(rotation2, zm.translation(2, 0, 0));
         const view = zm.lookAtRh(
-            zm.f32x4(0, -4, 2, 1),
-            zm.f32x4(0, 0, 0, 1),
-            zm.f32x4(0, 0, 1, 0),
+            zm.Vec{ 0, -4, 2, 1 },
+            zm.Vec{ 0, 0, 0, 1 },
+            zm.Vec{ 0, 0, 1, 0 },
         );
         const proj = zm.perspectiveFovRh(
             (2.0 * std.math.pi / 5.0),

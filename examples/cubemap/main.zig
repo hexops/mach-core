@@ -329,9 +329,9 @@ pub fn update(app: *App) !bool {
         const view = zm.mul(
             zm.mul(
                 zm.lookAtRh(
-                    zm.f32x4(0, 0, 0, 1),
-                    zm.f32x4(1, 0, 0, 1),
-                    zm.f32x4(0, 0, 1, 0),
+                    zm.Vec{ 0, 0, 0, 1 },
+                    zm.Vec{ 1, 0, 0, 1 },
+                    zm.Vec{ 0, 0, 1, 0 },
                 ),
                 zm.rotationY(time * 0.2),
             ),

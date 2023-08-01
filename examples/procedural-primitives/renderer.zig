@@ -1,7 +1,7 @@
 const std = @import("std");
 const mach = @import("core");
 const gpu = mach.gpu;
-const zmath = @import("zmath");
+const zm = @import("zmath");
 const primitives = @import("procedural-primitives.zig");
 const Primitive = primitives.Primitive;
 const VertexData = primitives.VertexData;
@@ -22,7 +22,7 @@ const PrimitiveRenderData = struct {
 };
 
 const UniformBufferObject = struct {
-    mvp_matrix: zmath.Mat,
+    mvp_matrix: zm.Mat,
 };
 var uniform_buffer: *gpu.Buffer = undefined;
 var bind_group: *gpu.BindGroup = undefined;
@@ -254,28 +254,28 @@ pub fn update(core: *mach.Core) void {
 
     if (curr_primitive_index >= 4) {
         const time = app_timer.read() / 5;
-        const model = zmath.mul(zmath.rotationX(time * (std.math.pi / 2.0)), zmath.rotationZ(time * (std.math.pi / 2.0)));
-        const view = zmath.lookAtRh(
-            zmath.f32x4(0, 4, 2, 1),
-            zmath.f32x4(0, 0, 0, 1),
-            zmath.f32x4(0, 0, 1, 0),
+        const model = zm.mul(zm.rotationX(time * (std.math.pi / 2.0)), zm.rotationZ(time * (std.math.pi / 2.0)));
+        const view = zm.lookAtRh(
+            zm.Vec{ 0, 4, 2, 1 },
+            zm.Vec{ 0, 0, 0, 1 },
+            zm.Vec{ 0, 0, 1, 0 },
         );
-        const proj = zmath.perspectiveFovRh(
+        const proj = zm.perspectiveFovRh(
             (std.math.pi / 4.0),
             @as(f32, @floatFromInt(core.descriptor().width)) / @as(f32, @floatFromInt(core.descriptor().height)),
             0.1,
             10,
         );
 
-        const mvp = zmath.mul(zmath.mul(model, view), proj);
+        const mvp = zm.mul(zm.mul(model, view), proj);
 
         const ubo = UniformBufferObject{
-            .mvp_matrix = zmath.transpose(mvp),
+            .mvp_matrix = zm.transpose(mvp),
         };
         encoder.writeBuffer(uniform_buffer, 0, &[_]UniformBufferObject{ubo});
     } else {
         const ubo = UniformBufferObject{
-            .mvp_matrix = zmath.identity(),
+            .mvp_matrix = zm.identity(),
         };
         encoder.writeBuffer(uniform_buffer, 0, &[_]UniformBufferObject{ubo});
     }

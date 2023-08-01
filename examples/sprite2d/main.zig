@@ -304,9 +304,9 @@ fn render(app: *App) !void {
         1000,
     );
     const view = zm.lookAtRh(
-        zm.f32x4(0, 1000, 0, 1),
-        zm.f32x4(0, 0, 0, 1),
-        zm.f32x4(0, 0, 1, 0),
+        zm.Vec{ 0, 1000, 0, 1 },
+        zm.Vec{ 0, 0, 0, 1 },
+        zm.Vec{ 0, 0, 1, 0 },
     );
     const mvp = zm.mul(view, proj);
     const ubo = UniformBufferObject{

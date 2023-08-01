@@ -9,7 +9,6 @@ pub fn build(
     try ensureDependencies(b.allocator);
 
     const Dependency = enum {
-        zmath,
         zigimg,
         model3d,
         assets,
@@ -23,12 +22,6 @@ pub fn build(
         ) std.Build.ModuleDependency {
             _ = gpu_dawn_options;
             const path = switch (dep) {
-                .zmath => return std.Build.ModuleDependency{
-                    .name = @tagName(dep),
-                    .module = zmath.package(b2, target2, optimize2, .{
-                        .options = .{ .enable_cross_platform_determinism = true },
-                    }).zmath,
-                },
                 .zigimg => "examples/libs/zigimg/zigimg.zig",
                 .assets => return std.Build.ModuleDependency{
                     .name = "assets",
@@ -60,29 +53,29 @@ pub fn build(
         .{ .name = "triangle" },
         .{ .name = "triangle-msaa" },
         .{ .name = "clear-color" },
-        .{ .name = "procedural-primitives", .deps = &.{.zmath} },
+        .{ .name = "procedural-primitives" },
         .{ .name = "boids" },
-        .{ .name = "rotating-cube", .deps = &.{.zmath} },
-        .{ .name = "pixel-post-process", .deps = &.{.zmath} },
-        .{ .name = "two-cubes", .deps = &.{.zmath} },
-        .{ .name = "instanced-cube", .deps = &.{.zmath} },
-        .{ .name = "advanced-gen-texture-light", .deps = &.{.zmath} },
-        .{ .name = "fractal-cube", .deps = &.{.zmath} },
-        .{ .name = "map-async", .deps = &.{} },
+        .{ .name = "rotating-cube" },
+        .{ .name = "pixel-post-process" },
+        .{ .name = "two-cubes" },
+        .{ .name = "instanced-cube" },
+        .{ .name = "advanced-gen-texture-light" },
+        .{ .name = "fractal-cube" },
+        .{ .name = "map-async" },
         .{
             .name = "pbr-basic",
-            .deps = &.{ .zmath, .model3d, .assets },
+            .deps = &.{ .model3d, .assets },
             .std_platform_only = true,
         },
         .{
             .name = "deferred-rendering",
-            .deps = &.{ .zmath, .model3d, .assets },
+            .deps = &.{ .model3d, .assets },
             .std_platform_only = true,
         },
-        .{ .name = "textured-cube", .deps = &.{ .zmath, .zigimg, .assets } },
-        .{ .name = "sprite2d", .deps = &.{ .zmath, .zigimg, .assets } },
+        .{ .name = "textured-cube", .deps = &.{ .zigimg, .assets } },
+        .{ .name = "sprite2d", .deps = &.{ .zigimg, .assets } },
         .{ .name = "image-blur", .deps = &.{ .zigimg, .assets } },
-        .{ .name = "cubemap", .deps = &.{ .zmath, .zigimg, .assets } },
+        .{ .name = "cubemap", .deps = &.{ .zigimg, .assets } },
     }) |example| {
         // FIXME: this is workaround for a problem that some examples
         // (having the std_platform_only=true field) as well as zigimg
@@ -95,6 +88,10 @@ pub fn build(
                 break;
 
         var deps = std.ArrayList(std.Build.ModuleDependency).init(b.allocator);
+        try deps.append(std.Build.ModuleDependency{
+            .name = "zmath",
+            .module = b.createModule(.{ .source_file = .{ .path = "examples/zmath.zig" } }),
+        });
         for (example.deps) |d| try deps.append(d.moduleDependency(b, target, optimize, .{}));
         const app = try core.App.init(
             b,
@@ -141,69 +138,11 @@ fn sdkPath(comptime suffix: []const u8) []const u8 {
 fn ensureDependencies(allocator: std.mem.Allocator) !void {
     try optional_dependency.ensureGitRepoCloned(
         allocator,
-        "https://github.com/machlibs/zmath",
-        "6ae0a60392d68165bf2f61c42f137c7bd5dc8ae2",
-        sdkPath("/examples/libs/zmath"),
-    );
-    try optional_dependency.ensureGitRepoCloned(
-        allocator,
         "https://github.com/slimsag/zigimg",
         "814064a8935dceee99adb11f2b17871b84f75a2b",
         sdkPath("/examples/libs/zigimg"),
     );
 }
-
-const zmath = struct {
-    pub const Options = struct {
-        enable_cross_platform_determinism: bool = true,
-    };
-
-    pub const Package = struct {
-        options: Options,
-        zmath: *std.Build.Module,
-        zmath_options: *std.Build.Module,
-
-        pub fn link(pkg: Package, exe: *std.Build.CompileStep) void {
-            exe.addModule("zmath", pkg.zmath);
-            exe.addModule("zmath_options", pkg.zmath_options);
-        }
-    };
-
-    pub fn package(
-        b: *std.Build,
-        _: std.zig.CrossTarget,
-        _: std.builtin.Mode,
-        args: struct {
-            options: Options = .{},
-        },
-    ) Package {
-        const step = b.addOptions();
-        step.addOption(
-            bool,
-            "enable_cross_platform_determinism",
-            args.options.enable_cross_platform_determinism,
-        );
-
-        const zmath_options = step.createModule();
-
-        const zmath_mod = b.createModule(.{
-            .source_file = .{ .path = thisDir() ++ "/examples/libs/zmath/src/main.zig" },
-            .dependencies = &.{
-                .{ .name = "zmath_options", .module = zmath_options },
-            },
-        });
-
-        return .{
-            .options = args.options,
-            .zmath = zmath_mod,
-            .zmath_options = zmath_options,
-        };
-    }
-
-    inline fn thisDir() []const u8 {
-        return comptime std.fs.path.dirname(@src().file) orelse ".";
-    }
-};
 
 const optional_dependency = struct {
     fn ensureGitRepoCloned(allocator: std.mem.Allocator, clone_url: []const u8, revision: []const u8, dir: []const u8) !void {

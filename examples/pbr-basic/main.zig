@@ -583,10 +583,10 @@ fn updateUniformBuffers(app: *App) void {
     app.ubo_matrices.view = app.camera.matrices.view;
     const rotation_degrees = if (app.current_object_index == 1) @as(f32, -45.0) else @as(f32, -90.0);
     const model = zm.rotationY(rotation_degrees);
-    zm.storeArr4(&app.ubo_matrices.model[0], model[0]);
-    zm.storeArr4(&app.ubo_matrices.model[1], model[1]);
-    zm.storeArr4(&app.ubo_matrices.model[2], model[2]);
-    zm.storeArr4(&app.ubo_matrices.model[3], model[3]);
+    app.ubo_matrices.model[0] = model[0];
+    app.ubo_matrices.model[1] = model[1];
+    app.ubo_matrices.model[2] = model[2];
+    app.ubo_matrices.model[3] = model[3];
     app.ubo_matrices.camera_position = .{
         -app.camera.position[0],
         -app.camera.position[1],

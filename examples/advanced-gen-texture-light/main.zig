@@ -40,8 +40,8 @@ pub fn init(app: *App) !void {
 
     app.timer = try mach.Timer.start();
 
-    const eye = vec3(5.0, 7.0, 5.0);
-    const target = vec3(0.0, 0.0, 0.0);
+    const eye = Vec{ 5.0, 7.0, 5.0, 0.0 };
+    const target = Vec{ 0.0, 0.0, 0.0, 0.0 };
 
     const framebuffer = app.core.descriptor();
     const aspect_ratio = @as(f32, @floatFromInt(framebuffer.width)) / @as(f32, @floatFromInt(framebuffer.height));
@@ -50,7 +50,7 @@ pub fn init(app: *App) !void {
     app.cube = Cube.init(&app.core);
     app.light = Light.init(&app.core);
     app.depth = Texture.depth(app.core.device(), framebuffer.width, framebuffer.height);
-    app.camera = Camera.init(app.core.device(), eye, target, vec3(0.0, 1.0, 0.0), aspect_ratio, 45.0, 0.1, 100.0);
+    app.camera = Camera.init(app.core.device(), eye, target, zm.Vec{ 0.0, 1.0, 0.0, 0.0 }, aspect_ratio, 45.0, 0.1, 100.0);
     app.keys = 0;
 }
 
@@ -112,7 +112,7 @@ pub fn update(app: *App) !bool {
     }
 
     // move camera
-    const speed = zm.f32x4s(delta_time * 5);
+    const speed = zm.Vec{ delta_time * 5, delta_time * 5, delta_time * 5, delta_time * 5 };
     const fwd = zm.normalize3(app.camera.target - app.camera.eye);
     const right = zm.normalize3(zm.cross3(fwd, app.camera.up));
 
@@ -313,9 +313,9 @@ const Cube = struct {
                 const pos = vec3u(x * SPACING, 0, z * SPACING) - DISPLACEMENT;
                 const rot = blk: {
                     if (pos[0] == 0 and pos[2] == 0) {
-                        break :blk zm.quatFromAxisAngle(vec3u(0, 0, 1), 0.0);
+                        break :blk zm.rotationZ(0.0);
                     } else {
-                        break :blk zm.quatFromAxisAngle(zm.normalize3(pos), 45.0);
+                        break :blk zm.mul(zm.rotationX(zm.clamp(zm.abs(pos[0]), 0, 45.0)), zm.rotationZ(zm.clamp(zm.abs(pos[2]), 0, 45.0)));
                     }
                 };
                 const index = z * IPR + x;
@@ -819,19 +819,11 @@ inline fn initBuffer(device: *gpu.Device, usage: gpu.Buffer.UsageFlags, data: an
 }
 
 fn vec3i(x: isize, y: isize, z: isize) Vec {
-    return zm.f32x4(@as(f32, @floatFromInt(x)), @as(f32, @floatFromInt(y)), @as(f32, @floatFromInt(z)), 0.0);
+    return Vec{ @floatFromInt(x), @floatFromInt(y), @floatFromInt(z), 0.0 };
 }
 
 fn vec3u(x: usize, y: usize, z: usize) Vec {
-    return zm.f32x4(@as(f32, @floatFromInt(x)), @as(f32, @floatFromInt(y)), @as(f32, @floatFromInt(z)), 0.0);
-}
-
-fn vec3(x: f32, y: f32, z: f32) Vec {
-    return zm.f32x4(x, y, z, 0.0);
-}
-
-fn vec4(x: f32, y: f32, z: f32, w: f32) Vec {
-    return zm.f32x4(x, y, z, w);
+    return zm.Vec{ @floatFromInt(x), @floatFromInt(y), @floatFromInt(z), 0.0 };
 }
 
 // todo indside Cube
@@ -839,9 +831,9 @@ const Instance = struct {
     const Self = @This();
 
     position: Vec,
-    rotation: Quat,
+    rotation: Mat,
 
     fn toMat(self: *const Self) Mat {
-        return zm.mul(zm.quatToMat(self.rotation), zm.translationV(self.position));
+        return zm.mul(self.rotation, zm.translationV(self.position));
     }
 };

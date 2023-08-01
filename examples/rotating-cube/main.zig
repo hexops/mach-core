@@ -145,9 +145,9 @@ pub fn update(app: *App) !bool {
         const time = app.timer.read();
         const model = zm.mul(zm.rotationX(time * (std.math.pi / 2.0)), zm.rotationZ(time * (std.math.pi / 2.0)));
         const view = zm.lookAtRh(
-            zm.f32x4(0, 4, 2, 1),
-            zm.f32x4(0, 0, 0, 1),
-            zm.f32x4(0, 0, 1, 0),
+            zm.Vec{ 0, 4, 2, 1 },
+            zm.Vec{ 0, 0, 0, 1 },
+            zm.Vec{ 0, 0, 1, 0 },
         );
         const proj = zm.perspectiveFovRh(
             (std.math.pi / 4.0),
