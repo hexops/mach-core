@@ -50,6 +50,7 @@ pub fn build(
         deps: []const Dependency = &.{},
         std_platform_only: bool = false,
     }{
+        .{ .name = "wasm-test" },
         .{ .name = "triangle" },
         .{ .name = "triangle-msaa" },
         .{ .name = "clear-color" },
