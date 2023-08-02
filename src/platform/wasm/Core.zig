@@ -426,19 +426,19 @@ pub fn mousePosition(self: *Core) Core.Position {
     return self.input_state.mouse_position;
 }
 
-pub fn adapter(_: *Core) *gpu.Adapter {
+pub inline fn adapter(_: *Core) *gpu.Adapter {
     unreachable;
 }
 
-pub fn device(_: *Core) *gpu.Device {
+pub inline fn device(_: *Core) *gpu.Device {
     unreachable;
 }
 
-pub fn swapChain(_: *Core) *gpu.SwapChain {
+pub inline fn swapChain(_: *Core) *gpu.SwapChain {
     unreachable;
 }
 
-pub fn descriptor(self: *Core) gpu.SwapChain.Descriptor {
+pub inline fn descriptor(self: *Core) gpu.SwapChain.Descriptor {
     return .{
         .label = "main swap chain",
         .usage = .{ .render_attachment = true },
@@ -449,12 +449,12 @@ pub fn descriptor(self: *Core) gpu.SwapChain.Descriptor {
     };
 }
 
-pub fn outOfMemory(self: *Core) bool {
+pub inline fn outOfMemory(self: *Core) bool {
     _ = self;
     return false;
 }
 
-pub fn wakeMainThread(self: *Core) void {
+pub inline fn wakeMainThread(self: *Core) void {
     _ = self;
 }
 

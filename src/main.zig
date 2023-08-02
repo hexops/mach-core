@@ -70,8 +70,8 @@ pub var allocator: std.mem.Allocator = undefined;
 /// A buffer which you may use to write the window title to.
 pub var title: [256:0]u8 = undefined;
 
-pub var frame: Frequency = undefined;
-pub var input: Frequency = undefined;
+var frame: Frequency = undefined;
+var input: Frequency = undefined;
 var internal: platform.Core = undefined;
 
 /// All memory will be copied or returned to the caller once init() finishes.
@@ -108,11 +108,11 @@ pub fn init(options: Options) !void {
     );
 }
 
-pub fn deinit() void {
+pub inline fn deinit() void {
     return internal.deinit();
 }
 
-pub fn update(app_ptr: anytype) !bool {
+pub inline fn update(app_ptr: anytype) !bool {
     return try internal.update(app_ptr);
 }
 
@@ -135,33 +135,33 @@ pub inline fn pollEvents() EventIterator {
 /// const title = try std.fmt.bufPrintZ(&core.title, "Hello, world!", .{});
 /// core.setTitle(title);
 /// ```
-pub fn setTitle(value: [:0]const u8) void {
+pub inline fn setTitle(value: [:0]const u8) void {
     return internal.setTitle(value);
 }
 
 /// Set the window mode
-pub fn setDisplayMode(mode: DisplayMode, monitor: ?usize) void {
+pub inline fn setDisplayMode(mode: DisplayMode, monitor: ?usize) void {
     return internal.setDisplayMode(mode, monitor);
 }
 
 /// Returns the window mode
-pub fn displayMode() DisplayMode {
+pub inline fn displayMode() DisplayMode {
     return internal.displayMode();
 }
 
-pub fn setBorder(value: bool) void {
+pub inline fn setBorder(value: bool) void {
     return internal.setBorder(value);
 }
 
-pub fn border() bool {
+pub inline fn border() bool {
     return internal.border();
 }
 
-pub fn setHeadless(value: bool) void {
+pub inline fn setHeadless(value: bool) void {
     return internal.setHeadless(value);
 }
 
-pub fn headless() bool {
+pub inline fn headless() bool {
     return internal.headless();
 }
 
@@ -188,73 +188,73 @@ pub const VSyncMode = enum {
 };
 
 /// Set refresh rate synchronization mode. Default `.triple`
-pub fn setVSync(mode: VSyncMode) void {
+pub inline fn setVSync(mode: VSyncMode) void {
     return internal.setVSync(mode);
 }
 
 /// Returns refresh rate synchronization mode.
-pub fn vsync() VSyncMode {
+pub inline fn vsync() VSyncMode {
     return internal.vsync();
 }
 
 /// Sets the frame rate limit. Default 0 (unlimited)
 ///
 /// This is applied *in addition* to the vsync mode.
-pub fn setFrameRateLimit(limit: u32) void {
+pub inline fn setFrameRateLimit(limit: u32) void {
     core.frame.target = limit;
 }
 
 /// Returns the frame rate limit, or zero if unlimited.
-pub fn frameRateLimit() u32 {
+pub inline fn frameRateLimit() u32 {
     return core.frame.target;
 }
 
 /// Set the window size, in subpixel units.
-pub fn setSize(value: Size) void {
+pub inline fn setSize(value: Size) void {
     return internal.setSize(value);
 }
 
 /// Returns the window size, in subpixel units.
-pub fn size() Size {
+pub inline fn size() Size {
     return internal.size();
 }
 
 /// Set the minimum and maximum allowed size for the window.
-pub fn setSizeLimit(size_limit: SizeLimit) void {
+pub inline fn setSizeLimit(size_limit: SizeLimit) void {
     return internal.setSizeLimit(size_limit);
 }
 
 /// Returns the minimum and maximum allowed size for the window.
-pub fn sizeLimit() SizeLimit {
+pub inline fn sizeLimit() SizeLimit {
     return internal.sizeLimit();
 }
 
-pub fn setCursorMode(mode: CursorMode) void {
+pub inline fn setCursorMode(mode: CursorMode) void {
     return internal.setCursorMode(mode);
 }
 
-pub fn cursorMode() CursorMode {
+pub inline fn cursorMode() CursorMode {
     return internal.cursorMode();
 }
 
-pub fn setCursorShape(cursor: CursorShape) void {
+pub inline fn setCursorShape(cursor: CursorShape) void {
     return internal.setCursorShape(cursor);
 }
 
-pub fn cursorShape() CursorShape {
+pub inline fn cursorShape() CursorShape {
     return internal.cursorShape();
 }
 
 // TODO(feature): add joystick/gamepad support https://github.com/hexops/mach/issues/884
 
 // /// Checks if the given joystick is still connected.
-// pub fn joystickPresent(joystick: Joystick) bool {
+// pub inline fn joystickPresent(joystick: Joystick) bool {
 //     return internal.joystickPresent(joystick);
 // }
 
 // /// Retreives the name of the joystick.
 // /// Returns `null` if the joystick isnt connected.
-// pub fn joystickName(joystick: Joystick) ?[:0]const u8 {
+// pub inline fn joystickName(joystick: Joystick) ?[:0]const u8 {
 //     return internal.joystickName(joystick);
 // }
 
@@ -267,7 +267,7 @@ pub fn cursorShape() CursorShape {
 // ///
 // /// Note: For WebAssembly, the remapping is done directly by the web browser, so on that platform
 // /// the order of these buttons might be different than on others.
-// pub fn joystickButtons(joystick: Joystick) ?[]const bool {
+// pub inline fn joystickButtons(joystick: Joystick) ?[]const bool {
 //     return internal.joystickButtons(joystick);
 // }
 
@@ -280,43 +280,43 @@ pub fn cursorShape() CursorShape {
 // ///
 // /// Note: For WebAssembly, the remapping is done directly by the web browser, so on that platform
 // /// the order of these axes might be different than on others.
-// pub fn joystickAxes(joystick: Joystick) ?[]const f32 {
+// pub inline fn joystickAxes(joystick: Joystick) ?[]const f32 {
 //     return internal.joystickAxes(joystick);
 // }
 
-pub fn keyPressed(key: Key) bool {
+pub inline fn keyPressed(key: Key) bool {
     return internal.keyPressed(key);
 }
 
-pub fn keyReleased(key: Key) bool {
+pub inline fn keyReleased(key: Key) bool {
     return internal.keyReleased(key);
 }
 
-pub fn mousePressed(button: MouseButton) bool {
+pub inline fn mousePressed(button: MouseButton) bool {
     return internal.mousePressed(button);
 }
 
-pub fn mouseReleased(button: MouseButton) bool {
+pub inline fn mouseReleased(button: MouseButton) bool {
     return internal.mouseReleased(button);
 }
 
-pub fn mousePosition() Position {
+pub inline fn mousePosition() Position {
     return internal.mousePosition();
 }
 
-pub fn adapter() *gpu.Adapter {
+pub inline fn adapter() *gpu.Adapter {
     return internal.adapter();
 }
 
-pub fn device() *gpu.Device {
+pub inline fn device() *gpu.Device {
     return internal.device();
 }
 
-pub fn swapChain() *gpu.SwapChain {
+pub inline fn swapChain() *gpu.SwapChain {
     return internal.swapChain();
 }
 
-pub fn descriptor() gpu.SwapChain.Descriptor {
+pub inline fn descriptor() gpu.SwapChain.Descriptor {
     return internal.descriptor();
 }
 
@@ -327,7 +327,7 @@ pub fn descriptor() gpu.SwapChain.Descriptor {
 ///
 /// Note that if an App.update function returns any error, including errors.OutOfMemory, it will
 /// exit the application.
-pub fn outOfMemory() bool {
+pub inline fn outOfMemory() bool {
     return internal.outOfMemory();
 }
 
@@ -339,7 +339,7 @@ pub fn outOfMemory() bool {
 /// function to wake the main thread when your `updateMainThread` callback needs to be ran.
 ///
 /// May be called from any thread.
-pub fn wakeMainThread() void {
+pub inline fn wakeMainThread() void {
     internal.wakeMainThread();
 }
 
@@ -380,19 +380,19 @@ pub fn wakeMainThread() void {
 ///
 /// It is illegal to use the `core.device()` or `core.swapchain()` from the main thread, and all
 /// other APIs are internally synchronized with a mutex for you.
-pub fn setInputFrequency(input_frequency: u32) void {
+pub inline fn setInputFrequency(input_frequency: u32) void {
     core.input.target = input_frequency;
 }
 
 /// Returns the input frequency, or zero if unlimited (busy-waiting mode)
-pub fn inputFrequency() u32 {
+pub inline fn inputFrequency() u32 {
     return core.input.target;
 }
 
 /// Returns the actual number of frames rendered (`update` calls that returned) in the last second.
 ///
 /// This is updated once per second.
-pub fn frameRate() u32 {
+pub inline fn frameRate() u32 {
     return core.frame.rate;
 }
 
@@ -400,7 +400,7 @@ pub fn frameRate() u32 {
 /// for what this means.
 ///
 /// This is updated once per second.
-pub fn inputRate() u32 {
+pub inline fn inputRate() u32 {
     return core.input.rate;
 }
 
