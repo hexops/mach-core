@@ -1,6 +1,6 @@
 const std = @import("std");
-const mach = @import("core");
-const gpu = mach.gpu;
+const core = @import("core");
+const gpu = core.gpu;
 const zm = @import("zmath");
 const zigimg = @import("zigimg");
 const Vertex = @import("cube_mesh.zig").Vertex;
@@ -14,11 +14,9 @@ const UniformBufferObject = struct {
 };
 var gpa = std.heap.GeneralPurposeAllocator(.{}){};
 
-core: mach.Core,
-timer: mach.Timer,
-fps_timer: mach.Timer,
+timer: core.Timer,
+fps_timer: core.Timer,
 pipeline: *gpu.RenderPipeline,
-queue: *gpu.Queue,
 vertex_buffer: *gpu.Buffer,
 uniform_buffer: *gpu.Buffer,
 bind_group: *gpu.BindGroup,
@@ -26,10 +24,10 @@ depth_texture: *gpu.Texture,
 depth_texture_view: *gpu.TextureView,
 
 pub fn init(app: *App) !void {
+    try core.init(.{});
     const allocator = gpa.allocator();
-    try app.core.init(allocator, .{});
 
-    const shader_module = app.core.device().createShaderModuleWGSL("shader.wgsl", @embedFile("shader.wgsl"));
+    const shader_module = core.device.createShaderModuleWGSL("shader.wgsl", @embedFile("shader.wgsl"));
 
     const vertex_attributes = [_]gpu.VertexAttribute{
         .{ .format = .float32x4, .offset = @offsetOf(Vertex, "pos"), .shader_location = 0 },
@@ -54,7 +52,7 @@ pub fn init(app: *App) !void {
         },
     };
     const color_target = gpu.ColorTargetState{
-        .format = app.core.descriptor().format,
+        .format = core.descriptor.format,
         .blend = &blend,
         .write_mask = gpu.ColorWriteMaskFlags.all,
     };
@@ -85,9 +83,9 @@ pub fn init(app: *App) !void {
             .cull_mode = .back,
         },
     };
-    const pipeline = app.core.device().createRenderPipeline(&pipeline_descriptor);
+    const pipeline = core.device.createRenderPipeline(&pipeline_descriptor);
 
-    const vertex_buffer = app.core.device().createBuffer(&.{
+    const vertex_buffer = core.device.createBuffer(&.{
         .usage = .{ .vertex = true },
         .size = @sizeOf(Vertex) * vertices.len,
         .mapped_at_creation = true,
@@ -97,15 +95,15 @@ pub fn init(app: *App) !void {
     vertex_buffer.unmap();
 
     // Create a sampler with linear filtering for smooth interpolation.
-    const sampler = app.core.device().createSampler(&.{
+    const sampler = core.device.createSampler(&.{
         .mag_filter = .linear,
         .min_filter = .linear,
     });
-    const queue = app.core.device().getQueue();
+    const queue = core.queue;
     var img = try zigimg.Image.fromMemory(allocator, assets.gotta_go_fast_png);
     defer img.deinit();
     const img_size = gpu.Extent3D{ .width = @as(u32, @intCast(img.width)), .height = @as(u32, @intCast(img.height)) };
-    const cube_texture = app.core.device().createTexture(&.{
+    const cube_texture = core.device.createTexture(&.{
         .size = img_size,
         .format = .rgba8_unorm,
         .usage = .{
@@ -128,13 +126,13 @@ pub fn init(app: *App) !void {
         else => @panic("unsupported image color format"),
     }
 
-    const uniform_buffer = app.core.device().createBuffer(&.{
+    const uniform_buffer = core.device.createBuffer(&.{
         .usage = .{ .copy_dst = true, .uniform = true },
         .size = @sizeOf(UniformBufferObject),
         .mapped_at_creation = false,
     });
 
-    const bind_group = app.core.device().createBindGroup(
+    const bind_group = core.device.createBindGroup(
         &gpu.BindGroup.Descriptor.init(.{
             .layout = pipeline.getBindGroupLayout(0),
             .entries = &.{
@@ -145,10 +143,10 @@ pub fn init(app: *App) !void {
         }),
     );
 
-    const depth_texture = app.core.device().createTexture(&gpu.Texture.Descriptor{
+    const depth_texture = core.device.createTexture(&gpu.Texture.Descriptor{
         .size = gpu.Extent3D{
-            .width = app.core.descriptor().width,
-            .height = app.core.descriptor().height,
+            .width = core.descriptor.width,
+            .height = core.descriptor.height,
         },
         .format = .depth24_plus,
         .usage = .{
@@ -164,10 +162,9 @@ pub fn init(app: *App) !void {
         .mip_level_count = 1,
     });
 
-    app.timer = try mach.Timer.start();
-    app.fps_timer = try mach.Timer.start();
+    app.timer = try core.Timer.start();
+    app.fps_timer = try core.Timer.start();
     app.pipeline = pipeline;
-    app.queue = queue;
     app.vertex_buffer = vertex_buffer;
     app.uniform_buffer = uniform_buffer;
     app.bind_group = bind_group;
@@ -179,7 +176,7 @@ pub fn init(app: *App) !void {
 
 pub fn deinit(app: *App) void {
     defer _ = gpa.deinit();
-    defer app.core.deinit();
+    defer core.deinit();
 
     app.vertex_buffer.release();
     app.uniform_buffer.release();
@@ -189,24 +186,24 @@ pub fn deinit(app: *App) void {
 }
 
 pub fn update(app: *App) !bool {
-    var iter = app.core.pollEvents();
+    var iter = core.pollEvents();
     while (iter.next()) |event| {
         switch (event) {
             .key_press => |ev| {
                 switch (ev.key) {
                     .space => return true,
-                    .one => app.core.setVSync(.none),
-                    .two => app.core.setVSync(.double),
-                    .three => app.core.setVSync(.triple),
+                    .one => core.setVSync(.none),
+                    .two => core.setVSync(.double),
+                    .three => core.setVSync(.triple),
                     else => {},
                 }
-                std.debug.print("vsync mode changed to {s}\n", .{@tagName(app.core.vsync())});
+                std.debug.print("vsync mode changed to {s}\n", .{@tagName(core.vsync())});
             },
             .framebuffer_resize => |ev| {
                 // If window is resized, recreate depth buffer otherwise we cannot use it.
                 app.depth_texture.release();
 
-                app.depth_texture = app.core.device().createTexture(&gpu.Texture.Descriptor{
+                app.depth_texture = core.device.createTexture(&gpu.Texture.Descriptor{
                     .size = gpu.Extent3D{
                         .width = ev.width,
                         .height = ev.height,
@@ -231,7 +228,7 @@ pub fn update(app: *App) !bool {
         }
     }
 
-    const back_buffer_view = app.core.swapChain().getCurrentTextureView().?;
+    const back_buffer_view = core.swap_chain.getCurrentTextureView().?;
     const color_attachment = gpu.RenderPassColorAttachment{
         .view = back_buffer_view,
         .clear_value = .{ .r = 0.5, .g = 0.5, .b = 0.5, .a = 0.0 },
@@ -239,7 +236,7 @@ pub fn update(app: *App) !bool {
         .store_op = .store,
     };
 
-    const encoder = app.core.device().createCommandEncoder(null);
+    const encoder = core.device.createCommandEncoder(null);
     const render_pass_info = gpu.RenderPassDescriptor.init(.{
         .color_attachments = &.{color_attachment},
         .depth_stencil_attachment = &.{
@@ -260,7 +257,7 @@ pub fn update(app: *App) !bool {
         );
         const proj = zm.perspectiveFovRh(
             (std.math.pi / 4.0),
-            @as(f32, @floatFromInt(app.core.descriptor().width)) / @as(f32, @floatFromInt(app.core.descriptor().height)),
+            @as(f32, @floatFromInt(core.descriptor.width)) / @as(f32, @floatFromInt(core.descriptor.height)),
             0.1,
             10,
         );
@@ -282,18 +279,19 @@ pub fn update(app: *App) !bool {
     var command = encoder.finish(null);
     encoder.release();
 
-    app.queue.submit(&[_]*gpu.CommandBuffer{command});
+    const queue = core.queue;
+    queue.submit(&[_]*gpu.CommandBuffer{command});
     command.release();
-    app.core.swapChain().present();
+    core.swap_chain.present();
     back_buffer_view.release();
 
     // TODO: add an easier way to get these dynamic variables into window title without footguns
     // See https://github.com/hexops/mach/issues/461
-    const title = try std.fmt.bufPrintZ(&app.core.title, "Textured cube [ {d}fps ] [ Input {d}hz ]", .{
-        app.core.frameRate(),
-        app.core.inputRate(),
+    const title = try std.fmt.bufPrintZ(&core.title, "Textured cube [ {d}fps ] [ Input {d}hz ]", .{
+        core.frameRate(),
+        core.inputRate(),
     });
-    app.core.setTitle(title);
+    core.setTitle(title);
 
     return false;
 }

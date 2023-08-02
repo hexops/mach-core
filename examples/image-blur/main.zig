@@ -1,11 +1,9 @@
 const std = @import("std");
-const mach = @import("core");
-const gpu = mach.gpu;
+const core = @import("core");
+const gpu = core.gpu;
 const zigimg = @import("zigimg");
 const assets = @import("assets");
 
-core: mach.Core,
-queue: *gpu.Queue,
 blur_pipeline: *gpu.ComputePipeline,
 fullscreen_quad_pipeline: *gpu.RenderPipeline,
 cube_texture: *gpu.Texture,
@@ -31,12 +29,12 @@ var block_dimension: u32 = tile_dimension - (filter_size - 1);
 var gpa = std.heap.GeneralPurposeAllocator(.{}){};
 
 pub fn init(app: *App) !void {
+    try core.init(.{});
     const allocator = gpa.allocator();
-    try app.core.init(allocator, .{});
 
-    const queue = app.core.device().getQueue();
+    const queue = core.queue;
 
-    const blur_shader_module = app.core.device().createShaderModuleWGSL("blur.wgsl", @embedFile("blur.wgsl"));
+    const blur_shader_module = core.device.createShaderModuleWGSL("blur.wgsl", @embedFile("blur.wgsl"));
 
     const blur_pipeline_descriptor = gpu.ComputePipeline.Descriptor{
         .compute = gpu.ProgrammableStageDescriptor{
@@ -45,21 +43,21 @@ pub fn init(app: *App) !void {
         },
     };
 
-    const blur_pipeline = app.core.device().createComputePipeline(&blur_pipeline_descriptor);
+    const blur_pipeline = core.device.createComputePipeline(&blur_pipeline_descriptor);
 
-    const fullscreen_quad_vs_module = app.core.device().createShaderModuleWGSL(
+    const fullscreen_quad_vs_module = core.device.createShaderModuleWGSL(
         "fullscreen_textured_quad.wgsl",
         @embedFile("fullscreen_textured_quad.wgsl"),
     );
 
-    const fullscreen_quad_fs_module = app.core.device().createShaderModuleWGSL(
+    const fullscreen_quad_fs_module = core.device.createShaderModuleWGSL(
         "fullscreen_textured_quad.wgsl",
         @embedFile("fullscreen_textured_quad.wgsl"),
     );
 
     const blend = gpu.BlendState{};
     const color_target = gpu.ColorTargetState{
-        .format = app.core.descriptor().format,
+        .format = core.descriptor.format,
         .blend = &blend,
         .write_mask = gpu.ColorWriteMaskFlags.all,
     };
@@ -78,9 +76,9 @@ pub fn init(app: *App) !void {
         },
     };
 
-    const fullscreen_quad_pipeline = app.core.device().createRenderPipeline(&fullscreen_quad_pipeline_descriptor);
+    const fullscreen_quad_pipeline = core.device.createRenderPipeline(&fullscreen_quad_pipeline_descriptor);
 
-    const sampler = app.core.device().createSampler(&.{
+    const sampler = core.device.createSampler(&.{
         .mag_filter = .linear,
         .min_filter = .linear,
     });
@@ -90,7 +88,7 @@ pub fn init(app: *App) !void {
 
     const img_size = gpu.Extent3D{ .width = @as(u32, @intCast(img.width)), .height = @as(u32, @intCast(img.height)) };
 
-    const cube_texture = app.core.device().createTexture(&.{
+    const cube_texture = core.device.createTexture(&.{
         .size = img_size,
         .format = .rgba8_unorm,
         .usage = .{
@@ -117,7 +115,7 @@ pub fn init(app: *App) !void {
 
     var textures: [2]*gpu.Texture = undefined;
     for (textures, 0..) |_, i| {
-        textures[i] = app.core.device().createTexture(&.{
+        textures[i] = core.device.createTexture(&.{
             .size = img_size,
             .format = .rgba8_unorm,
             .usage = .{
@@ -132,7 +130,7 @@ pub fn init(app: *App) !void {
     // depending on whether flip value is 0 or 1
     var flip: [2]*gpu.Buffer = undefined;
     for (flip, 0..) |_, i| {
-        const buffer = app.core.device().createBuffer(&.{
+        const buffer = core.device.createBuffer(&.{
             .usage = .{ .uniform = true },
             .size = @sizeOf(u32),
             .mapped_at_creation = true,
@@ -145,12 +143,12 @@ pub fn init(app: *App) !void {
         flip[i] = buffer;
     }
 
-    const blur_params_buffer = app.core.device().createBuffer(&.{
+    const blur_params_buffer = core.device.createBuffer(&.{
         .size = 8,
         .usage = .{ .copy_dst = true, .uniform = true },
     });
 
-    const compute_constants = app.core.device().createBindGroup(&gpu.BindGroup.Descriptor.init(.{
+    const compute_constants = core.device.createBindGroup(&gpu.BindGroup.Descriptor.init(.{
         .layout = blur_pipeline.getBindGroupLayout(0),
         .entries = &.{
             gpu.BindGroup.Entry.sampler(0, sampler),
@@ -158,7 +156,7 @@ pub fn init(app: *App) !void {
         },
     }));
 
-    const compute_bind_group_0 = app.core.device().createBindGroup(&gpu.BindGroup.Descriptor.init(.{
+    const compute_bind_group_0 = core.device.createBindGroup(&gpu.BindGroup.Descriptor.init(.{
         .layout = blur_pipeline.getBindGroupLayout(1),
         .entries = &.{
             gpu.BindGroup.Entry.textureView(1, cube_texture.createView(&gpu.TextureView.Descriptor{})),
@@ -167,7 +165,7 @@ pub fn init(app: *App) !void {
         },
     }));
 
-    const compute_bind_group_1 = app.core.device().createBindGroup(&gpu.BindGroup.Descriptor.init(.{
+    const compute_bind_group_1 = core.device.createBindGroup(&gpu.BindGroup.Descriptor.init(.{
         .layout = blur_pipeline.getBindGroupLayout(1),
         .entries = &.{
             gpu.BindGroup.Entry.textureView(1, textures[0].createView(&gpu.TextureView.Descriptor{})),
@@ -176,7 +174,7 @@ pub fn init(app: *App) !void {
         },
     }));
 
-    const compute_bind_group_2 = app.core.device().createBindGroup(&gpu.BindGroup.Descriptor.init(.{
+    const compute_bind_group_2 = core.device.createBindGroup(&gpu.BindGroup.Descriptor.init(.{
         .layout = blur_pipeline.getBindGroupLayout(1),
         .entries = &.{
             gpu.BindGroup.Entry.textureView(1, textures[1].createView(&gpu.TextureView.Descriptor{})),
@@ -185,7 +183,7 @@ pub fn init(app: *App) !void {
         },
     }));
 
-    const show_result_bind_group = app.core.device().createBindGroup(&gpu.BindGroup.Descriptor.init(.{
+    const show_result_bind_group = core.device.createBindGroup(&gpu.BindGroup.Descriptor.init(.{
         .layout = fullscreen_quad_pipeline.getBindGroupLayout(0),
         .entries = &.{
             gpu.BindGroup.Entry.sampler(0, sampler),
@@ -196,7 +194,6 @@ pub fn init(app: *App) !void {
     const blur_params_buffer_data = [_]u32{ filter_size, block_dimension };
     queue.writeBuffer(blur_params_buffer, 0, &blur_params_buffer_data);
 
-    app.queue = queue;
     app.blur_pipeline = blur_pipeline;
     app.fullscreen_quad_pipeline = fullscreen_quad_pipeline;
     app.cube_texture = cube_texture;
@@ -211,18 +208,19 @@ pub fn init(app: *App) !void {
 }
 
 pub fn deinit(app: *App) void {
+    _ = app;
     defer _ = gpa.deinit();
-    defer app.core.deinit();
+    defer core.deinit();
 }
 
 pub fn update(app: *App) !bool {
-    var iter = app.core.pollEvents();
+    var iter = core.pollEvents();
     while (iter.next()) |event| {
         if (event == .close) return true;
     }
 
-    const back_buffer_view = app.core.swapChain().getCurrentTextureView().?;
-    const encoder = app.core.device().createCommandEncoder(null);
+    const back_buffer_view = core.swap_chain.getCurrentTextureView().?;
+    const encoder = core.device.createCommandEncoder(null);
 
     const compute_pass = encoder.beginComputePass(null);
     compute_pass.setPipeline(app.blur_pipeline);
@@ -265,9 +263,10 @@ pub fn update(app: *App) !bool {
 
     var command = encoder.finish(null);
     encoder.release();
-    app.queue.submit(&[_]*gpu.CommandBuffer{command});
+    const queue = core.queue;
+    queue.submit(&[_]*gpu.CommandBuffer{command});
     command.release();
-    app.core.swapChain().present();
+    core.swap_chain.present();
     back_buffer_view.release();
 
     return false;

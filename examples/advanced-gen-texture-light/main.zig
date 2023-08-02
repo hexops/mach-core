@@ -7,8 +7,8 @@
 // move camera with arrows or wasd
 
 const std = @import("std");
-const mach = @import("core");
-const gpu = mach.gpu;
+const core = @import("core");
+const gpu = core.gpu;
 const zm = @import("zmath");
 
 const Vec = zm.Vec;
@@ -19,9 +19,7 @@ pub const App = @This();
 
 var gpa = std.heap.GeneralPurposeAllocator(.{}){};
 
-core: mach.Core,
-timer: mach.Timer,
-queue: *gpu.Queue,
+timer: core.Timer,
 cube: Cube,
 camera: Camera,
 light: Light,
@@ -36,27 +34,26 @@ const Dir = struct {
 };
 
 pub fn init(app: *App) !void {
-    try app.core.init(gpa.allocator(), .{});
+    try core.init(.{});
 
-    app.timer = try mach.Timer.start();
+    app.timer = try core.Timer.start();
 
     const eye = Vec{ 5.0, 7.0, 5.0, 0.0 };
     const target = Vec{ 0.0, 0.0, 0.0, 0.0 };
 
-    const framebuffer = app.core.descriptor();
+    const framebuffer = core.descriptor;
     const aspect_ratio = @as(f32, @floatFromInt(framebuffer.width)) / @as(f32, @floatFromInt(framebuffer.height));
 
-    app.queue = app.core.device().getQueue();
-    app.cube = Cube.init(&app.core);
-    app.light = Light.init(&app.core);
-    app.depth = Texture.depth(app.core.device(), framebuffer.width, framebuffer.height);
-    app.camera = Camera.init(app.core.device(), eye, target, zm.Vec{ 0.0, 1.0, 0.0, 0.0 }, aspect_ratio, 45.0, 0.1, 100.0);
+    app.cube = Cube.init();
+    app.light = Light.init();
+    app.depth = Texture.depth(core.device, framebuffer.width, framebuffer.height);
+    app.camera = Camera.init(core.device, eye, target, zm.Vec{ 0.0, 1.0, 0.0, 0.0 }, aspect_ratio, 45.0, 0.1, 100.0);
     app.keys = 0;
 }
 
 pub fn deinit(app: *App) void {
     defer _ = gpa.deinit();
-    defer app.core.deinit();
+    defer core.deinit();
 
     app.depth.release();
 }
@@ -64,7 +61,7 @@ pub fn deinit(app: *App) void {
 pub fn update(app: *App) !bool {
     const delta_time = app.timer.lap();
 
-    var iter = app.core.pollEvents();
+    var iter = core.pollEvents();
     while (iter.next()) |event| {
         switch (event) {
             .key_press => |ev| switch (ev.key) {
@@ -81,9 +78,9 @@ pub fn update(app: *App) !bool {
                 .d, .right => {
                     app.keys |= Dir.right;
                 },
-                .one => app.core.setDisplayMode(.windowed, null),
-                .two => app.core.setDisplayMode(.fullscreen, null),
-                .three => app.core.setDisplayMode(.borderless, null),
+                .one => core.setDisplayMode(.windowed, null),
+                .two => core.setDisplayMode(.fullscreen, null),
+                .three => core.setDisplayMode(.borderless, null),
                 else => {},
             },
             .key_release => |ev| switch (ev.key) {
@@ -104,7 +101,7 @@ pub fn update(app: *App) !bool {
             .framebuffer_resize => |ev| {
                 // recreates the sampler, which is a waste, but for an example it's ok
                 app.depth.release();
-                app.depth = Texture.depth(app.core.device(), ev.width, ev.height);
+                app.depth = Texture.depth(core.device, ev.width, ev.height);
             },
             .close => return true,
             else => {},
@@ -129,16 +126,17 @@ pub fn update(app: *App) !bool {
     else
         app.camera.eye += right * (speed * @Vector(4, f32){ 0.5, 0.5, 0.5, 0.5 });
 
-    app.camera.update(app.queue);
+    const queue = core.queue;
+    app.camera.update(queue);
 
     // move light
     const light_speed = delta_time * 2.5;
-    app.light.update(app.queue, light_speed);
+    app.light.update(queue, light_speed);
 
-    const back_buffer_view = app.core.swapChain().getCurrentTextureView().?;
+    const back_buffer_view = core.swap_chain.getCurrentTextureView().?;
     defer back_buffer_view.release();
 
-    const encoder = app.core.device().createCommandEncoder(null);
+    const encoder = core.device.createCommandEncoder(null);
     defer encoder.release();
 
     const color_attachment = gpu.RenderPassColorAttachment{
@@ -192,8 +190,8 @@ pub fn update(app: *App) !bool {
     var command = encoder.finish(null);
     defer command.release();
 
-    app.queue.submit(&[_]*gpu.CommandBuffer{command});
-    app.core.swapChain().present();
+    queue.submit(&[_]*gpu.CommandBuffer{command});
+    core.swap_chain.present();
 
     return false;
 }
@@ -298,8 +296,8 @@ const Cube = struct {
     const SPACING = 2; // spacing between cubes
     const DISPLACEMENT = vec3u(IPR * SPACING / 2, 0, IPR * SPACING / 2);
 
-    fn init(core: *mach.Core) Self {
-        const device = core.device();
+    fn init() Self {
+        const device = core.device;
 
         const texture = Brick.texture(device);
 
@@ -337,12 +335,12 @@ const Cube = struct {
             .mesh = mesh(device),
             .texture = texture,
             .instance = instance,
-            .pipeline = pipeline(core),
+            .pipeline = pipeline(),
         };
     }
 
-    fn pipeline(core: *mach.Core) *gpu.RenderPipeline {
-        const device = core.device();
+    fn pipeline() *gpu.RenderPipeline {
+        const device = core.device;
 
         const layout_descriptor = gpu.PipelineLayout.Descriptor.init(.{
             .bind_group_layouts = &.{
@@ -360,7 +358,7 @@ const Cube = struct {
 
         const blend = gpu.BlendState{};
         const color_target = gpu.ColorTargetState{
-            .format = core.descriptor().format,
+            .format = core.descriptor.format,
             .blend = &blend,
         };
 
@@ -700,8 +698,8 @@ const Light = struct {
         color: Vec,
     };
 
-    fn init(core: *mach.Core) Self {
-        const device = core.device();
+    fn init() Self {
+        const device = core.device;
         const uniform = Uniform{
             .color = vec3u(1, 1, 1),
             .position = vec3u(3, 7, 2),
@@ -723,7 +721,7 @@ const Light = struct {
             .buffer = buffer,
             .uniform = uniform,
             .bind_group = bind_group,
-            .pipeline = Self.pipeline(core),
+            .pipeline = Self.pipeline(),
         };
     }
 
@@ -747,8 +745,8 @@ const Light = struct {
         }));
     }
 
-    fn pipeline(core: *mach.Core) *gpu.RenderPipeline {
-        const device = core.device();
+    fn pipeline() *gpu.RenderPipeline {
+        const device = core.device;
 
         const layout_descriptor = gpu.PipelineLayout.Descriptor.init(.{
             .bind_group_layouts = &.{
@@ -760,12 +758,12 @@ const Light = struct {
         const layout = device.createPipelineLayout(&layout_descriptor);
         defer layout.release();
 
-        const shader = core.device().createShaderModuleWGSL("light.wgsl", @embedFile("light.wgsl"));
+        const shader = core.device.createShaderModuleWGSL("light.wgsl", @embedFile("light.wgsl"));
         defer shader.release();
 
         const blend = gpu.BlendState{};
         const color_target = gpu.ColorTargetState{
-            .format = core.descriptor().format,
+            .format = core.descriptor.format,
             .blend = &blend,
         };
 

@@ -1,33 +1,31 @@
 const std = @import("std");
-const mach = @import("core");
-const gpu = mach.gpu;
+const core = @import("core");
+const gpu = core.gpu;
 
 pub const App = @This();
 
 var gpa = std.heap.GeneralPurposeAllocator(.{}){};
 
-core: mach.Core,
-timer: mach.Timer,
-window_title_timer: mach.Timer,
+timer: core.Timer,
+window_title_timer: core.Timer,
 pipeline: *gpu.RenderPipeline,
-queue: *gpu.Queue,
 texture: *gpu.Texture,
 texture_view: *gpu.TextureView,
 
 const sample_count = 4;
 
 pub fn init(app: *App) !void {
-    try app.core.init(gpa.allocator(), .{});
-    app.timer = try mach.Timer.start();
-    app.window_title_timer = try mach.Timer.start();
+    try core.init(.{});
+    app.timer = try core.Timer.start();
+    app.window_title_timer = try core.Timer.start();
 
-    const shader_module = app.core.device().createShaderModuleWGSL("shader.wgsl", @embedFile("shader.wgsl"));
+    const shader_module = core.device.createShaderModuleWGSL("shader.wgsl", @embedFile("shader.wgsl"));
     defer shader_module.release();
 
     // Fragment state
     const blend = gpu.BlendState{};
     const color_target = gpu.ColorTargetState{
-        .format = app.core.descriptor().format,
+        .format = core.descriptor.format,
         .blend = &blend,
         .write_mask = gpu.ColorWriteMaskFlags.all,
     };
@@ -47,16 +45,15 @@ pub fn init(app: *App) !void {
         },
     };
 
-    app.pipeline = app.core.device().createRenderPipeline(&pipeline_descriptor);
-    app.queue = app.core.device().getQueue();
+    app.pipeline = core.device.createRenderPipeline(&pipeline_descriptor);
 
-    app.texture = app.core.device().createTexture(&gpu.Texture.Descriptor{
+    app.texture = core.device.createTexture(&gpu.Texture.Descriptor{
         .size = gpu.Extent3D{
-            .width = app.core.descriptor().width,
-            .height = app.core.descriptor().height,
+            .width = core.descriptor.width,
+            .height = core.descriptor.height,
         },
         .sample_count = sample_count,
-        .format = app.core.descriptor().format,
+        .format = core.descriptor.format,
         .usage = .{ .render_attachment = true },
     });
     app.texture_view = app.texture.createView(null);
@@ -66,25 +63,25 @@ pub fn init(app: *App) !void {
 
 pub fn deinit(app: *App) void {
     defer _ = gpa.deinit();
-    defer app.core.deinit();
+    defer core.deinit();
 
     app.texture.release();
     app.texture_view.release();
 }
 
 pub fn update(app: *App) !bool {
-    var iter = app.core.pollEvents();
+    var iter = core.pollEvents();
     while (iter.next()) |event| {
         switch (event) {
             .framebuffer_resize => |size| {
                 app.texture.release();
-                app.texture = app.core.device().createTexture(&gpu.Texture.Descriptor{
+                app.texture = core.device.createTexture(&gpu.Texture.Descriptor{
                     .size = gpu.Extent3D{
                         .width = size.width,
                         .height = size.height,
                     },
                     .sample_count = sample_count,
-                    .format = app.core.descriptor().format,
+                    .format = core.descriptor.format,
                     .usage = .{ .render_attachment = true },
                 });
 
@@ -96,7 +93,7 @@ pub fn update(app: *App) !bool {
         }
     }
 
-    const back_buffer_view = app.core.swapChain().getCurrentTextureView().?;
+    const back_buffer_view = core.swap_chain.getCurrentTextureView().?;
     const color_attachment = gpu.RenderPassColorAttachment{
         .view = app.texture_view,
         .resolve_target = back_buffer_view,
@@ -105,7 +102,7 @@ pub fn update(app: *App) !bool {
         .store_op = .discard,
     };
 
-    const encoder = app.core.device().createCommandEncoder(null);
+    const encoder = core.device.createCommandEncoder(null);
     const render_pass_info = gpu.RenderPassDescriptor.init(.{
         .color_attachments = &.{color_attachment},
     });
@@ -118,17 +115,18 @@ pub fn update(app: *App) !bool {
     var command = encoder.finish(null);
     encoder.release();
 
-    app.queue.submit(&[_]*gpu.CommandBuffer{command});
+    const queue = core.queue;
+    queue.submit(&[_]*gpu.CommandBuffer{command});
     command.release();
-    app.core.swapChain().present();
+    core.swap_chain.present();
     back_buffer_view.release();
 
     const delta_time = app.timer.lap();
     // TODO: this is a terrible FPS calculation
     if (app.window_title_timer.read() >= 1.0) {
         app.window_title_timer.reset();
-        const title = try std.fmt.bufPrintZ(&app.core.title, "Mach Core [ FPS: {d} ]", .{@floor(1 / delta_time)});
-        app.core.setTitle(title);
+        const title = try std.fmt.bufPrintZ(&core.title, "Mach Core [ FPS: {d} ]", .{@floor(1 / delta_time)});
+        core.setTitle(title);
     }
     return false;
 }

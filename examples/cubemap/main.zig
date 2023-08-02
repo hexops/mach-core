@@ -1,6 +1,6 @@
 const std = @import("std");
-const mach = @import("core");
-const gpu = mach.gpu;
+const core = @import("core");
+const gpu = core.gpu;
 const zm = @import("zmath");
 const zigimg = @import("zigimg");
 const Vertex = @import("cube_mesh.zig").Vertex;
@@ -13,10 +13,8 @@ const UniformBufferObject = struct {
 
 var gpa = std.heap.GeneralPurposeAllocator(.{}){};
 
-core: mach.Core,
-timer: mach.Timer,
+timer: core.Timer,
 pipeline: *gpu.RenderPipeline,
-queue: *gpu.Queue,
 vertex_buffer: *gpu.Buffer,
 uniform_buffer: *gpu.Buffer,
 bind_group: *gpu.BindGroup,
@@ -26,10 +24,11 @@ depth_texture_view: *gpu.TextureView,
 pub const App = @This();
 
 pub fn init(app: *App) !void {
-    const allocator = gpa.allocator();
-    try app.core.init(gpa.allocator(), .{});
+    try core.init(.{});
 
-    const shader_module = app.core.device().createShaderModuleWGSL("shader.wgsl", @embedFile("shader.wgsl"));
+    const allocator = gpa.allocator();
+
+    const shader_module = core.device.createShaderModuleWGSL("shader.wgsl", @embedFile("shader.wgsl"));
     defer shader_module.release();
 
     const vertex_attributes = [_]gpu.VertexAttribute{
@@ -56,7 +55,7 @@ pub fn init(app: *App) !void {
         },
     };
     const color_target = gpu.ColorTargetState{
-        .format = app.core.descriptor().format,
+        .format = core.descriptor.format,
         .blend = &blend,
         .write_mask = gpu.ColorWriteMaskFlags.all,
     };
@@ -88,9 +87,9 @@ pub fn init(app: *App) !void {
             .cull_mode = .none,
         },
     };
-    const pipeline = app.core.device().createRenderPipeline(&pipeline_descriptor);
+    const pipeline = core.device.createRenderPipeline(&pipeline_descriptor);
 
-    const vertex_buffer = app.core.device().createBuffer(&.{
+    const vertex_buffer = core.device.createBuffer(&.{
         .usage = .{ .vertex = true },
         .size = @sizeOf(Vertex) * vertices.len,
         .mapped_at_creation = true,
@@ -99,19 +98,19 @@ pub fn init(app: *App) !void {
     std.mem.copy(Vertex, vertex_mapped.?, vertices[0..]);
     vertex_buffer.unmap();
 
-    const uniform_buffer = app.core.device().createBuffer(&.{
+    const uniform_buffer = core.device.createBuffer(&.{
         .usage = .{ .copy_dst = true, .uniform = true },
         .size = @sizeOf(UniformBufferObject),
         .mapped_at_creation = false,
     });
 
     // Create a sampler with linear filtering for smooth interpolation.
-    const sampler = app.core.device().createSampler(&.{
+    const sampler = core.device.createSampler(&.{
         .mag_filter = .linear,
         .min_filter = .linear,
     });
 
-    const queue = app.core.device().getQueue();
+    const queue = core.queue;
 
     // WebGPU expects the cubemap textures in this order: (+X,-X,+Y,-Y,+Z,-Z)
     var images: [6]zigimg.Image = undefined;
@@ -142,7 +141,7 @@ pub fn init(app: *App) !void {
     };
 
     // Same as a regular texture, but with a Z of 6 (defined in tex_size)
-    const cube_texture = app.core.device().createTexture(&.{
+    const cube_texture = core.device.createTexture(&.{
         .size = tex_size,
         .format = .rgba8_unorm,
         .dimension = .dimension_2d,
@@ -158,7 +157,7 @@ pub fn init(app: *App) !void {
         .rows_per_image = @as(u32, @intCast(images[0].height)),
     };
 
-    const encoder = app.core.device().createCommandEncoder(null);
+    const encoder = core.device.createCommandEncoder(null);
 
     // We have to create a staging buffer, copy all the image data into the
     // staging buffer at the correct Z offset, encode a command to copy
@@ -167,7 +166,7 @@ pub fn init(app: *App) !void {
     var staging_buff: [6]*gpu.Buffer = undefined;
     var i: u32 = 0;
     while (i < 6) : (i += 1) {
-        staging_buff[i] = app.core.device().createBuffer(&.{
+        staging_buff[i] = core.device.createBuffer(&.{
             .usage = .{ .copy_src = true, .map_write = true },
             .size = @as(u64, @intCast(images[0].width)) * @as(u64, @intCast(images[0].height)) * @sizeOf(u32),
             .mapped_at_creation = true,
@@ -214,7 +213,7 @@ pub fn init(app: *App) !void {
     command.release();
 
     // The textureView in the bind group needs dimension defined as "dimension_cube".
-    const bind_group = app.core.device().createBindGroup(
+    const bind_group = core.device.createBindGroup(
         &gpu.BindGroup.Descriptor.init(.{
             .layout = pipeline.getBindGroupLayout(0),
             .entries = &.{
@@ -225,10 +224,10 @@ pub fn init(app: *App) !void {
         }),
     );
 
-    const depth_texture = app.core.device().createTexture(&gpu.Texture.Descriptor{
+    const depth_texture = core.device.createTexture(&gpu.Texture.Descriptor{
         .size = gpu.Extent3D{
-            .width = app.core.descriptor().width,
-            .height = app.core.descriptor().height,
+            .width = core.descriptor.width,
+            .height = core.descriptor.height,
         },
         .format = .depth24_plus,
         .usage = .{
@@ -244,9 +243,8 @@ pub fn init(app: *App) !void {
         .mip_level_count = 1,
     });
 
-    app.timer = try mach.Timer.start();
+    app.timer = try core.Timer.start();
     app.pipeline = pipeline;
-    app.queue = queue;
     app.vertex_buffer = vertex_buffer;
     app.uniform_buffer = uniform_buffer;
     app.bind_group = bind_group;
@@ -256,7 +254,7 @@ pub fn init(app: *App) !void {
 
 pub fn deinit(app: *App) void {
     defer _ = gpa.deinit();
-    defer app.core.deinit();
+    defer core.deinit();
 
     app.vertex_buffer.release();
     app.uniform_buffer.release();
@@ -266,7 +264,7 @@ pub fn deinit(app: *App) void {
 }
 
 pub fn update(app: *App) !bool {
-    var iter = app.core.pollEvents();
+    var iter = core.pollEvents();
     while (iter.next()) |event| {
         switch (event) {
             .key_press => |ev| {
@@ -276,7 +274,7 @@ pub fn update(app: *App) !bool {
             .framebuffer_resize => |ev| {
                 // If window is resized, recreate depth buffer otherwise we cannot use it.
                 app.depth_texture.release();
-                app.depth_texture = app.core.device().createTexture(&gpu.Texture.Descriptor{
+                app.depth_texture = core.device.createTexture(&gpu.Texture.Descriptor{
                     .size = gpu.Extent3D{
                         .width = ev.width,
                         .height = ev.height,
@@ -299,7 +297,7 @@ pub fn update(app: *App) !bool {
         }
     }
 
-    const back_buffer_view = app.core.swapChain().getCurrentTextureView().?;
+    const back_buffer_view = core.swap_chain.getCurrentTextureView().?;
     const color_attachment = gpu.RenderPassColorAttachment{
         .view = back_buffer_view,
         .clear_value = .{ .r = 0.5, .g = 0.5, .b = 0.5, .a = 0.0 },
@@ -307,7 +305,7 @@ pub fn update(app: *App) !bool {
         .store_op = .store,
     };
 
-    const encoder = app.core.device().createCommandEncoder(null);
+    const encoder = core.device.createCommandEncoder(null);
     const render_pass_info = gpu.RenderPassDescriptor.init(.{
         .color_attachments = &.{color_attachment},
         .depth_stencil_attachment = &.{
@@ -320,7 +318,7 @@ pub fn update(app: *App) !bool {
 
     {
         const time = app.timer.read();
-        const aspect = @as(f32, @floatFromInt(app.core.descriptor().width)) / @as(f32, @floatFromInt(app.core.descriptor().height));
+        const aspect = @as(f32, @floatFromInt(core.descriptor.width)) / @as(f32, @floatFromInt(core.descriptor.height));
         const proj = zm.perspectiveFovRh((2 * std.math.pi) / 5.0, aspect, 0.1, 3000);
         const model = zm.mul(
             zm.scaling(1000, 1000, 1000),
@@ -355,9 +353,10 @@ pub fn update(app: *App) !bool {
     var command = encoder.finish(null);
     encoder.release();
 
-    app.queue.submit(&[_]*gpu.CommandBuffer{command});
+    const queue = core.queue;
+    queue.submit(&[_]*gpu.CommandBuffer{command});
     command.release();
-    app.core.swapChain().present();
+    core.swap_chain.present();
     back_buffer_view.release();
 
     return false;

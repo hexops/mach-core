@@ -1,6 +1,6 @@
 const std = @import("std");
-const mach = @import("core");
-const gpu = mach.gpu;
+const core = @import("core");
+const gpu = core.gpu;
 const zm = @import("zmath");
 const Vertex = @import("cube_mesh.zig").Vertex;
 const vertices = @import("cube_mesh.zig").vertices;
@@ -12,18 +12,16 @@ const UniformBufferObject = struct {
     mat: zm.Mat,
 };
 
-core: mach.Core,
-timer: mach.Timer,
+timer: core.Timer,
 pipeline: *gpu.RenderPipeline,
-queue: *gpu.Queue,
 vertex_buffer: *gpu.Buffer,
 uniform_buffer: *gpu.Buffer,
 bind_group: *gpu.BindGroup,
 
 pub fn init(app: *App) !void {
-    try app.core.init(gpa.allocator(), .{});
+    try core.init(.{});
 
-    const shader_module = app.core.device().createShaderModuleWGSL("shader.wgsl", @embedFile("shader.wgsl"));
+    const shader_module = core.device.createShaderModuleWGSL("shader.wgsl", @embedFile("shader.wgsl"));
 
     const vertex_attributes = [_]gpu.VertexAttribute{
         .{ .format = .float32x4, .offset = @offsetOf(Vertex, "pos"), .shader_location = 0 },
@@ -37,7 +35,7 @@ pub fn init(app: *App) !void {
 
     const blend = gpu.BlendState{};
     const color_target = gpu.ColorTargetState{
-        .format = app.core.descriptor().format,
+        .format = core.descriptor.format,
         .blend = &blend,
         .write_mask = gpu.ColorWriteMaskFlags.all,
     };
@@ -48,14 +46,14 @@ pub fn init(app: *App) !void {
     });
 
     const bgle = gpu.BindGroupLayout.Entry.buffer(0, .{ .vertex = true }, .uniform, true, 0);
-    const bgl = app.core.device().createBindGroupLayout(
+    const bgl = core.device.createBindGroupLayout(
         &gpu.BindGroupLayout.Descriptor.init(.{
             .entries = &.{bgle},
         }),
     );
 
     const bind_group_layouts = [_]*gpu.BindGroupLayout{bgl};
-    const pipeline_layout = app.core.device().createPipelineLayout(&gpu.PipelineLayout.Descriptor.init(.{
+    const pipeline_layout = core.device.createPipelineLayout(&gpu.PipelineLayout.Descriptor.init(.{
         .bind_group_layouts = &bind_group_layouts,
     }));
 
@@ -72,7 +70,7 @@ pub fn init(app: *App) !void {
         },
     };
 
-    const vertex_buffer = app.core.device().createBuffer(&.{
+    const vertex_buffer = core.device.createBuffer(&.{
         .usage = .{ .vertex = true },
         .size = @sizeOf(Vertex) * vertices.len,
         .mapped_at_creation = true,
@@ -81,12 +79,12 @@ pub fn init(app: *App) !void {
     std.mem.copy(Vertex, vertex_mapped.?, vertices[0..]);
     vertex_buffer.unmap();
 
-    const uniform_buffer = app.core.device().createBuffer(&.{
+    const uniform_buffer = core.device.createBuffer(&.{
         .usage = .{ .copy_dst = true, .uniform = true },
         .size = @sizeOf(UniformBufferObject),
         .mapped_at_creation = false,
     });
-    const bind_group = app.core.device().createBindGroup(
+    const bind_group = core.device.createBindGroup(
         &gpu.BindGroup.Descriptor.init(.{
             .layout = bgl,
             .entries = &.{
@@ -95,9 +93,8 @@ pub fn init(app: *App) !void {
         }),
     );
 
-    app.timer = try mach.Timer.start();
-    app.pipeline = app.core.device().createRenderPipeline(&pipeline_descriptor);
-    app.queue = app.core.device().getQueue();
+    app.timer = try core.Timer.start();
+    app.pipeline = core.device.createRenderPipeline(&pipeline_descriptor);
     app.vertex_buffer = vertex_buffer;
     app.uniform_buffer = uniform_buffer;
     app.bind_group = bind_group;
@@ -109,7 +106,7 @@ pub fn init(app: *App) !void {
 
 pub fn deinit(app: *App) void {
     defer _ = gpa.deinit();
-    defer app.core.deinit();
+    defer core.deinit();
 
     app.vertex_buffer.release();
     app.uniform_buffer.release();
@@ -117,7 +114,7 @@ pub fn deinit(app: *App) void {
 }
 
 pub fn update(app: *App) !bool {
-    var iter = app.core.pollEvents();
+    var iter = core.pollEvents();
     while (iter.next()) |event| {
         switch (event) {
             .key_press => |ev| {
@@ -128,7 +125,7 @@ pub fn update(app: *App) !bool {
         }
     }
 
-    const back_buffer_view = app.core.swapChain().getCurrentTextureView().?;
+    const back_buffer_view = core.swap_chain.getCurrentTextureView().?;
     const color_attachment = gpu.RenderPassColorAttachment{
         .view = back_buffer_view,
         .clear_value = std.mem.zeroes(gpu.Color),
@@ -136,7 +133,7 @@ pub fn update(app: *App) !bool {
         .store_op = .store,
     };
 
-    const encoder = app.core.device().createCommandEncoder(null);
+    const encoder = core.device.createCommandEncoder(null);
     const render_pass_info = gpu.RenderPassDescriptor.init(.{
         .color_attachments = &.{color_attachment},
     });
@@ -151,7 +148,7 @@ pub fn update(app: *App) !bool {
         );
         const proj = zm.perspectiveFovRh(
             (std.math.pi / 4.0),
-            @as(f32, @floatFromInt(app.core.descriptor().width)) / @as(f32, @floatFromInt(app.core.descriptor().height)),
+            @as(f32, @floatFromInt(core.descriptor.width)) / @as(f32, @floatFromInt(core.descriptor.height)),
             0.1,
             10,
         );
@@ -173,9 +170,10 @@ pub fn update(app: *App) !bool {
     var command = encoder.finish(null);
     encoder.release();
 
-    app.queue.submit(&[_]*gpu.CommandBuffer{command});
+    const queue = core.queue;
+    queue.submit(&[_]*gpu.CommandBuffer{command});
     command.release();
-    app.core.swapChain().present();
+    core.swap_chain.present();
     back_buffer_view.release();
 
     return false;

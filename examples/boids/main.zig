@@ -1,11 +1,10 @@
 /// A port of Austin Eng's "computeBoids" webgpu sample.
 /// https://github.com/austinEng/webgpu-samples/blob/main/src/sample/computeBoids/main.ts
 const std = @import("std");
-const mach = @import("core");
-const gpu = mach.gpu;
+const core = @import("core");
+const gpu = core.gpu;
 
-core: mach.Core,
-timer: mach.Timer,
+timer: core.Timer,
 compute_pipeline: *gpu.ComputePipeline,
 render_pipeline: *gpu.RenderPipeline,
 sprite_vertex_buffer: *gpu.Buffer,
@@ -31,14 +30,14 @@ var sim_params = [_]f32{
 };
 
 pub fn init(app: *App) !void {
-    try app.core.init(gpa.allocator(), .{});
+    try core.init(.{});
 
-    const sprite_shader_module = app.core.device().createShaderModuleWGSL(
+    const sprite_shader_module = core.device.createShaderModuleWGSL(
         "sprite.wgsl",
         @embedFile("sprite.wgsl"),
     );
 
-    const update_sprite_shader_module = app.core.device().createShaderModuleWGSL(
+    const update_sprite_shader_module = core.device.createShaderModuleWGSL(
         "updateSprites.wgsl",
         @embedFile("updateSprites.wgsl"),
     );
@@ -67,7 +66,7 @@ pub fn init(app: *App) !void {
         },
     };
 
-    const render_pipeline = app.core.device().createRenderPipeline(&gpu.RenderPipeline.Descriptor{
+    const render_pipeline = core.device.createRenderPipeline(&gpu.RenderPipeline.Descriptor{
         .vertex = gpu.VertexState.init(.{
             .module = sprite_shader_module,
             .entry_point = "vert_main",
@@ -90,12 +89,12 @@ pub fn init(app: *App) !void {
             .module = sprite_shader_module,
             .entry_point = "frag_main",
             .targets = &[_]gpu.ColorTargetState{.{
-                .format = app.core.descriptor().format,
+                .format = core.descriptor.format,
             }},
         }),
     });
 
-    const compute_pipeline = app.core.device().createComputePipeline(&gpu.ComputePipeline.Descriptor{ .compute = gpu.ProgrammableStageDescriptor{
+    const compute_pipeline = core.device.createComputePipeline(&gpu.ComputePipeline.Descriptor{ .compute = gpu.ProgrammableStageDescriptor{
         .module = update_sprite_shader_module,
         .entry_point = "main",
     } });
@@ -105,7 +104,7 @@ pub fn init(app: *App) !void {
         -0.02, 0.0,   0.02,
     };
 
-    const sprite_vertex_buffer = app.core.device().createBuffer(&gpu.Buffer.Descriptor{
+    const sprite_vertex_buffer = core.device.createBuffer(&gpu.Buffer.Descriptor{
         .label = "sprite_vertex_buffer",
         .usage = .{ .vertex = true },
         .mapped_at_creation = true,
@@ -115,12 +114,12 @@ pub fn init(app: *App) !void {
     @memcpy(vertex_mapped.?, vert_buffer_data[0..]);
     sprite_vertex_buffer.unmap();
 
-    const sim_param_buffer = app.core.device().createBuffer(&gpu.Buffer.Descriptor{
+    const sim_param_buffer = core.device.createBuffer(&gpu.Buffer.Descriptor{
         .label = "sim_param_buffer",
         .usage = .{ .uniform = true, .copy_dst = true },
         .size = sim_params.len * @sizeOf(f32),
     });
-    app.core.device().getQueue().writeBuffer(sim_param_buffer, 0, sim_params[0..]);
+    core.queue.writeBuffer(sim_param_buffer, 0, sim_params[0..]);
 
     var initial_particle_data: [num_particle * 4]f32 = undefined;
     var rng = std.rand.DefaultPrng.init(0);
@@ -137,7 +136,7 @@ pub fn init(app: *App) !void {
     var particle_bind_groups: [2]*gpu.BindGroup = undefined;
     i = 0;
     while (i < 2) : (i += 1) {
-        particle_buffers[i] = app.core.device().createBuffer(&gpu.Buffer.Descriptor{
+        particle_buffers[i] = core.device.createBuffer(&gpu.Buffer.Descriptor{
             .label = "particle_buffer",
             .mapped_at_creation = true,
             .usage = .{
@@ -153,7 +152,7 @@ pub fn init(app: *App) !void {
 
     i = 0;
     while (i < 2) : (i += 1) {
-        particle_bind_groups[i] = app.core.device().createBindGroup(&gpu.BindGroup.Descriptor.init(.{
+        particle_bind_groups[i] = core.device.createBindGroup(&gpu.BindGroup.Descriptor.init(.{
             .layout = compute_pipeline.getBindGroupLayout(0),
             .entries = &.{
                 gpu.BindGroup.Entry.buffer(0, sim_param_buffer, 0, sim_params.len * @sizeOf(f32)),
@@ -164,8 +163,7 @@ pub fn init(app: *App) !void {
     }
 
     app.* = .{
-        .core = app.core,
-        .timer = try mach.Timer.start(),
+        .timer = try core.Timer.start(),
         .compute_pipeline = compute_pipeline,
         .render_pipeline = render_pipeline,
         .sprite_vertex_buffer = sprite_vertex_buffer,
@@ -177,19 +175,20 @@ pub fn init(app: *App) !void {
 }
 
 pub fn deinit(app: *App) void {
+    _ = app;
     defer _ = gpa.deinit();
-    defer app.core.deinit();
+    defer core.deinit();
 }
 
 pub fn update(app: *App) !bool {
     const delta_time = app.timer.lap();
 
-    var iter = app.core.pollEvents();
+    var iter = core.pollEvents();
     while (iter.next()) |event| {
         if (event == .close) return true;
     }
 
-    const back_buffer_view = app.core.swapChain().getCurrentTextureView().?;
+    const back_buffer_view = core.swap_chain.getCurrentTextureView().?;
     const color_attachment = gpu.RenderPassColorAttachment{
         .view = back_buffer_view,
         .clear_value = std.mem.zeroes(gpu.Color),
@@ -204,9 +203,9 @@ pub fn update(app: *App) !bool {
     });
 
     sim_params[0] = @as(f32, @floatCast(delta_time));
-    app.core.device().getQueue().writeBuffer(app.sim_param_buffer, 0, sim_params[0..]);
+    core.queue.writeBuffer(app.sim_param_buffer, 0, sim_params[0..]);
 
-    const command_encoder = app.core.device().createCommandEncoder(null);
+    const command_encoder = core.device.createCommandEncoder(null);
     {
         const pass_encoder = command_encoder.beginComputePass(null);
         pass_encoder.setPipeline(app.compute_pipeline);
@@ -232,10 +231,10 @@ pub fn update(app: *App) !bool {
 
     var command = command_encoder.finish(null);
     command_encoder.release();
-    app.core.device().getQueue().submit(&[_]*gpu.CommandBuffer{command});
+    core.queue.submit(&[_]*gpu.CommandBuffer{command});
     command.release();
 
-    app.core.swapChain().present();
+    core.swap_chain.present();
     back_buffer_view.release();
 
     return false;

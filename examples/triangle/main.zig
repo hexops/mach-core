@@ -5,9 +5,8 @@ const gpu = core.gpu;
 pub const App = @This();
 
 pipeline: *gpu.RenderPipeline,
-queue: *gpu.Queue,
 
-pub fn init() !App {
+pub fn init(app: *App) !void {
     try core.init(.{});
 
     const shader_module = core.device.createShaderModuleWGSL("shader.wgsl", @embedFile("shader.wgsl"));
@@ -34,10 +33,7 @@ pub fn init() !App {
     };
     const pipeline = core.device.createRenderPipeline(&pipeline_descriptor);
 
-    return App{
-        .pipeline = pipeline,
-        .queue = core.device().getQueue(),
-    };
+    app.* = .{ .pipeline = pipeline };
 }
 
 pub fn deinit(app: *App) void {
@@ -76,7 +72,7 @@ pub fn update(app: *App) !bool {
     var command = encoder.finish(null);
     encoder.release();
 
-    app.queue.submit(&[_]*gpu.CommandBuffer{command});
+    queue.submit(&[_]*gpu.CommandBuffer{command});
     command.release();
     core.swap_chain.present();
     back_buffer_view.release();
