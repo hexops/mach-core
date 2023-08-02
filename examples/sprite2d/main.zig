@@ -1,6 +1,6 @@
 const std = @import("std");
-const mach = @import("core");
-const gpu = mach.gpu;
+const core = @import("core");
+const gpu = core.gpu;
 const zm = @import("zmath");
 const zigimg = @import("zigimg");
 const assets = @import("assets");
@@ -50,12 +50,10 @@ const JSONData = struct {
 };
 var gpa = std.heap.GeneralPurposeAllocator(.{}){};
 
-core: mach.Core,
-timer: mach.Timer,
-fps_timer: mach.Timer,
-window_title_timer: mach.Timer,
+timer: core.Timer,
+fps_timer: core.Timer,
+window_title_timer: core.Timer,
 pipeline: *gpu.RenderPipeline,
-queue: *gpu.Queue,
 uniform_buffer: *gpu.Buffer,
 bind_group: *gpu.BindGroup,
 sheet: SpriteSheet,
@@ -67,8 +65,9 @@ direction: Vec2,
 player_sprite_index: usize,
 
 pub fn init(app: *App) !void {
+    try core.init(.{});
+
     const allocator = gpa.allocator();
-    try app.core.init(allocator, .{});
 
     const sprites_file = try std.fs.cwd().openFile("../../examples/sprite2d/sprites.json", .{ .mode = .read_only });
     defer sprites_file.close();
@@ -102,7 +101,7 @@ pub fn init(app: *App) !void {
     }
     std.log.info("Number of sprites: {}", .{app.sprites.items.len});
 
-    const shader_module = app.core.device().createShaderModuleWGSL("sprite-shader.wgsl", @embedFile("sprite-shader.wgsl"));
+    const shader_module = core.device.createShaderModuleWGSL("sprite-shader.wgsl", @embedFile("sprite-shader.wgsl"));
 
     const blend = gpu.BlendState{
         .color = .{
@@ -117,7 +116,7 @@ pub fn init(app: *App) !void {
         },
     };
     const color_target = gpu.ColorTargetState{
-        .format = app.core.descriptor().format,
+        .format = core.descriptor.format,
         .blend = &blend,
         .write_mask = gpu.ColorWriteMaskFlags.all,
     };
@@ -134,9 +133,9 @@ pub fn init(app: *App) !void {
             .entry_point = "vertex_main",
         }),
     };
-    const pipeline = app.core.device().createRenderPipeline(&pipeline_descriptor);
+    const pipeline = core.device.createRenderPipeline(&pipeline_descriptor);
 
-    const sprites_buffer = app.core.device().createBuffer(&.{
+    const sprites_buffer = core.device.createBuffer(&.{
         .usage = .{ .storage = true, .copy_dst = true },
         .size = @sizeOf(Sprite) * app.sprites.items.len,
         .mapped_at_creation = true,
@@ -146,16 +145,16 @@ pub fn init(app: *App) !void {
     sprites_buffer.unmap();
 
     // Create a sampler with linear filtering for smooth interpolation.
-    const sampler = app.core.device().createSampler(&.{
+    const sampler = core.device.createSampler(&.{
         .mag_filter = .linear,
         .min_filter = .linear,
     });
-    const queue = app.core.device().getQueue();
+    const queue = core.queue;
     var img = try zigimg.Image.fromMemory(allocator, assets.sprites_sheet_png);
     defer img.deinit();
     const img_size = gpu.Extent3D{ .width = @as(u32, @intCast(img.width)), .height = @as(u32, @intCast(img.height)) };
     std.log.info("Image Dimensions: {} {}", .{ img.width, img.height });
-    const texture = app.core.device().createTexture(&.{
+    const texture = core.device.createTexture(&.{
         .size = img_size,
         .format = .rgba8_unorm,
         .usage = .{
@@ -178,13 +177,13 @@ pub fn init(app: *App) !void {
         else => @panic("unsupported image color format"),
     }
 
-    const uniform_buffer = app.core.device().createBuffer(&.{
+    const uniform_buffer = core.device.createBuffer(&.{
         .usage = .{ .copy_dst = true, .uniform = true },
         .size = @sizeOf(UniformBufferObject),
         .mapped_at_creation = false,
     });
 
-    const bind_group = app.core.device().createBindGroup(
+    const bind_group = core.device.createBindGroup(
         &gpu.BindGroup.Descriptor.init(.{
             .layout = pipeline.getBindGroupLayout(0),
             .entries = &.{
@@ -196,11 +195,10 @@ pub fn init(app: *App) !void {
         }),
     );
 
-    app.timer = try mach.Timer.start();
-    app.fps_timer = try mach.Timer.start();
-    app.window_title_timer = try mach.Timer.start();
+    app.timer = try core.Timer.start();
+    app.fps_timer = try core.Timer.start();
+    app.window_title_timer = try core.Timer.start();
     app.pipeline = pipeline;
-    app.queue = queue;
     app.uniform_buffer = uniform_buffer;
     app.bind_group = bind_group;
     app.sprites_buffer = sprites_buffer;
@@ -210,7 +208,7 @@ pub fn init(app: *App) !void {
 
 pub fn deinit(app: *App) void {
     defer _ = gpa.deinit();
-    defer app.core.deinit();
+    defer core.deinit();
 
     app.sprites.deinit();
     app.sprites_frames.deinit();
@@ -221,7 +219,7 @@ pub fn deinit(app: *App) void {
 
 pub fn update(app: *App) !bool {
     // Handle input by determining the direction the player wants to go.
-    var iter = app.core.pollEvents();
+    var iter = core.pollEvents();
     while (iter.next()) |event| {
         switch (event) {
             .key_press => |ev| {
@@ -261,14 +259,14 @@ pub fn update(app: *App) !bool {
     // TODO: this is a terrible FPS calculation
     if (app.window_title_timer.read() >= 1.0) {
         app.window_title_timer.reset();
-        const title = try std.fmt.bufPrintZ(&app.core.title, "Sprite2D [ FPS: {d} ]", .{@floor(1 / delta_time)});
-        app.core.setTitle(title);
+        const title = try std.fmt.bufPrintZ(&core.title, "Sprite2D [ FPS: {d} ]", .{@floor(1 / delta_time)});
+        core.setTitle(title);
     }
     return false;
 }
 
 fn render(app: *App) !void {
-    const back_buffer_view = app.core.swapChain().getCurrentTextureView().?;
+    const back_buffer_view = core.swap_chain.getCurrentTextureView().?;
     const color_attachment = gpu.RenderPassColorAttachment{
         .view = back_buffer_view,
         // sky blue background color:
@@ -277,7 +275,7 @@ fn render(app: *App) !void {
         .store_op = .store,
     };
 
-    const encoder = app.core.device().createCommandEncoder(null);
+    const encoder = core.device.createCommandEncoder(null);
     const render_pass_info = gpu.RenderPassDescriptor.init(.{
         .color_attachments = &.{color_attachment},
     });
@@ -298,8 +296,8 @@ fn render(app: *App) !void {
     // One pixel in our scene will equal one window pixel (i.e. be roughly the same size
     // irrespective of whether the user has a Retina/HDPI display.)
     const proj = zm.orthographicRh(
-        @as(f32, @floatFromInt(app.core.size().width)),
-        @as(f32, @floatFromInt(app.core.size().height)),
+        @as(f32, @floatFromInt(core.size().width)),
+        @as(f32, @floatFromInt(core.size().height)),
         0.1,
         1000,
     );
@@ -329,9 +327,10 @@ fn render(app: *App) !void {
     // Submit the frame.
     var command = encoder.finish(null);
     encoder.release();
-    app.queue.submit(&[_]*gpu.CommandBuffer{command});
+    const queue = core.queue;
+    queue.submit(&[_]*gpu.CommandBuffer{command});
     command.release();
-    app.core.swapChain().present();
+    core.swap_chain.present();
     back_buffer_view.release();
 }
 

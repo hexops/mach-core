@@ -1,6 +1,6 @@
 const std = @import("std");
-const mach = @import("core");
-const gpu = mach.gpu;
+const core = @import("core");
+const gpu = core.gpu;
 const zm = @import("zmath");
 
 const Vertex = @import("cube_mesh.zig").Vertex;
@@ -22,9 +22,7 @@ const PostUniformBufferObject = extern struct {
 };
 var gpa = std.heap.GeneralPurposeAllocator(.{}){};
 
-core: mach.Core,
-timer: mach.Timer,
-queue: *gpu.Queue,
+timer: core.Timer,
 
 pipeline: *gpu.RenderPipeline,
 normal_pipeline: *gpu.RenderPipeline,
@@ -42,8 +40,8 @@ depth_texture_view: *gpu.TextureView,
 normal_texture_view: *gpu.TextureView,
 
 pub fn init(app: *App) !void {
-    try app.core.init(gpa.allocator(), .{});
-    app.timer = try mach.Timer.start();
+    try core.init(.{});
+    app.timer = try core.Timer.start();
 
     try app.createRenderTextures();
     app.createDrawPipeline();
@@ -52,13 +50,13 @@ pub fn init(app: *App) !void {
 
 pub fn deinit(app: *App) void {
     defer _ = gpa.deinit();
-    defer app.core.deinit();
+    defer core.deinit();
 
     app.cleanup();
 }
 
 pub fn update(app: *App) !bool {
-    var iter = app.core.pollEvents();
+    var iter = core.pollEvents();
     while (iter.next()) |event| {
         switch (event) {
             .key_press => |ev| {
@@ -75,8 +73,8 @@ pub fn update(app: *App) !bool {
         }
     }
 
-    const size = app.core.size();
-    const encoder = app.core.device().createCommandEncoder(null);
+    const size = core.size();
+    const encoder = core.device.createCommandEncoder(null);
     encoder.writeBuffer(app.post_uniform_buffer, 0, &[_]PostUniformBufferObject{
         PostUniformBufferObject{
             .width = size.width,
@@ -94,7 +92,7 @@ pub fn update(app: *App) !bool {
         );
         const proj = zm.perspectiveFovRh(
             (std.math.pi / 4.0),
-            @as(f32, @floatFromInt(app.core.descriptor().width)) / @as(f32, @floatFromInt(app.core.descriptor().height)),
+            @as(f32, @floatFromInt(core.descriptor.width)) / @as(f32, @floatFromInt(core.descriptor.height)),
             0.1,
             10,
         );
@@ -153,7 +151,7 @@ pub fn update(app: *App) !bool {
         normal_pass.release();
     }
 
-    const back_buffer_view = app.core.swapChain().getCurrentTextureView().?;
+    const back_buffer_view = core.swap_chain.getCurrentTextureView().?;
     {
         // render to swap chain using previous passes
         const post_color_attachment = gpu.RenderPassColorAttachment{
@@ -178,9 +176,10 @@ pub fn update(app: *App) !bool {
     var command = encoder.finish(null);
     encoder.release();
 
-    app.queue.submit(&[_]*gpu.CommandBuffer{command});
+    const queue = core.queue;
+    queue.submit(&[_]*gpu.CommandBuffer{command});
     command.release();
-    app.core.swapChain().present();
+    core.swap_chain.present();
     back_buffer_view.release();
 
     return false;
@@ -201,14 +200,14 @@ fn cleanup(app: *App) void {
 }
 
 fn createRenderTextures(app: *App) !void {
-    const size = app.core.size();
+    const size = core.size();
 
     const draw_texture_desc = gpu.Texture.Descriptor.init(.{
         .size = .{ .width = size.width / pixel_size, .height = size.height / pixel_size },
         .format = .bgra8_unorm,
         .usage = .{ .texture_binding = true, .copy_dst = true, .render_attachment = true },
     });
-    const draw_texture = app.core.device().createTexture(&draw_texture_desc);
+    const draw_texture = core.device.createTexture(&draw_texture_desc);
     app.draw_texture_view = draw_texture.createView(null);
 
     const depth_texture_desc = gpu.Texture.Descriptor.init(.{
@@ -216,7 +215,7 @@ fn createRenderTextures(app: *App) !void {
         .format = .depth32_float,
         .usage = .{ .texture_binding = true, .copy_dst = true, .render_attachment = true },
     });
-    const depth_texture = app.core.device().createTexture(&depth_texture_desc);
+    const depth_texture = core.device.createTexture(&depth_texture_desc);
     app.depth_texture_view = depth_texture.createView(null);
 
     const normal_texture_desc = gpu.Texture.Descriptor.init(.{
@@ -224,12 +223,12 @@ fn createRenderTextures(app: *App) !void {
         .format = .bgra8_unorm,
         .usage = .{ .texture_binding = true, .copy_dst = true, .render_attachment = true },
     });
-    const normal_texture = app.core.device().createTexture(&normal_texture_desc);
+    const normal_texture = core.device.createTexture(&normal_texture_desc);
     app.normal_texture_view = normal_texture.createView(null);
 }
 
 fn createDrawPipeline(app: *App) void {
-    const shader_module = app.core.device().createShaderModuleWGSL("shader.wgsl", @embedFile("shader.wgsl"));
+    const shader_module = core.device.createShaderModuleWGSL("shader.wgsl", @embedFile("shader.wgsl"));
     const vertex_attributes = [_]gpu.VertexAttribute{
         .{ .format = .float32x3, .offset = @offsetOf(Vertex, "pos"), .shader_location = 0 },
         .{ .format = .float32x3, .offset = @offsetOf(Vertex, "normal"), .shader_location = 1 },
@@ -248,7 +247,7 @@ fn createDrawPipeline(app: *App) void {
 
     const blend = gpu.BlendState{};
     const color_target = gpu.ColorTargetState{
-        .format = app.core.descriptor().format,
+        .format = core.descriptor.format,
         .blend = &blend,
         .write_mask = gpu.ColorWriteMaskFlags.all,
     };
@@ -259,20 +258,20 @@ fn createDrawPipeline(app: *App) void {
     });
 
     const bgle = gpu.BindGroupLayout.Entry.buffer(0, .{ .vertex = true }, .uniform, true, 0);
-    const bgl = app.core.device().createBindGroupLayout(
+    const bgl = core.device.createBindGroupLayout(
         &gpu.BindGroupLayout.Descriptor.init(.{
             .entries = &.{bgle},
         }),
     );
 
     const bind_group_layouts = [_]*gpu.BindGroupLayout{bgl};
-    const pipeline_layout = app.core.device().createPipelineLayout(
+    const pipeline_layout = core.device.createPipelineLayout(
         &gpu.PipelineLayout.Descriptor.init(.{
             .bind_group_layouts = &bind_group_layouts,
         }),
     );
 
-    const vertex_buffer = app.core.device().createBuffer(&.{
+    const vertex_buffer = core.device.createBuffer(&.{
         .usage = .{ .vertex = true },
         .size = @sizeOf(Vertex) * vertices.len,
         .mapped_at_creation = true,
@@ -281,12 +280,12 @@ fn createDrawPipeline(app: *App) void {
     std.mem.copy(Vertex, vertex_mapped.?, vertices[0..]);
     vertex_buffer.unmap();
 
-    const uniform_buffer = app.core.device().createBuffer(&.{
+    const uniform_buffer = core.device.createBuffer(&.{
         .usage = .{ .copy_dst = true, .uniform = true },
         .size = @sizeOf(UniformBufferObject),
         .mapped_at_creation = false,
     });
-    const bind_group = app.core.device().createBindGroup(
+    const bind_group = core.device.createBindGroup(
         &gpu.BindGroup.Descriptor.init(.{
             .layout = bgl,
             .entries = &.{
@@ -311,7 +310,7 @@ fn createDrawPipeline(app: *App) void {
 
     {
         // "same" pipeline, different fragment shader to create a texture with normal information
-        const normal_fs_module = app.core.device().createShaderModuleWGSL("normal_frag.wgsl", @embedFile("normal_frag.wgsl"));
+        const normal_fs_module = core.device.createShaderModuleWGSL("normal_frag.wgsl", @embedFile("normal_frag.wgsl"));
         const normal_fragment = gpu.FragmentState.init(.{
             .module = normal_fs_module,
             .entry_point = "main",
@@ -325,13 +324,12 @@ fn createDrawPipeline(app: *App) void {
                 .cull_mode = .back,
             },
         };
-        app.normal_pipeline = app.core.device().createRenderPipeline(&normal_pipeline_descriptor);
+        app.normal_pipeline = core.device.createRenderPipeline(&normal_pipeline_descriptor);
 
         normal_fs_module.release();
     }
 
-    app.pipeline = app.core.device().createRenderPipeline(&pipeline_descriptor);
-    app.queue = app.core.device().getQueue();
+    app.pipeline = core.device.createRenderPipeline(&pipeline_descriptor);
     app.vertex_buffer = vertex_buffer;
     app.uniform_buffer = uniform_buffer;
     app.bind_group = bind_group;
@@ -342,7 +340,7 @@ fn createDrawPipeline(app: *App) void {
 }
 
 fn createPostPipeline(app: *App) void {
-    const vs_module = app.core.device().createShaderModuleWGSL("pixel_vert.wgsl", @embedFile("pixel_vert.wgsl"));
+    const vs_module = core.device.createShaderModuleWGSL("pixel_vert.wgsl", @embedFile("pixel_vert.wgsl"));
     const vertex_attributes = [_]gpu.VertexAttribute{
         .{ .format = .float32x3, .offset = @offsetOf(Quad, "pos"), .shader_location = 0 },
         .{ .format = .float32x2, .offset = @offsetOf(Quad, "uv"), .shader_location = 1 },
@@ -358,10 +356,10 @@ fn createPostPipeline(app: *App) void {
         .buffers = &.{vertex_buffer_layout},
     });
 
-    const fs_module = app.core.device().createShaderModuleWGSL("pixel_frag.wgsl", @embedFile("pixel_frag.wgsl"));
+    const fs_module = core.device.createShaderModuleWGSL("pixel_frag.wgsl", @embedFile("pixel_frag.wgsl"));
     const blend = gpu.BlendState{};
     const color_target = gpu.ColorTargetState{
-        .format = app.core.descriptor().format,
+        .format = core.descriptor.format,
         .blend = &blend,
         .write_mask = gpu.ColorWriteMaskFlags.all,
     };
@@ -371,7 +369,7 @@ fn createPostPipeline(app: *App) void {
         .targets = &.{color_target},
     });
 
-    const bgl = app.core.device().createBindGroupLayout(
+    const bgl = core.device.createBindGroupLayout(
         &gpu.BindGroupLayout.Descriptor.init(.{
             .entries = &.{
                 gpu.BindGroupLayout.Entry.texture(0, .{ .fragment = true }, .float, .dimension_2d, false),
@@ -386,11 +384,11 @@ fn createPostPipeline(app: *App) void {
     );
 
     const bind_group_layouts = [_]*gpu.BindGroupLayout{bgl};
-    const pipeline_layout = app.core.device().createPipelineLayout(&gpu.PipelineLayout.Descriptor.init(.{
+    const pipeline_layout = core.device.createPipelineLayout(&gpu.PipelineLayout.Descriptor.init(.{
         .bind_group_layouts = &bind_group_layouts,
     }));
 
-    const vertex_buffer = app.core.device().createBuffer(&.{
+    const vertex_buffer = core.device.createBuffer(&.{
         .usage = .{ .vertex = true },
         .size = @sizeOf(Quad) * quad.len,
         .mapped_at_creation = true,
@@ -399,15 +397,15 @@ fn createPostPipeline(app: *App) void {
     std.mem.copy(Quad, vertex_mapped.?, quad[0..]);
     vertex_buffer.unmap();
 
-    const draw_sampler = app.core.device().createSampler(null);
-    const depth_sampler = app.core.device().createSampler(null);
-    const normal_sampler = app.core.device().createSampler(null);
-    const uniform_buffer = app.core.device().createBuffer(&.{
+    const draw_sampler = core.device.createSampler(null);
+    const depth_sampler = core.device.createSampler(null);
+    const normal_sampler = core.device.createSampler(null);
+    const uniform_buffer = core.device.createBuffer(&.{
         .usage = .{ .copy_dst = true, .uniform = true },
         .size = @sizeOf(PostUniformBufferObject),
         .mapped_at_creation = false,
     });
-    const bind_group = app.core.device().createBindGroup(
+    const bind_group = core.device.createBindGroup(
         &gpu.BindGroup.Descriptor.init(.{
             .layout = bgl,
             .entries = &[_]gpu.BindGroup.Entry{
@@ -431,7 +429,7 @@ fn createPostPipeline(app: *App) void {
         },
     };
 
-    app.post_pipeline = app.core.device().createRenderPipeline(&pipeline_descriptor);
+    app.post_pipeline = core.device.createRenderPipeline(&pipeline_descriptor);
     app.post_vertex_buffer = vertex_buffer;
     app.post_uniform_buffer = uniform_buffer;
     app.post_bind_group = bind_group;

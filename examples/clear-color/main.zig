@@ -1,25 +1,25 @@
 const std = @import("std");
-const mach = @import("core");
-const gpu = mach.gpu;
+const core = @import("core");
+const gpu = core.gpu;
 const renderer = @import("renderer.zig");
 
 pub const App = @This();
-core: mach.Core,
 
 var gpa = std.heap.GeneralPurposeAllocator(.{}){};
 
 pub fn init(app: *App) !void {
-    try app.core.init(gpa.allocator(), .{});
-    renderer.RendererInit(&app.core);
+    try core.init(.{});
+    app.* = .{};
 }
 
 pub fn deinit(app: *App) void {
+    _ = app;
     defer _ = gpa.deinit();
-    defer app.core.deinit();
+    defer core.deinit();
 }
 
 pub fn update(app: *App) !bool {
-    var iter = app.core.pollEvents();
+    var iter = core.pollEvents();
     while (iter.next()) |event| {
         switch (event) {
             .key_press => |ev| {
@@ -35,7 +35,8 @@ pub fn update(app: *App) !bool {
 }
 
 fn render(app: *App) void {
-    const back_buffer_view = app.core.swapChain().getCurrentTextureView().?;
+    _ = app;
+    const back_buffer_view = core.swap_chain.getCurrentTextureView().?;
     const color_attachment = gpu.RenderPassColorAttachment{
         .view = back_buffer_view,
         .clear_value = gpu.Color{ .r = 0.0, .g = 0.0, .b = 1.0, .a = 1.0 },
@@ -43,7 +44,7 @@ fn render(app: *App) void {
         .store_op = .store,
     };
 
-    const encoder = app.core.device().createCommandEncoder(null);
+    const encoder = core.device.createCommandEncoder(null);
     const render_pass_info = gpu.RenderPassDescriptor.init(.{
         .color_attachments = &.{color_attachment},
     });
@@ -55,9 +56,9 @@ fn render(app: *App) void {
     var command = encoder.finish(null);
     encoder.release();
 
-    var queue = app.core.device().getQueue();
+    var queue = core.queue;
     queue.submit(&[_]*gpu.CommandBuffer{command});
     command.release();
-    app.core.swapChain().present();
+    core.swap_chain.present();
     back_buffer_view.release();
 }

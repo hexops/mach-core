@@ -4,9 +4,9 @@ const gpu = core.gpu;
 
 pub const App = @This();
 
-pub fn init() !App {
+pub fn init(app: *App) !void {
     try core.init(.{});
-    return App{};
+    app.* = App{};
 }
 
 pub fn deinit(app: *App) void {

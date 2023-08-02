@@ -1,16 +1,10 @@
-const mach = @import("core");
-const gpu = mach.gpu;
+const core = @import("core");
+const gpu = core.gpu;
 
 pub const Renderer = @This();
 
-var queue: *gpu.Queue = undefined;
-
-pub fn RendererInit(core: *mach.Core) void {
-    queue = core.device().getQueue();
-}
-
-pub fn RenderUpdate(core: *mach.Core) void {
-    const back_buffer_view = core.swapChain().getCurrentTextureView().?;
+pub fn RenderUpdate() void {
+    const back_buffer_view = core.swap_chain.getCurrentTextureView().?;
     const color_attachment = gpu.RenderPassColorAttachment{
         .view = back_buffer_view,
         .clear_value = gpu.Color{ .r = 0.0, .g = 0.0, .b = 1.0, .a = 1.0 },
@@ -18,7 +12,7 @@ pub fn RenderUpdate(core: *mach.Core) void {
         .store_op = .store,
     };
 
-    const encoder = core.device().createCommandEncoder(null);
+    const encoder = core.device.createCommandEncoder(null);
     const render_pass_info = gpu.RenderPassDescriptor.init(.{
         .color_attachments = &.{color_attachment},
     });
@@ -30,8 +24,9 @@ pub fn RenderUpdate(core: *mach.Core) void {
     var command = encoder.finish(null);
     encoder.release();
 
+    const queue = core.queue;
     queue.submit(&[_]*gpu.CommandBuffer{command});
     command.release();
-    core.swapChain().present();
+    core.swap_chain.present();
     back_buffer_view.release();
 }
