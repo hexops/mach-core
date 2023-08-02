@@ -947,31 +947,31 @@ pub fn mousePosition(self: *Core) Core.Position {
 }
 
 // May be called from any thread.
-pub fn adapter(self: *Core) *gpu.Adapter {
+pub inline fn adapter(self: *Core) *gpu.Adapter {
     return self.gpu_adapter;
 }
 
 // May be called from any thread.
-pub fn device(self: *Core) *gpu.Device {
+pub inline fn device(self: *Core) *gpu.Device {
     return self.gpu_device;
 }
 
 // May be called from any thread.
-pub fn swapChain(self: *Core) *gpu.SwapChain {
+pub inline fn swapChain(self: *Core) *gpu.SwapChain {
     self.swap_chain_mu.lockShared();
     defer self.swap_chain_mu.unlockShared();
     return self.swap_chain;
 }
 
 // May be called from any thread.
-pub fn descriptor(self: *Core) gpu.SwapChain.Descriptor {
+pub inline fn descriptor(self: *Core) gpu.SwapChain.Descriptor {
     self.swap_chain_mu.lockShared();
     defer self.swap_chain_mu.unlockShared();
     return self.swap_chain_desc;
 }
 
 // May be called from any thread.
-pub fn outOfMemory(self: *Core) bool {
+pub inline fn outOfMemory(self: *Core) bool {
     if (self.oom.isSet()) {
         self.oom.reset();
         return true;
@@ -980,7 +980,7 @@ pub fn outOfMemory(self: *Core) bool {
 }
 
 // May be called from any thread.
-pub fn wakeMainThread(self: *Core) void {
+pub inline fn wakeMainThread(self: *Core) void {
     _ = self;
     glfw.postEmptyEvent();
 }
