@@ -719,6 +719,7 @@ fn setupRenderPasses(app: *App) void {
         };
 
         app.write_gbuffer_pass.descriptor = gpu.RenderPassDescriptor.init(.{
+            .label = "write_gbuffer_pass",
             .color_attachments = &app.write_gbuffer_pass.color_attachments,
             .depth_stencil_attachment = &app.write_gbuffer_pass.depth_stencil_attachment,
         });
@@ -737,6 +738,7 @@ fn setupRenderPasses(app: *App) void {
         };
 
         app.texture_quad_pass.descriptor = gpu.RenderPassDescriptor{
+            .label = "texture_quad_pass(1)",
             .color_attachment_count = 1,
             .color_attachments = &[_]gpu.RenderPassColorAttachment{app.texture_quad_pass.color_attachment},
         };
@@ -1065,6 +1067,7 @@ fn buildCommandBuffer(app: *App) !*gpu.CommandBuffer {
     }
     app.texture_quad_pass.color_attachment.view = back_buffer_view;
     app.texture_quad_pass.descriptor = gpu.RenderPassDescriptor{
+        .label = "texture_quad_pass(0)",
         .color_attachment_count = 1,
         .color_attachments = &[_]gpu.RenderPassColorAttachment{app.texture_quad_pass.color_attachment},
     };
