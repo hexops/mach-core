@@ -201,12 +201,12 @@ pub inline fn vsync() VSyncMode {
 ///
 /// This is applied *in addition* to the vsync mode.
 pub inline fn setFrameRateLimit(limit: u32) void {
-    core.frame.target = limit;
+    frame.target = limit;
 }
 
 /// Returns the frame rate limit, or zero if unlimited.
 pub inline fn frameRateLimit() u32 {
-    return core.frame.target;
+    return frame.target;
 }
 
 /// Set the window size, in subpixel units.
@@ -381,19 +381,19 @@ pub inline fn wakeMainThread() void {
 /// It is illegal to use the `core.device()` or `core.swapchain()` from the main thread, and all
 /// other APIs are internally synchronized with a mutex for you.
 pub inline fn setInputFrequency(input_frequency: u32) void {
-    core.input.target = input_frequency;
+    input.target = input_frequency;
 }
 
 /// Returns the input frequency, or zero if unlimited (busy-waiting mode)
 pub inline fn inputFrequency() u32 {
-    return core.input.target;
+    return input.target;
 }
 
 /// Returns the actual number of frames rendered (`update` calls that returned) in the last second.
 ///
 /// This is updated once per second.
 pub inline fn frameRate() u32 {
-    return core.frame.rate;
+    return frame.rate;
 }
 
 /// Returns the actual number of input thread iterations in the last second. See setInputFrequency
@@ -401,7 +401,7 @@ pub inline fn frameRate() u32 {
 ///
 /// This is updated once per second.
 pub inline fn inputRate() u32 {
-    return core.input.rate;
+    return input.rate;
 }
 
 pub const Size = struct {
