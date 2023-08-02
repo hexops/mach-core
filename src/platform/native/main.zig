@@ -13,36 +13,21 @@ const gpu = core.gpu;
 
 pub const GPUInterface = if (@hasDecl(App, "GPUInterface")) App.GPUInterface else gpu.dawn.Interface;
 
-// For compatibility with the wasm platform. Allows one to define custom std_options without having
-// to deal with a platform-specific logFn:
-//
-// ```
-// pub const std_options = struct {
-//     pub const logFn = @import("root").machLogFn;
-// };
-// ```
-pub fn machLogFn(
-    comptime message_level: std.log.Level,
-    comptime scope: @Type(.EnumLiteral),
-    comptime format: []const u8,
-    args: anytype,
-) void {
-    std.log.defaultLog(message_level, scope, format, args);
-}
-
 pub fn main() !void {
     // Run from the directory where the executable is located so relative assets can be found.
     var buffer: [1024]u8 = undefined;
     const path = std.fs.selfExeDirPath(buffer[0..]) catch ".";
     std.os.chdir(path) catch {};
 
-    // Initialize GPU implementation, app, etc.
+    // Initialize GPU implementation
     gpu.Impl.init();
-    var app: App = undefined;
-    try app.init();
-    defer app.deinit();
 
-    while (true) {
-        if (try app.core.internal.update(&app)) return;
-    }
+    var gpa = std.heap.GeneralPurposeAllocator(.{}){};
+    defer _ = gpa.deinit();
+    core.allocator = gpa.allocator();
+
+    var app = try App.init();
+    defer app.deinit();
+    errdefer app.deinit();
+    while (!try core.update(&app)) {}
 }

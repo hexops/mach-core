@@ -3,24 +3,27 @@ const std = @import("std");
 const gpu = @import("gpu");
 const glfw = @import("glfw");
 const util = @import("util.zig");
-const Options = @import("../../Core.zig").Options;
-const Event = @import("../../Core.zig").Event;
-const KeyEvent = @import("../../Core.zig").KeyEvent;
-const MouseButtonEvent = @import("../../Core.zig").MouseButtonEvent;
-const MouseButton = @import("../../Core.zig").MouseButton;
-const Size = @import("../../Core.zig").Size;
-const DisplayMode = @import("../../Core.zig").DisplayMode;
-const SizeLimit = @import("../../Core.zig").SizeLimit;
-const CursorShape = @import("../../Core.zig").CursorShape;
-const VSyncMode = @import("../../Core.zig").VSyncMode;
-const CursorMode = @import("../../Core.zig").CursorMode;
-const Key = @import("../../Core.zig").Key;
-const KeyMods = @import("../../Core.zig").KeyMods;
-const Joystick = @import("../../Core.zig").Joystick;
+const Options = @import("../../main.zig").Options;
+const Event = @import("../../main.zig").Event;
+const KeyEvent = @import("../../main.zig").KeyEvent;
+const MouseButtonEvent = @import("../../main.zig").MouseButtonEvent;
+const MouseButton = @import("../../main.zig").MouseButton;
+const Size = @import("../../main.zig").Size;
+const DisplayMode = @import("../../main.zig").DisplayMode;
+const SizeLimit = @import("../../main.zig").SizeLimit;
+const CursorShape = @import("../../main.zig").CursorShape;
+const VSyncMode = @import("../../main.zig").VSyncMode;
+const CursorMode = @import("../../main.zig").CursorMode;
+const Key = @import("../../main.zig").Key;
+const KeyMods = @import("../../main.zig").KeyMods;
+const Joystick = @import("../../main.zig").Joystick;
 const InputState = @import("../../InputState.zig");
 const Frequency = @import("../../Frequency.zig");
 
 const log = std.log.scoped(.mach);
+
+pub const defaultLog = std.log.defaultLog;
+pub const defaultPanic = std.debug.default_panic;
 
 pub const Core = @This();
 

@@ -2,23 +2,56 @@ const std = @import("std");
 const gpu = @import("gpu");
 const js = @import("js.zig");
 const Timer = @import("Timer.zig");
-const Options = @import("../../Core.zig").Options;
-const Event = @import("../../Core.zig").Event;
-const KeyEvent = @import("../../Core.zig").KeyEvent;
-const MouseButtonEvent = @import("../../Core.zig").MouseButtonEvent;
-const MouseButton = @import("../../Core.zig").MouseButton;
-const Size = @import("../../Core.zig").Size;
-const Position = @import("../../Core.zig").Position;
-const DisplayMode = @import("../../Core.zig").DisplayMode;
-const SizeLimit = @import("../../Core.zig").SizeLimit;
-const CursorShape = @import("../../Core.zig").CursorShape;
-const VSyncMode = @import("../../Core.zig").VSyncMode;
-const CursorMode = @import("../../Core.zig").CursorMode;
-const Key = @import("../../Core.zig").Key;
-const KeyMods = @import("../../Core.zig").KeyMods;
-const Joystick = @import("../../Core.zig").Joystick;
+const Options = @import("../../main.zig").Options;
+const Event = @import("../../main.zig").Event;
+const KeyEvent = @import("../../main.zig").KeyEvent;
+const MouseButtonEvent = @import("../../main.zig").MouseButtonEvent;
+const MouseButton = @import("../../main.zig").MouseButton;
+const Size = @import("../../main.zig").Size;
+const Position = @import("../../main.zig").Position;
+const DisplayMode = @import("../../main.zig").DisplayMode;
+const SizeLimit = @import("../../main.zig").SizeLimit;
+const CursorShape = @import("../../main.zig").CursorShape;
+const VSyncMode = @import("../../main.zig").VSyncMode;
+const CursorMode = @import("../../main.zig").CursorMode;
+const Key = @import("../../main.zig").Key;
+const KeyMods = @import("../../main.zig").KeyMods;
+const Joystick = @import("../../main.zig").Joystick;
 const InputState = @import("../../InputState.zig");
 const Frequency = @import("../../Frequency.zig");
+
+// Custom std.log implementation which logs to the browser console.
+pub fn defaultLog(
+    comptime message_level: std.log.Level,
+    comptime scope: @Type(.EnumLiteral),
+    comptime format: []const u8,
+    args: anytype,
+) void {
+    const prefix = if (scope == .default) ": " else "(" ++ @tagName(scope) ++ "): ";
+    const writer = LogWriter{ .context = {} };
+
+    writer.print(message_level.asText() ++ prefix ++ format ++ "\n", args) catch return;
+    machLogFlush();
+}
+
+// Custom @panic implementation which logs to the browser console.
+pub fn defaultPanic(msg: []const u8, error_return_trace: ?*std.builtin.StackTrace, ret_addr: ?usize) noreturn {
+    _ = error_return_trace;
+    _ = ret_addr;
+    machPanic(msg.ptr, msg.len);
+    unreachable;
+}
+
+pub extern "mach" fn machPanic(str: [*]const u8, len: u32) void;
+pub extern "mach" fn machLogWrite(str: [*]const u8, len: u32) void;
+pub extern "mach" fn machLogFlush() void;
+
+const LogError = error{};
+const LogWriter = std.io.Writer(void, LogError, writeLog);
+fn writeLog(_: void, msg: []const u8) LogError!usize {
+    machLogWrite(msg.ptr, msg.len);
+    return msg.len;
+}
 
 pub const Core = @This();
 
@@ -225,9 +258,16 @@ pub fn deinit(self: *Core) void {
     js.machCanvasDeinit(self.id);
 }
 
-pub inline fn update(self: *Core) void {
+pub inline fn update(self: *Core, app: anytype) !bool {
     self.frame.tick();
     self.input.tick();
+    if (try app.update()) return true;
+    if (@hasDecl(std.meta.Child(@TypeOf(app)), "updateMainThread")) {
+        if (app.updateMainThread() catch |err| @panic(@errorName(err))) {
+            return true;
+        }
+    }
+    return false;
 }
 
 pub inline fn pollEvents(self: *Core) EventIterator {
