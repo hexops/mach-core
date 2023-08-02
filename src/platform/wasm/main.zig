@@ -15,7 +15,7 @@ pub const GPUInterface = gpu.StubInterface;
 
 var app: App = undefined;
 export fn wasmInit() void {
-    app = App.init() catch |err| @panic(@errorName(err));
+    App.init(&app) catch |err| @panic(@errorName(err));
 }
 
 export fn wasmUpdate() bool {

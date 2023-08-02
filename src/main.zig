@@ -25,10 +25,10 @@ pub fn AppInterface(comptime app_entry: anytype) void {
 
     if (@hasDecl(App, "init")) {
         const InitFn = @TypeOf(@field(App, "init"));
-        if (InitFn != fn () ErrorSet(InitFn)!App)
-            @compileError("expected 'pub fn init() !App' found '" ++ @typeName(InitFn) ++ "'");
+        if (InitFn != fn (app: *App) ErrorSet(InitFn)!void)
+            @compileError("expected 'pub fn init(app: *App) !void' found '" ++ @typeName(InitFn) ++ "'");
     } else {
-        @compileError("App must export 'pub fn init() !App'");
+        @compileError("App must export 'pub fn init(app: *App) !void'");
     }
 
     if (@hasDecl(App, "update")) {

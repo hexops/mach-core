@@ -26,7 +26,8 @@ pub fn main() !void {
     defer _ = gpa.deinit();
     core.allocator = gpa.allocator();
 
-    var app = try App.init();
+    var app: App = undefined;
+    try App.init(&app);
     defer app.deinit();
     errdefer app.deinit();
     while (!try core.update(&app)) {}
