@@ -13,41 +13,15 @@ const gpu = core.gpu;
 
 pub const GPUInterface = gpu.StubInterface;
 
-pub fn machLogFn(
-    comptime message_level: std.log.Level,
-    comptime scope: @Type(.EnumLiteral),
-    comptime format: []const u8,
-    args: anytype,
-) void {
-    const prefix = if (scope == .default) ": " else "(" ++ @tagName(scope) ++ "): ";
-    const writer = LogWriter{ .context = {} };
-
-    writer.print(message_level.asText() ++ prefix ++ format ++ "\n", args) catch return;
-    machLogFlush();
-}
-
-// Define std_options.logFn if the user did not in their "app" main.zig
-pub usingnamespace if (@hasDecl(App, "std_options")) struct {} else struct {
-    pub const std_options = struct {
-        pub const logFn = @import("root").machLogFn;
-    };
-};
-
 var app: App = undefined;
 export fn wasmInit() void {
-    app.init() catch |err| @panic(@errorName(err));
+    app = App.init() catch |err| @panic(@errorName(err));
 }
 
 export fn wasmUpdate() bool {
-    if (app.update() catch |err| @panic(@errorName(err))) {
+    if (core.update(&app) catch |err| @panic(@errorName(err))) {
         return true;
     }
-    if (@hasDecl(@TypeOf(app), "updateMainThread")) {
-        if (app.updateMainThread() catch |err| @panic(@errorName(err))) {
-            return true;
-        }
-    }
-    app.core.internal.update();
     return false;
 }
 
@@ -55,21 +29,14 @@ export fn wasmDeinit() void {
     app.deinit();
 }
 
-// Custom @panic implementation which logs to the browser console.
-pub fn panic(msg: []const u8, error_return_trace: ?*std.builtin.StackTrace, ret_addr: ?usize) noreturn {
-    _ = error_return_trace;
-    _ = ret_addr;
-    machPanic(msg.ptr, msg.len);
-    unreachable;
-}
+// Define std_options.logFn if the user did not in their "app" main.zig
+pub usingnamespace if (@hasDecl(App, "std_options")) struct {} else struct {
+    pub const std_options = struct {
+        pub const logFn = core.defaultLog;
+    };
+};
 
-pub extern "mach" fn machLogWrite(str: [*]const u8, len: u32) void;
-pub extern "mach" fn machLogFlush() void;
-pub extern "mach" fn machPanic(str: [*]const u8, len: u32) void;
-
-const LogError = error{};
-const LogWriter = std.io.Writer(void, LogError, writeLog);
-fn writeLog(_: void, msg: []const u8) LogError!usize {
-    machLogWrite(msg.ptr, msg.len);
-    return msg.len;
-}
+// Define panic() if the user did not in their "app" main.zig
+pub usingnamespace if (@hasDecl(App, "panic")) struct {} else struct {
+    pub const panic = core.defaultPanic;
+};
