@@ -166,7 +166,7 @@ pub fn Sdk(comptime deps: anytype) type {
 
                         const lib = b.addSharedLibrary(.{
                             .name = options.name,
-                            .root_source_file = .{ .path = options.custom_entrypoint orelse sdkPath("/src/platform/wasm/entry.zig") },
+                            .root_source_file = .{ .path = options.custom_entrypoint orelse sdkPath("/src/platform/wasm/main.zig") },
                             .target = options.target,
                             .optimize = options.optimize,
                         });
@@ -177,7 +177,7 @@ pub fn Sdk(comptime deps: anytype) type {
                     } else {
                         const exe = b.addExecutable(.{
                             .name = options.name,
-                            .root_source_file = .{ .path = options.custom_entrypoint orelse sdkPath("/src/platform/native/entry.zig") },
+                            .root_source_file = .{ .path = options.custom_entrypoint orelse sdkPath("/src/platform/native/main.zig") },
                             .target = options.target,
                             .optimize = options.optimize,
                         });
