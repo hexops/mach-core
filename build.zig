@@ -361,7 +361,7 @@ const xcode_frameworks = struct {
 };
 
 comptime {
-    const min_zig = std.SemanticVersion.parse("0.11.0-dev.4407+4d7dd1689") catch unreachable;
+    const min_zig = std.SemanticVersion.parse("0.11.0-dev.4410+76f7b40e1") catch unreachable;
     if (builtin.zig_version.order(min_zig) == .lt) {
         @compileError(std.fmt.comptimePrint("Your Zig version v{} does not meet the minimum build requirement of v{}", .{ builtin.zig_version, min_zig }));
     }
