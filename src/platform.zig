@@ -55,10 +55,6 @@ comptime {
     assertHasDecl(@This().Core, "mouseReleased");
     assertHasDecl(@This().Core, "mousePosition");
 
-    assertHasDecl(@This().Core, "adapter");
-    assertHasDecl(@This().Core, "device");
-    assertHasDecl(@This().Core, "swapChain");
-    assertHasDecl(@This().Core, "descriptor");
     assertHasDecl(@This().Core, "outOfMemory");
 
     // Timer
