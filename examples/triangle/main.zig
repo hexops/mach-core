@@ -10,13 +10,13 @@ queue: *gpu.Queue,
 pub fn init() !App {
     try core.init(.{});
 
-    const shader_module = core.device().createShaderModuleWGSL("shader.wgsl", @embedFile("shader.wgsl"));
+    const shader_module = core.device.createShaderModuleWGSL("shader.wgsl", @embedFile("shader.wgsl"));
     defer shader_module.release();
 
     // Fragment state
     const blend = gpu.BlendState{};
     const color_target = gpu.ColorTargetState{
-        .format = core.descriptor().format,
+        .format = core.descriptor.format,
         .blend = &blend,
         .write_mask = gpu.ColorWriteMaskFlags.all,
     };
@@ -32,7 +32,7 @@ pub fn init() !App {
             .entry_point = "vertex_main",
         },
     };
-    const pipeline = core.device().createRenderPipeline(&pipeline_descriptor);
+    const pipeline = core.device.createRenderPipeline(&pipeline_descriptor);
 
     return App{
         .pipeline = pipeline,
@@ -54,7 +54,8 @@ pub fn update(app: *App) !bool {
         }
     }
 
-    const back_buffer_view = core.swapChain().getCurrentTextureView().?;
+    const queue = core.queue;
+    const back_buffer_view = core.swap_chain.getCurrentTextureView().?;
     const color_attachment = gpu.RenderPassColorAttachment{
         .view = back_buffer_view,
         .clear_value = std.mem.zeroes(gpu.Color),
@@ -62,7 +63,7 @@ pub fn update(app: *App) !bool {
         .store_op = .store,
     };
 
-    const encoder = core.device().createCommandEncoder(null);
+    const encoder = core.device.createCommandEncoder(null);
     const render_pass_info = gpu.RenderPassDescriptor.init(.{
         .color_attachments = &.{color_attachment},
     });
@@ -77,7 +78,7 @@ pub fn update(app: *App) !bool {
 
     app.queue.submit(&[_]*gpu.CommandBuffer{command});
     command.release();
-    core.swapChain().present();
+    core.swap_chain.present();
     back_buffer_view.release();
 
     return false;

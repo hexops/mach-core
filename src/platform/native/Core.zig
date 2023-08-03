@@ -2,6 +2,7 @@ const builtin = @import("builtin");
 const std = @import("std");
 const gpu = @import("gpu");
 const glfw = @import("glfw");
+const mach_core = @import("../../main.zig");
 const util = @import("util.zig");
 const Options = @import("../../main.zig").Options;
 const Event = @import("../../main.zig").Event;
@@ -239,6 +240,12 @@ pub fn init(
         .present_mode = .mailbox,
     };
     const swap_chain = gpu_device.createSwapChain(surface, &swap_chain_desc);
+
+    mach_core.adapter = response.adapter;
+    mach_core.device = gpu_device;
+    mach_core.queue = gpu_device.getQueue();
+    mach_core.swap_chain = swap_chain;
+    mach_core.descriptor = swap_chain_desc;
 
     // The initial capacity we choose for the event queue is 2x our maximum expected event rate per
     // frame. Specifically, 1000hz mouse updates are likely the maximum event rate we will encounter
@@ -517,6 +524,9 @@ pub fn appUpdateThread(self: *Core, app: anytype) void {
                 self.swap_chain_desc.width = framebuffer_size.width;
                 self.swap_chain_desc.height = framebuffer_size.height;
                 self.swap_chain = self.gpu_device.createSwapChain(self.surface, &self.swap_chain_desc);
+
+                mach_core.swap_chain = self.swap_chain;
+                mach_core.descriptor = self.swap_chain_desc;
             }
 
             self.pushEvent(.{
@@ -944,30 +954,6 @@ pub fn mousePosition(self: *Core) Core.Position {
     self.input_mu.lockShared();
     defer self.input_mu.unlockShared();
     return self.input_state.mouse_position;
-}
-
-// May be called from any thread.
-pub inline fn adapter(self: *Core) *gpu.Adapter {
-    return self.gpu_adapter;
-}
-
-// May be called from any thread.
-pub inline fn device(self: *Core) *gpu.Device {
-    return self.gpu_device;
-}
-
-// May be called from any thread.
-pub inline fn swapChain(self: *Core) *gpu.SwapChain {
-    self.swap_chain_mu.lockShared();
-    defer self.swap_chain_mu.unlockShared();
-    return self.swap_chain;
-}
-
-// May be called from any thread.
-pub inline fn descriptor(self: *Core) gpu.SwapChain.Descriptor {
-    self.swap_chain_mu.lockShared();
-    defer self.swap_chain_mu.unlockShared();
-    return self.swap_chain_desc;
 }
 
 // May be called from any thread.

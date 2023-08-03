@@ -62,13 +62,23 @@ pub const defaultLog = platform.Core.defaultLog;
 /// other: std.debug.default_panic
 pub const defaultPanic = platform.Core.defaultPanic;
 
-var core: platform.Core = undefined;
-
-// Must be specified before the first call to core.init.
+/// The allocator used by mach-core for any allocations. Must be specified before the first call to
+/// core.init()
 pub var allocator: std.mem.Allocator = undefined;
 
-/// A buffer which you may use to write the window title to.
+/// A buffer which you may use to write the window title to. See core.setTitle() for details.
 pub var title: [256:0]u8 = undefined;
+
+/// May be read inside `App.init`, `App.update`, and `App.deinit`.
+///
+/// No synchronization is performed, so these fields may not be accessed in `App.updateMainThread`.
+pub var adapter: *gpu.Adapter = undefined;
+pub var device: *gpu.Device = undefined;
+pub var queue: *gpu.Queue = undefined;
+pub var swap_chain: *gpu.SwapChain = undefined;
+pub var descriptor: gpu.SwapChain.Descriptor = undefined;
+
+var core: platform.Core = undefined;
 
 var frame: Frequency = undefined;
 var input: Frequency = undefined;
@@ -304,22 +314,6 @@ pub inline fn mousePosition() Position {
     return internal.mousePosition();
 }
 
-pub inline fn adapter() *gpu.Adapter {
-    return internal.adapter();
-}
-
-pub inline fn device() *gpu.Device {
-    return internal.device();
-}
-
-pub inline fn swapChain() *gpu.SwapChain {
-    return internal.swapChain();
-}
-
-pub inline fn descriptor() gpu.SwapChain.Descriptor {
-    return internal.descriptor();
-}
-
 /// Whether mach core has run out of memory. If true, freeing memory should restore it to a
 /// functional state.
 ///
@@ -378,8 +372,8 @@ pub inline fn wakeMainThread() void {
 /// advised you do not use this callback to run any code except when absolutely neccessary, as
 /// it is in direct contention with input handling.
 ///
-/// It is illegal to use the `core.device()` or `core.swapchain()` from the main thread, and all
-/// other APIs are internally synchronized with a mutex for you.
+/// APIs which are not accessible from a specific thread are declared as such, otherwise can be
+/// called from any thread as they are internally synchronized.
 pub inline fn setInputFrequency(input_frequency: u32) void {
     input.target = input_frequency;
 }
