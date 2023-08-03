@@ -102,7 +102,7 @@ pub fn Sdk(comptime deps: anytype) type {
                 const gamemode_dep = b.dependency("mach_gamemode", .{});
                 main_tests.addModule("gamemode", gamemode_dep.module("mach-gamemode"));
             }
-            main_tests.addIncludePath(sdkPath("/include"));
+            main_tests.addIncludePath(.{ .path = sdkPath("/include") });
             b.installArtifact(main_tests);
             return b.addRunArtifact(main_tests);
         }
@@ -197,18 +197,18 @@ pub fn Sdk(comptime deps: anytype) type {
                     }
                 };
 
-                if (options.custom_entrypoint == null) compile.main_pkg_path = sdkPath("/src");
+                if (options.custom_entrypoint == null) compile.main_pkg_path = .{ .path = sdkPath("/src") };
                 compile.addModule("core", module(b, options.optimize, options.target));
                 compile.addModule("app", app_module);
 
                 // Installation step
                 b.installArtifact(compile);
-                const install = b.addInstallArtifact(compile);
+                const install = b.addInstallArtifact(compile, .{});
                 if (options.res_dirs) |res_dirs| {
                     for (res_dirs) |res| {
                         const install_res = b.addInstallDirectory(.{
                             .source_dir = .{ .path = res },
-                            .install_dir = install.dest_dir,
+                            .install_dir = install.dest_dir.?,
                             .install_subdir = std.fs.path.basename(res),
                             .exclude_extensions = &.{},
                         });
@@ -274,9 +274,9 @@ const xcode_frameworks = struct {
         // branch: mach
         xEnsureGitRepoCloned(b.allocator, "https://github.com/hexops/xcode-frameworks", "723aa55e9752c8c6c25d3413722b5fe13d72ac4f", xSdkPath("/zig-cache/xcode_frameworks")) catch |err| @panic(@errorName(err));
 
-        step.addFrameworkPath(xSdkPath("/zig-cache/xcode_frameworks/Frameworks"));
-        step.addSystemIncludePath(xSdkPath("/zig-cache/xcode_frameworks/include"));
-        step.addLibraryPath(xSdkPath("/zig-cache/xcode_frameworks/lib"));
+        step.addFrameworkPath(.{ .path = xSdkPath("/zig-cache/xcode_frameworks/Frameworks") });
+        step.addSystemIncludePath(.{ .path = xSdkPath("/zig-cache/xcode_frameworks/include") });
+        step.addLibraryPath(.{ .path = xSdkPath("/zig-cache/xcode_frameworks/lib") });
     }
 
     fn xEnsureGitRepoCloned(allocator: std.mem.Allocator, clone_url: []const u8, revision: []const u8, dir: []const u8) !void {
