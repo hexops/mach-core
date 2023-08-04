@@ -11,6 +11,8 @@ pub const core = @import("build.zig").Sdk(.{
     .glfw = glfw,
 });
 
+pub var mach_glfw_import: []const u8 = "mach_gpu.mach_gpu_dawn.mach_glfw";
+
 pub fn build(b: *std.Build) !void {
     const optimize = b.standardOptimizeOption(.{});
     const target = b.standardTargetOptions(.{});
@@ -24,7 +26,7 @@ pub fn build(b: *std.Build) !void {
 }
 
 fn glfwLink(b: *std.Build, step: *std.build.CompileStep) void {
-    const glfw_dep = b.dependency("mach_gpu.mach_gpu_dawn.mach_glfw", .{
+    const glfw_dep = b.dependency(mach_glfw_import, .{
         .target = step.target,
         .optimize = step.optimize,
     });
@@ -72,7 +74,7 @@ pub fn Sdk(comptime deps: anytype) type {
                 .source_file = .{ .path = sdkPath("/src/main.zig") },
                 .dependencies = &.{
                     .{ .name = "gpu", .module = deps.gpu.module(b) },
-                    .{ .name = "glfw", .module = b.dependency("mach_gpu.mach_gpu_dawn.mach_glfw", .{
+                    .{ .name = "glfw", .module = b.dependency(mach_glfw_import, .{
                         .target = target,
                         .optimize = optimize,
                     }).module("mach-glfw") },
@@ -93,7 +95,7 @@ pub fn Sdk(comptime deps: anytype) type {
             while (iter.next()) |e| {
                 main_tests.addModule(e.key_ptr.*, e.value_ptr.*);
             }
-            main_tests.addModule("glfw", b.dependency("mach_gpu.mach_gpu_dawn.mach_glfw", .{
+            main_tests.addModule("glfw", b.dependency(mach_glfw_import, .{
                 .target = target,
                 .optimize = optimize,
             }).module("mach-glfw"));
@@ -183,7 +185,7 @@ pub fn Sdk(comptime deps: anytype) type {
                         });
                         // TODO(core): figure out why we need to disable LTO: https://github.com/hexops/mach/issues/597
                         exe.want_lto = false;
-                        exe.addModule("glfw", b.dependency("mach_gpu.mach_gpu_dawn.mach_glfw", .{
+                        exe.addModule("glfw", b.dependency(mach_glfw_import, .{
                             .target = exe.target,
                             .optimize = exe.optimize,
                         }).module("mach-glfw"));
