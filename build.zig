@@ -6,7 +6,7 @@ const gpu = @import("mach_gpu").Sdk(.{
     .gpu_dawn = gpu_dawn,
 });
 
-pub var mach_glfw_import: []const u8 = "mach_gpu.mach_gpu_dawn.mach_glfw";
+pub var mach_glfw_import_path: []const u8 = "mach_gpu.mach_gpu_dawn.mach_glfw";
 
 pub fn build(b: *std.Build) !void {
     const optimize = b.standardOptimizeOption(.{});
@@ -21,7 +21,7 @@ pub fn build(b: *std.Build) !void {
 }
 
 fn glfwLink(b: *std.Build, step: *std.build.CompileStep) void {
-    const glfw_dep = b.dependency(mach_glfw_import, .{
+    const glfw_dep = b.dependency(mach_glfw_import_path, .{
         .target = step.target,
         .optimize = step.optimize,
     });
@@ -65,7 +65,7 @@ pub fn module(b: *std.Build, optimize: std.builtin.OptimizeMode, target: std.zig
         .source_file = .{ .path = sdkPath("/src/main.zig") },
         .dependencies = &.{
             .{ .name = "gpu", .module = gpu.module(b) },
-            .{ .name = "glfw", .module = b.dependency(mach_glfw_import, .{
+            .{ .name = "glfw", .module = b.dependency(mach_glfw_import_path, .{
                 .target = target,
                 .optimize = optimize,
             }).module("mach-glfw") },
@@ -86,7 +86,7 @@ pub fn testStep(b: *std.Build, optimize: std.builtin.OptimizeMode, target: std.z
     while (iter.next()) |e| {
         main_tests.addModule(e.key_ptr.*, e.value_ptr.*);
     }
-    main_tests.addModule("glfw", b.dependency(mach_glfw_import, .{
+    main_tests.addModule("glfw", b.dependency(mach_glfw_import_path, .{
         .target = target,
         .optimize = optimize,
     }).module("mach-glfw"));
@@ -175,7 +175,7 @@ pub const App = struct {
                 });
                 // TODO(core): figure out why we need to disable LTO: https://github.com/hexops/mach/issues/597
                 exe.want_lto = false;
-                exe.addModule("glfw", b.dependency(mach_glfw_import, .{
+                exe.addModule("glfw", b.dependency(mach_glfw_import_path, .{
                     .target = exe.target,
                     .optimize = exe.optimize,
                 }).module("mach-glfw"));
