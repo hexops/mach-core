@@ -1,5 +1,5 @@
 const std = @import("std");
-const core = @import("build.zig").core;
+const core = @import("build.zig");
 
 pub fn build(
     b: *std.Build,
@@ -18,9 +18,7 @@ pub fn build(
             b2: *std.Build,
             target2: std.zig.CrossTarget,
             optimize2: std.builtin.OptimizeMode,
-            gpu_dawn_options: core.gpu_dawn.Options,
         ) std.Build.ModuleDependency {
-            _ = gpu_dawn_options;
             const path = switch (dep) {
                 .zigimg => "examples/libs/zigimg/zigimg.zig",
                 .assets => return std.Build.ModuleDependency{
@@ -93,7 +91,7 @@ pub fn build(
             .name = "zmath",
             .module = b.createModule(.{ .source_file = .{ .path = "examples/zmath.zig" } }),
         });
-        for (example.deps) |d| try deps.append(d.moduleDependency(b, target, optimize, .{}));
+        for (example.deps) |d| try deps.append(d.moduleDependency(b, target, optimize));
         const app = try core.App.init(
             b,
             .{
