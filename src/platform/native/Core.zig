@@ -749,6 +749,7 @@ pub fn setTitle(self: *Core, title: [:0]const u8) void {
     self.current_title = title;
     self.current_title_changed = true;
     self.state_update.set();
+    self.wakeMainThread();
 }
 
 // May be called from any thread.
@@ -757,7 +758,10 @@ pub fn setDisplayMode(self: *Core, mode: DisplayMode, monitor_index: ?usize) voi
     defer self.state_mu.unlock();
     self.current_display_mode = mode;
     self.current_monitor_index = monitor_index;
-    if (self.current_display_mode != self.last_display_mode) self.state_update.set();
+    if (self.current_display_mode != self.last_display_mode) {
+        self.state_update.set();
+        self.wakeMainThread();
+    }
 }
 
 // May be called from any thread.
@@ -772,7 +776,10 @@ pub fn setBorder(self: *Core, value: bool) void {
     self.state_mu.lock();
     defer self.state_mu.unlock();
     self.current_border = value;
-    if (self.current_border != self.last_border) self.state_update.set();
+    if (self.current_border != self.last_border) {
+        self.state_update.set();
+        self.wakeMainThread();
+    }
 }
 
 // May be called from any thread.
@@ -787,7 +794,10 @@ pub fn setHeadless(self: *Core, value: bool) void {
     self.state_mu.lock();
     defer self.state_mu.unlock();
     self.current_headless = value;
-    if (self.current_headless != self.last_headless) self.state_update.set();
+    if (self.current_headless != self.last_headless) {
+        self.state_update.set();
+        self.wakeMainThread();
+    }
 }
 
 // May be called from any thread.
@@ -807,6 +817,7 @@ pub fn setVSync(self: *Core, mode: VSyncMode) void {
     };
     self.swap_chain_mu.unlock();
     self.swap_chain_update.set();
+    self.wakeMainThread();
 }
 
 // May be called from any thread.
@@ -825,7 +836,10 @@ pub fn setSize(self: *Core, value: Size) void {
     self.state_mu.lock();
     defer self.state_mu.unlock();
     self.current_size = value;
-    if (!self.current_size.eql(self.last_size)) self.state_update.set();
+    if (!self.current_size.eql(self.last_size)) {
+        self.state_update.set();
+        self.wakeMainThread();
+    }
 }
 
 // May be called from any thread.
@@ -840,7 +854,10 @@ pub fn setSizeLimit(self: *Core, limit: SizeLimit) void {
     self.state_mu.lock();
     defer self.state_mu.unlock();
     self.current_size_limit = limit;
-    if (!self.current_size_limit.equal(self.last_size_limit)) self.state_update.set();
+    if (!self.current_size_limit.equal(self.last_size_limit)) {
+        self.state_update.set();
+        self.wakeMainThread();
+    }
 }
 
 // May be called from any thread.
@@ -855,7 +872,10 @@ pub fn setCursorMode(self: *Core, mode: CursorMode) void {
     self.state_mu.lock();
     defer self.state_mu.unlock();
     self.current_cursor_mode = mode;
-    if (self.current_cursor_mode != self.last_cursor_mode) self.state_update.set();
+    if (self.current_cursor_mode != self.last_cursor_mode) {
+        self.state_update.set();
+        self.wakeMainThread();
+    }
 }
 
 // May be called from any thread.
@@ -870,7 +890,10 @@ pub fn setCursorShape(self: *Core, shape: CursorShape) void {
     self.state_mu.lock();
     defer self.state_mu.unlock();
     self.current_cursor_shape = shape;
-    if (self.current_cursor_shape != self.last_cursor_shape) self.state_update.set();
+    if (self.current_cursor_shape != self.last_cursor_shape) {
+        self.state_update.set();
+        self.wakeMainThread();
+    }
 }
 
 // May be called from any thread.
