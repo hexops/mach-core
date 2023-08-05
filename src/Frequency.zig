@@ -45,7 +45,7 @@ pub inline fn tick(f: *Frequency) void {
     }
 
     if (f.delta_time) |delta_time| {
-        f.delta_time_ns.* = current_time - f.internal.last_time;
+        f.delta_time_ns.* = if (f.internal.last_time < current_time) current_time - f.internal.last_time else 0;
         delta_time.* = @as(f32, @floatFromInt(f.delta_time_ns.*)) / @as(f32, @floatFromInt(std.time.ns_per_s));
     }
     f.internal.last_time = current_time;
