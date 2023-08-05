@@ -1,12 +1,10 @@
 const std = @import("std");
 const builtin = @import("builtin");
 const glfw = @import("mach_glfw");
-const gpu_dawn = @import("mach_gpu_dawn");
-const gpu = @import("mach_gpu").Sdk(.{
-    .gpu_dawn = gpu_dawn,
-});
+const gpu = @import("mach_gpu");
 
 pub var mach_glfw_import_path: []const u8 = "mach_gpu.mach_gpu_dawn.mach_glfw";
+pub var mach_gpu_import_path: []const u8 = "mach_gpu";
 
 pub fn build(b: *std.Build) !void {
     const optimize = b.standardOptimizeOption(.{});
@@ -18,32 +16,6 @@ pub fn build(b: *std.Build) !void {
     }
 
     try @import("build_examples.zig").build(b, optimize, target);
-}
-
-fn glfwLink(b: *std.Build, step: *std.build.CompileStep) void {
-    const glfw_dep = b.dependency(mach_glfw_import_path, .{
-        .target = step.target,
-        .optimize = step.optimize,
-    });
-    step.linkLibrary(glfw_dep.artifact("mach-glfw"));
-    step.addModule("glfw", glfw_dep.module("mach-glfw"));
-
-    // TODO(build-system): Zig package manager currently can't handle transitive deps like this, so we need to use
-    // these explicitly here:
-    @import("glfw").addPaths(step);
-    if (step.target.toTarget().isDarwin()) @import("xcode_frameworks").addPaths(b, step);
-    step.linkLibrary(b.dependency("vulkan_headers", .{
-        .target = step.target,
-        .optimize = step.optimize,
-    }).artifact("vulkan-headers"));
-    step.linkLibrary(b.dependency("x11_headers", .{
-        .target = step.target,
-        .optimize = step.optimize,
-    }).artifact("x11-headers"));
-    step.linkLibrary(b.dependency("wayland_headers", .{
-        .target = step.target,
-        .optimize = step.optimize,
-    }).artifact("wayland-headers"));
 }
 
 fn sdkPath(comptime suffix: []const u8) []const u8 {
@@ -64,7 +36,10 @@ pub fn module(b: *std.Build, optimize: std.builtin.OptimizeMode, target: std.zig
     _module = b.createModule(.{
         .source_file = .{ .path = sdkPath("/src/main.zig") },
         .dependencies = &.{
-            .{ .name = "gpu", .module = gpu.module(b) },
+            .{ .name = "gpu", .module = b.dependency(mach_gpu_import_path, .{
+                .target = target,
+                .optimize = optimize,
+            }).module("mach-gpu") },
             .{ .name = "glfw", .module = b.dependency(mach_glfw_import_path, .{
                 .target = target,
                 .optimize = optimize,
@@ -86,11 +61,16 @@ pub fn testStep(b: *std.Build, optimize: std.builtin.OptimizeMode, target: std.z
     while (iter.next()) |e| {
         main_tests.addModule(e.key_ptr.*, e.value_ptr.*);
     }
-    main_tests.addModule("glfw", b.dependency(mach_glfw_import_path, .{
-        .target = target,
-        .optimize = optimize,
-    }).module("mach-glfw"));
-    glfwLink(b, main_tests);
+
+    // Use mach-glfw
+    const glfw_dep = b.dependency(mach_glfw_import_path, .{
+        .target = main_tests.target,
+        .optimize = main_tests.optimize,
+    });
+    main_tests.linkLibrary(glfw_dep.artifact("mach-glfw"));
+    main_tests.addModule("glfw", glfw_dep.module("mach-glfw"));
+    try @import("mach_glfw").link(b, main_tests);
+
     if (target.isLinux()) {
         const gamemode_dep = b.dependency("mach_gamemode", .{});
         main_tests.addModule("gamemode", gamemode_dep.module("mach-gamemode"));
@@ -220,7 +200,15 @@ pub const App = struct {
 
         // Link dependencies
         if (platform != .web) {
-            glfwLink(b, compile);
+            // Use mach-glfw
+            const glfw_dep = b.dependency(mach_glfw_import_path, .{
+                .target = compile.target,
+                .optimize = compile.optimize,
+            });
+            compile.linkLibrary(glfw_dep.artifact("mach-glfw"));
+            compile.addModule("glfw", glfw_dep.module("mach-glfw"));
+            try @import("mach_glfw").link(b, compile);
+
             gpu.link(b, compile, .{}) catch return error.FailedToLinkGPU;
         }
 
