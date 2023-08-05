@@ -1,4 +1,5 @@
 const std = @import("std");
+const core = @import("main.zig");
 const Timer = @import("Timer.zig");
 
 pub const Frequency = @This();
@@ -13,11 +14,15 @@ delay_ns: u64 = 0,
 /// measured every 1/10th second, multiplied by 10.)
 rate: u32 = 0,
 
+delta_time: ?*f32 = null,
+delta_time_ns: *u64 = undefined,
+
 /// Internal fields, this must be initialized via a call to start().
 internal: struct {
     // The frame number in this second's cycle. e.g. zero to 59
     count: u32,
     timer: Timer,
+    last_time: u64,
 } = undefined,
 
 /// Starts the timer used for frequency calculation. Must be called once before anything else.
@@ -25,6 +30,7 @@ pub fn start(f: *Frequency) !void {
     f.internal = .{
         .count = 0,
         .timer = try Timer.start(),
+        .last_time = 0,
     };
 }
 
@@ -37,6 +43,13 @@ pub inline fn tick(f: *Frequency) void {
         f.internal.timer.reset();
         current_time = f.internal.timer.readPrecise();
     }
+
+    if (f.delta_time) |delta_time| {
+        f.delta_time_ns.* = current_time - f.internal.last_time;
+        delta_time.* = @as(f32, @floatFromInt(f.delta_time_ns.*)) / @as(f32, @floatFromInt(std.time.ns_per_s));
+    }
+    f.internal.last_time = current_time;
+
     if (f.target != 0) {
         var limited_count = if (f.internal.count > f.target) f.target else f.internal.count + 1;
         const target_time_per_tick: u64 = (std.time.ns_per_s / f.target);
