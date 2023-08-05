@@ -78,6 +78,19 @@ pub var queue: *gpu.Queue = undefined;
 pub var swap_chain: *gpu.SwapChain = undefined;
 pub var descriptor: gpu.SwapChain.Descriptor = undefined;
 
+/// The time in seconds between the last frame and the current frame.
+///
+/// Higher frame rates will report higher values, for example if your application is running at
+/// 60FPS this will report 0.01666666666 (1.0 / 60) seconds, and if it is running at 30FPS it will
+/// report twice that, 0.03333333333 (1.0 / 30.0) seconds.
+///
+/// For example, instead of rotating an object 360 degrees every frame `rotation += 6.0` (one full
+/// rotation every second, but only if your application is running at 60FPS) you may instead multiply
+/// by this number `rotation += 360.0 * core.delta_time` which results in one full rotation every
+/// second, no matter what frame rate the application is running at.
+pub var delta_time: f32 = 0;
+pub var delta_time_ns: u64 = 0;
+
 var core: platform.Core = undefined;
 
 var frame: Frequency = undefined;
@@ -106,7 +119,11 @@ pub fn init(options: Options) !void {
         opt.title = title[0..opt.title.len :0];
     }
 
-    frame = .{ .target = 0 };
+    frame = .{
+        .target = 0,
+        .delta_time = &delta_time,
+        .delta_time_ns = &delta_time_ns,
+    };
     input = .{ .target = 1 };
 
     try platform.Core.init(
