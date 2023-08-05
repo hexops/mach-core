@@ -11,8 +11,8 @@
             .hash = "12200b014b68d5f35243ea86a92cd76950f6f459b388c40ea0c8172f4e0f1236042b",
         },
         .mach_sysjs = .{
-            .url = "https://pkg.machengine.org/mach-sysjs/6ae203ed5d3c76048f9ac8a61368ac8488495505.tar.gz",
-            .hash = "1220c4652e3563f6c0bb3297f06fc1f55b2b34942eb5b47e568e2742b81fd4ca6234",
+            .url = "https://pkg.machengine.org/mach-sysjs/cd011058993f39a3ab473921ff51e0eda5635f99.tar.gz",
+            .hash = "1220d2af1939977838949d435b28de637c29407586b8ac87e35241b1b68c0860e98d",
         },
         .mach_gamemode = .{
             .url = "https://pkg.machengine.org/mach-gamemode/e529b6a2ecedcc0bef24ded1ed83c0993fbc8adb.tar.gz",
