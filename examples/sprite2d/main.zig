@@ -259,8 +259,7 @@ pub fn update(app: *App) !bool {
     // TODO: this is a terrible FPS calculation
     if (app.window_title_timer.read() >= 1.0) {
         app.window_title_timer.reset();
-        const title = try std.fmt.bufPrintZ(&core.title, "Sprite2D [ FPS: {d} ]", .{@floor(1 / delta_time)});
-        core.setTitle(title);
+        try core.printTitle("Sprite2D [ FPS: {d} ]", .{@floor(1 / delta_time)});
     }
     return false;
 }
