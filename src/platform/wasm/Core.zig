@@ -324,8 +324,8 @@ pub fn headless(self: *Core) bool {
 }
 
 pub fn setVSync(self: *Core, mode: VSyncMode) void {
-    _ = self;
     _ = mode;
+    self.frame.target = 0;
 }
 
 // TODO(wasm): https://github.com/gpuweb/gpuweb/issues/1224

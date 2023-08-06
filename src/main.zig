@@ -221,6 +221,12 @@ pub const VSyncMode = enum {
 };
 
 /// Set refresh rate synchronization mode. Default `.triple`
+/// Note that calling this function will restore frame rate limit to:
+/// ```
+/// .none   => 0
+/// .double => 0
+/// .triple => 2 * max(monitors_refresh_rate)
+/// ```
 pub inline fn setVSync(mode: VSyncMode) void {
     return internal.setVSync(mode);
 }
