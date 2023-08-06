@@ -47,6 +47,7 @@ instance: *gpu.Instance,
 surface: *gpu.Surface,
 gpu_adapter: *gpu.Adapter,
 gpu_device: *gpu.Device,
+max_refresh_rate: u32,
 
 // Mutable fields only used by main thread
 app_update_thread_started: bool = false,
@@ -81,8 +82,10 @@ state_mu: std.Thread.Mutex = .{},
 current_title: [:0]const u8,
 current_title_changed: bool = false,
 current_display_mode: DisplayMode = .windowed,
+current_vsync_mode: VSyncMode = .triple,
 current_monitor_index: ?usize = null,
 last_display_mode: DisplayMode = .windowed,
+last_vsync_mode: VSyncMode = .triple,
 current_border: bool,
 last_border: bool,
 current_headless: bool,
@@ -138,13 +141,14 @@ pub fn init(
     const backend_type = try util.detectBackendType(allocator);
 
     glfw.setErrorCallback(errorCallback);
-    if (!glfw.init(.{}))
+    if (!glfw.init(.{})) {
         glfw.getErrorCode() catch |err| switch (err) {
             error.PlatformError,
             error.PlatformUnavailable,
             => return err,
             else => unreachable,
         };
+    }
 
     // Create the test window and discover adapters using it (esp. for OpenGL)
     var hints = util.glfwWindowHintsForBackend(backend_type);
@@ -152,6 +156,17 @@ pub fn init(
     if (options.headless) {
         hints.visible = false; // Hiding window before creation otherwise you get the window showing up for a little bit then hiding.
     }
+
+    const monitors = try glfw.Monitor.getAll(allocator);
+    defer allocator.free(monitors);
+    var max_refresh_rate: u32 = 0;
+    for (monitors) |monitor| {
+        const video_mode = monitor.getVideoMode() orelse continue;
+        const refresh_rate = video_mode.getRefreshRate();
+        max_refresh_rate = @max(max_refresh_rate, refresh_rate);
+    }
+    if (max_refresh_rate == 0) max_refresh_rate = 60;
+    frame.target = 2 * max_refresh_rate;
 
     const window = glfw.Window.create(
         options.size.width,
@@ -266,6 +281,7 @@ pub fn init(
         .surface = surface,
         .gpu_adapter = response.adapter,
         .gpu_device = gpu_device,
+        .max_refresh_rate = max_refresh_rate,
         .swap_chain = swap_chain,
         .swap_chain_desc = swap_chain_desc,
         .events = events,
@@ -514,6 +530,14 @@ pub fn appUpdateThread(self: *Core, app: anytype) void {
         if (self.swap_chain_update.isSet()) blk: {
             self.swap_chain_update.reset();
 
+            if (self.current_vsync_mode != self.last_vsync_mode) {
+                self.last_vsync_mode = self.current_vsync_mode;
+                switch (self.current_vsync_mode) {
+                    .triple => self.frame.target = 2 * self.max_refresh_rate,
+                    else => self.frame.target = 0,
+                }
+            }
+
             const framebuffer_size = self.window.getFramebufferSize();
             glfw.getErrorCode() catch break :blk;
             if (framebuffer_size.width == 0 or framebuffer_size.height == 0) break :blk;
@@ -547,6 +571,7 @@ pub fn appUpdateThread(self: *Core, app: anytype) void {
         }
         self.gpu_device.tick();
         self.gpu_device.machWaitForCommandsToBeScheduled();
+
         self.frame.tick();
         if (self.frame.delay_ns != 0) std.time.sleep(self.frame.delay_ns);
     }
@@ -815,6 +840,7 @@ pub fn setVSync(self: *Core, mode: VSyncMode) void {
         .double => .fifo,
         .triple => .mailbox,
     };
+    self.current_vsync_mode = mode;
     self.swap_chain_mu.unlock();
     self.swap_chain_update.set();
     self.wakeMainThread();
