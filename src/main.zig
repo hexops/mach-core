@@ -156,13 +156,19 @@ pub inline fn pollEvents() EventIterator {
 }
 
 /// Sets the window title. The string must be owned by Core, and will not be copied or freed. It is
-/// advised to use the Core.title buffer for this purpose, e.g.:
+/// advised to use the `core.title` buffer for this purpose, e.g.:
 ///
 /// ```
 /// const title = try std.fmt.bufPrintZ(&core.title, "Hello, world!", .{});
 /// core.setTitle(title);
 /// ```
 pub inline fn setTitle(value: [:0]const u8) void {
+    return internal.setTitle(value);
+}
+
+/// Sets the window title. Uses the `core.title` buffer.
+pub inline fn printTitle(fmt: []const u8, args: anytype) !void {
+    const value = try std.fmt.bufPrintZ(&title, fmt, args);
     return internal.setTitle(value);
 }
 
