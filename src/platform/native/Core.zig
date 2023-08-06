@@ -85,7 +85,7 @@ current_display_mode: DisplayMode = .windowed,
 current_vsync_mode: VSyncMode = .triple,
 current_monitor_index: ?usize = null,
 last_display_mode: DisplayMode = .windowed,
-last_vsync_mode: VSyncMode = .none,
+last_vsync_mode: VSyncMode = .triple,
 current_border: bool,
 last_border: bool,
 current_headless: bool,
@@ -166,6 +166,7 @@ pub fn init(
         max_refresh_rate = @max(max_refresh_rate, refresh_rate);
     }
     if (max_refresh_rate == 0) max_refresh_rate = 60;
+    frame.target = 2 * max_refresh_rate;
 
     const window = glfw.Window.create(
         options.size.width,
@@ -529,6 +530,14 @@ pub fn appUpdateThread(self: *Core, app: anytype) void {
         if (self.swap_chain_update.isSet()) blk: {
             self.swap_chain_update.reset();
 
+            if (self.current_vsync_mode != self.last_vsync_mode) {
+                self.last_vsync_mode = self.current_vsync_mode;
+                switch (self.current_vsync_mode) {
+                    .triple => self.frame.target = 2 * self.max_refresh_rate,
+                    else => self.frame.target = 0,
+                }
+            }
+
             const framebuffer_size = self.window.getFramebufferSize();
             glfw.getErrorCode() catch break :blk;
             if (framebuffer_size.width == 0 or framebuffer_size.height == 0) break :blk;
@@ -562,13 +571,6 @@ pub fn appUpdateThread(self: *Core, app: anytype) void {
         }
         self.gpu_device.tick();
         self.gpu_device.machWaitForCommandsToBeScheduled();
-
-        if (self.current_vsync_mode != self.last_vsync_mode) {
-            switch (self.current_vsync_mode) {
-                .triple => self.frame.target = 2 * self.max_refresh_rate,
-                else => self.frame.target = 0,
-            }
-        }
 
         self.frame.tick();
         if (self.frame.delay_ns != 0) std.time.sleep(self.frame.delay_ns);
