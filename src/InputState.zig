@@ -1,7 +1,7 @@
 const std = @import("std");
 const core = @import("main.zig");
-const KeyBitSet = std.StaticBitSet(@intFromEnum(core.Key.max));
-const MouseButtonSet = std.StaticBitSet(@intFromEnum(core.MouseButton.max));
+const KeyBitSet = std.StaticBitSet(@intFromEnum(core.Key.max) + 1);
+const MouseButtonSet = std.StaticBitSet(@as(u4, @intFromEnum(core.MouseButton.max)) + 1);
 const InputState = @This();
 
 keys: KeyBitSet = KeyBitSet.initEmpty(),
