@@ -4,6 +4,7 @@ const std = @import("std");
 const core = @import("core");
 const gpu = core.gpu;
 
+title_timer: core.Timer,
 timer: core.Timer,
 compute_pipeline: *gpu.ComputePipeline,
 render_pipeline: *gpu.RenderPipeline,
@@ -164,6 +165,7 @@ pub fn init(app: *App) !void {
 
     app.* = .{
         .timer = try core.Timer.start(),
+        .title_timer = try core.Timer.start(),
         .compute_pipeline = compute_pipeline,
         .render_pipeline = render_pipeline,
         .sprite_vertex_buffer = sprite_vertex_buffer,
@@ -236,6 +238,15 @@ pub fn update(app: *App) !bool {
 
     core.swap_chain.present();
     back_buffer_view.release();
+
+    // update the window title every second
+    if (app.title_timer.read() >= 1.0) {
+        app.title_timer.reset();
+        try core.printTitle("Boids [ {d}fps ] [ Input {d}hz ]", .{
+            core.frameRate(),
+            core.inputRate(),
+        });
+    }
 
     return false;
 }

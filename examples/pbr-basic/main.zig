@@ -286,6 +286,7 @@ var gpa = std.heap.GeneralPurposeAllocator(.{}){};
 // Member variables
 //
 
+title_timer: core.Timer,
 timer: core.Timer,
 camera: Camera,
 render_pipeline: *gpu.RenderPipeline,
@@ -317,6 +318,7 @@ is_rotating: bool,
 pub fn init(app: *App) !void {
     try core.init(.{});
     app.timer = try core.Timer.start();
+    app.title_timer = try core.Timer.start();
 
     app.pressed_keys = .{};
     app.buffers_bound = false;
@@ -495,6 +497,15 @@ pub fn update(app: *App) !bool {
     core.swap_chain.present();
     back_buffer_view.release();
     app.buffers_bound = false;
+
+    // update the window title every second
+    if (app.title_timer.read() >= 1.0) {
+        app.title_timer.reset();
+        try core.printTitle("PBR Basic [ {d}fps ] [ Input {d}hz ]", .{
+            core.frameRate(),
+            core.inputRate(),
+        });
+    }
 
     return false;
 }

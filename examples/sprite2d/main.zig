@@ -50,9 +50,9 @@ const JSONData = struct {
 };
 var gpa = std.heap.GeneralPurposeAllocator(.{}){};
 
+title_timer: core.Timer,
 timer: core.Timer,
 fps_timer: core.Timer,
-window_title_timer: core.Timer,
 pipeline: *gpu.RenderPipeline,
 uniform_buffer: *gpu.Buffer,
 bind_group: *gpu.BindGroup,
@@ -195,9 +195,9 @@ pub fn init(app: *App) !void {
         }),
     );
 
+    app.title_timer = try core.Timer.start();
     app.timer = try core.Timer.start();
     app.fps_timer = try core.Timer.start();
-    app.window_title_timer = try core.Timer.start();
     app.pipeline = pipeline;
     app.uniform_buffer = uniform_buffer;
     app.bind_group = bind_group;
@@ -255,12 +255,15 @@ pub fn update(app: *App) !bool {
     // Render the frame
     try app.render();
 
-    // Every second, update the window title with the FPS
-    // TODO: this is a terrible FPS calculation
-    if (app.window_title_timer.read() >= 1.0) {
-        app.window_title_timer.reset();
-        try core.printTitle("Sprite2D [ FPS: {d} ]", .{@floor(1 / delta_time)});
+    // update the window title every second
+    if (app.title_timer.read() >= 1.0) {
+        app.title_timer.reset();
+        try core.printTitle("Sprite2D [ {d}fps ] [ Input {d}hz ]", .{
+            core.frameRate(),
+            core.inputRate(),
+        });
     }
+
     return false;
 }
 

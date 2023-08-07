@@ -7,9 +7,13 @@ pub const App = @This();
 
 var gpa = std.heap.GeneralPurposeAllocator(.{}){};
 
+title_timer: core.Timer,
+
 pub fn init(app: *App) !void {
     try core.init(.{});
-    app.* = .{};
+    app.* = .{
+        .title_timer = try core.Timer.start(),
+    };
 }
 
 pub fn deinit(app: *App) void {
@@ -31,6 +35,16 @@ pub fn update(app: *App) !bool {
     }
 
     app.render();
+
+    // update the window title every second
+    if (app.title_timer.read() >= 1.0) {
+        app.title_timer.reset();
+        try core.printTitle("Clear Color [ {d}fps ] [ Input {d}hz ]", .{
+            core.frameRate(),
+            core.inputRate(),
+        });
+    }
+
     return false;
 }
 

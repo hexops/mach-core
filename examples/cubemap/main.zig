@@ -13,6 +13,7 @@ const UniformBufferObject = struct {
 
 var gpa = std.heap.GeneralPurposeAllocator(.{}){};
 
+title_timer: core.Timer,
 timer: core.Timer,
 pipeline: *gpu.RenderPipeline,
 vertex_buffer: *gpu.Buffer,
@@ -244,6 +245,7 @@ pub fn init(app: *App) !void {
     });
 
     app.timer = try core.Timer.start();
+    app.title_timer = try core.Timer.start();
     app.pipeline = pipeline;
     app.vertex_buffer = vertex_buffer;
     app.uniform_buffer = uniform_buffer;
@@ -358,6 +360,15 @@ pub fn update(app: *App) !bool {
     command.release();
     core.swap_chain.present();
     back_buffer_view.release();
+
+    // update the window title every second
+    if (app.title_timer.read() >= 1.0) {
+        app.title_timer.reset();
+        try core.printTitle("Cube Map [ {d}fps ] [ Input {d}hz ]", .{
+            core.frameRate(),
+            core.inputRate(),
+        });
+    }
 
     return false;
 }

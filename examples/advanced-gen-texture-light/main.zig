@@ -19,6 +19,7 @@ pub const App = @This();
 
 var gpa = std.heap.GeneralPurposeAllocator(.{}){};
 
+title_timer: core.Timer,
 timer: core.Timer,
 cube: Cube,
 camera: Camera,
@@ -36,6 +37,7 @@ const Dir = struct {
 pub fn init(app: *App) !void {
     try core.init(.{});
 
+    app.title_timer = try core.Timer.start();
     app.timer = try core.Timer.start();
 
     const eye = Vec{ 5.0, 7.0, 5.0, 0.0 };
@@ -192,6 +194,15 @@ pub fn update(app: *App) !bool {
 
     queue.submit(&[_]*gpu.CommandBuffer{command});
     core.swap_chain.present();
+
+    // update the window title every second
+    if (app.title_timer.read() >= 1.0) {
+        app.title_timer.reset();
+        try core.printTitle("Advanced Gen Texture Light [ {d}fps ] [ Input {d}hz ]", .{
+            core.frameRate(),
+            core.inputRate(),
+        });
+    }
 
     return false;
 }

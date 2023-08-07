@@ -90,6 +90,7 @@ const Lights = struct {
 
 var gpa = std.heap.GeneralPurposeAllocator(.{}){};
 
+title_timer: core.Timer,
 timer: core.Timer,
 delta_time: f32,
 
@@ -146,6 +147,7 @@ pub fn init(app: *App) !void {
     core.setFrameRateLimit(60);
 
     app.timer = try core.Timer.start();
+    app.title_timer = try core.Timer.start();
 
     app.camera_rotation = 0.0;
     app.is_paused = false;
@@ -268,6 +270,15 @@ pub fn update(app: *App) !bool {
     command.release();
     core.swap_chain.present();
     core.swap_chain.getCurrentTextureView().?.release();
+
+    // update the window title every second
+    if (app.title_timer.read() >= 1.0) {
+        app.title_timer.reset();
+        try core.printTitle("Deferred Rendering [ {d}fps ] [ Input {d}hz ]", .{
+            core.frameRate(),
+            core.inputRate(),
+        });
+    }
 
     return false;
 }
