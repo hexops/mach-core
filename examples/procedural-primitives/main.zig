@@ -7,6 +7,8 @@ pub const App = @This();
 
 var gpa = std.heap.GeneralPurposeAllocator(.{}){};
 
+title_timer: core.Timer,
+
 pub fn init(app: *App) !void {
     try core.init(.{ .required_limits = gpu.Limits{
         .max_vertex_buffers = 1,
@@ -19,7 +21,7 @@ pub fn init(app: *App) !void {
     var allocator = gpa.allocator();
     const timer = try core.Timer.start();
     try renderer.init(allocator, timer);
-    app.* = .{};
+    app.* = .{ .title_timer = try core.Timer.start() };
 }
 
 pub fn deinit(app: *App) void {
@@ -30,7 +32,6 @@ pub fn deinit(app: *App) void {
 }
 
 pub fn update(app: *App) !bool {
-    _ = app;
     var iter = core.pollEvents();
     while (iter.next()) |event| {
         switch (event) {
@@ -47,6 +48,15 @@ pub fn update(app: *App) !bool {
     }
 
     renderer.update();
+
+    // update the window title every second
+    if (app.title_timer.read() >= 1.0) {
+        app.title_timer.reset();
+        try core.printTitle("Procedural Primitives [ {d}fps ] [ Input {d}hz ]", .{
+            core.frameRate(),
+            core.inputRate(),
+        });
+    }
 
     return false;
 }

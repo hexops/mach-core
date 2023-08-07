@@ -4,6 +4,7 @@ const gpu = core.gpu;
 const zigimg = @import("zigimg");
 const assets = @import("assets");
 
+title_timer: core.Timer,
 blur_pipeline: *gpu.ComputePipeline,
 fullscreen_quad_pipeline: *gpu.RenderPipeline,
 cube_texture: *gpu.Texture,
@@ -194,6 +195,7 @@ pub fn init(app: *App) !void {
     const blur_params_buffer_data = [_]u32{ filter_size, block_dimension };
     queue.writeBuffer(blur_params_buffer, 0, &blur_params_buffer_data);
 
+    app.title_timer = try core.Timer.start();
     app.blur_pipeline = blur_pipeline;
     app.fullscreen_quad_pipeline = fullscreen_quad_pipeline;
     app.cube_texture = cube_texture;
@@ -268,6 +270,15 @@ pub fn update(app: *App) !bool {
     command.release();
     core.swap_chain.present();
     back_buffer_view.release();
+
+    // update the window title every second
+    if (app.title_timer.read() >= 1.0) {
+        app.title_timer.reset();
+        try core.printTitle("Image Blur [ {d}fps ] [ Input {d}hz ]", .{
+            core.frameRate(),
+            core.inputRate(),
+        });
+    }
 
     return false;
 }

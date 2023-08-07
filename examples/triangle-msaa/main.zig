@@ -6,8 +6,7 @@ pub const App = @This();
 
 var gpa = std.heap.GeneralPurposeAllocator(.{}){};
 
-timer: core.Timer,
-window_title_timer: core.Timer,
+title_timer: core.Timer,
 pipeline: *gpu.RenderPipeline,
 texture: *gpu.Texture,
 texture_view: *gpu.TextureView,
@@ -16,8 +15,7 @@ const sample_count = 4;
 
 pub fn init(app: *App) !void {
     try core.init(.{});
-    app.timer = try core.Timer.start();
-    app.window_title_timer = try core.Timer.start();
+    app.title_timer = try core.Timer.start();
 
     const shader_module = core.device.createShaderModuleWGSL("shader.wgsl", @embedFile("shader.wgsl"));
     defer shader_module.release();
@@ -121,11 +119,14 @@ pub fn update(app: *App) !bool {
     core.swap_chain.present();
     back_buffer_view.release();
 
-    const delta_time = app.timer.lap();
-    // TODO: this is a terrible FPS calculation
-    if (app.window_title_timer.read() >= 1.0) {
-        app.window_title_timer.reset();
-        try core.printTitle("Mach Core [ FPS: {d} ]", .{@floor(1 / delta_time)});
+    // update the window title every second
+    if (app.title_timer.read() >= 1.0) {
+        app.title_timer.reset();
+        try core.printTitle("Triangle MSAA [ {d}fps ] [ Input {d}hz ]", .{
+            core.frameRate(),
+            core.inputRate(),
+        });
     }
+
     return false;
 }

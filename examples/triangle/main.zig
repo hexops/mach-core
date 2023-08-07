@@ -4,6 +4,7 @@ const gpu = core.gpu;
 
 pub const App = @This();
 
+title_timer: core.Timer,
 pipeline: *gpu.RenderPipeline,
 
 pub fn init(app: *App) !void {
@@ -33,7 +34,7 @@ pub fn init(app: *App) !void {
     };
     const pipeline = core.device.createRenderPipeline(&pipeline_descriptor);
 
-    app.* = .{ .pipeline = pipeline };
+    app.* = .{ .title_timer = try core.Timer.start(), .pipeline = pipeline };
 }
 
 pub fn deinit(app: *App) void {
@@ -76,6 +77,15 @@ pub fn update(app: *App) !bool {
     command.release();
     core.swap_chain.present();
     back_buffer_view.release();
+
+    // update the window title every second
+    if (app.title_timer.read() >= 1.0) {
+        app.title_timer.reset();
+        try core.printTitle("Triangle [ {d}fps ] [ Input {d}hz ]", .{
+            core.frameRate(),
+            core.inputRate(),
+        });
+    }
 
     return false;
 }

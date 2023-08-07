@@ -11,6 +11,7 @@ const UniformBufferObject = struct {
 
 var gpa = std.heap.GeneralPurposeAllocator(.{}){};
 
+title_timer: core.Timer,
 timer: core.Timer,
 pipeline: *gpu.RenderPipeline,
 vertex_buffer: *gpu.Buffer,
@@ -22,6 +23,7 @@ pub const App = @This();
 
 pub fn init(app: *App) !void {
     try core.init(.{});
+    app.title_timer = try core.Timer.start();
     app.timer = try core.Timer.start();
 
     const shader_module = core.device.createShaderModuleWGSL("shader.wgsl", @embedFile("shader.wgsl"));
@@ -206,6 +208,15 @@ pub fn update(app: *App) !bool {
     command.release();
     core.swap_chain.present();
     back_buffer_view.release();
+
+    // update the window title every second
+    if (app.title_timer.read() >= 1.0) {
+        app.title_timer.reset();
+        try core.printTitle("Two Cubes [ {d}fps ] [ Input {d}hz ]", .{
+            core.frameRate(),
+            core.inputRate(),
+        });
+    }
 
     return false;
 }
