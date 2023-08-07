@@ -14,8 +14,8 @@ const UniformBufferObject = struct {
 };
 var gpa = std.heap.GeneralPurposeAllocator(.{}){};
 
+title_timer: core.Timer,
 timer: core.Timer,
-fps_timer: core.Timer,
 pipeline: *gpu.RenderPipeline,
 vertex_buffer: *gpu.Buffer,
 uniform_buffer: *gpu.Buffer,
@@ -163,7 +163,7 @@ pub fn init(app: *App) !void {
     });
 
     app.timer = try core.Timer.start();
-    app.fps_timer = try core.Timer.start();
+    app.title_timer = try core.Timer.start();
     app.pipeline = pipeline;
     app.vertex_buffer = vertex_buffer;
     app.uniform_buffer = uniform_buffer;
@@ -285,14 +285,14 @@ pub fn update(app: *App) !bool {
     core.swap_chain.present();
     back_buffer_view.release();
 
-    // TODO: add an easier way to get these dynamic variables into window title without footguns
-    // See https://github.com/hexops/mach/issues/461
-    const title = try std.fmt.bufPrintZ(&core.title, "Textured cube [ {d}fps ] [ Input {d}hz ]", .{
-        core.frameRate(),
-        core.inputRate(),
-    });
-    core.setTitle(title);
-
+    // update the window title every second
+    if (app.title_timer.read() >= 1.0) {
+        app.title_timer.reset();
+        try core.printTitle("Textured cube [ {d}fps ] [ Input {d}hz ]", .{
+            core.frameRate(),
+            core.inputRate(),
+        });
+    }
     return false;
 }
 

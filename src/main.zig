@@ -221,7 +221,7 @@ pub const VSyncMode = enum {
 };
 
 /// Set refresh rate synchronization mode. Default `.triple`
-/// 
+///
 /// Calling this function also implicitly calls setFrameRateLimit for you:
 /// ```
 /// .none   => setFrameRateLimit(0) // unlimited
