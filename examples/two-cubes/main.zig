@@ -9,8 +9,6 @@ const UniformBufferObject = struct {
     mat: zm.Mat,
 };
 
-var timer: core.Timer = undefined;
-
 var gpa = std.heap.GeneralPurposeAllocator(.{}){};
 
 timer: core.Timer,
@@ -157,7 +155,7 @@ pub fn update(app: *App) !bool {
     });
 
     {
-        const time = timer.read();
+        const time = app.timer.read();
         const rotation1 = zm.mul(zm.rotationX(time * (std.math.pi / 2.0)), zm.rotationZ(time * (std.math.pi / 2.0)));
         const rotation2 = zm.mul(zm.rotationZ(time * (std.math.pi / 2.0)), zm.rotationX(time * (std.math.pi / 2.0)));
         const model1 = zm.mul(rotation1, zm.translation(-2, 0, 0));
