@@ -198,7 +198,7 @@ pub fn update(app: *App) !bool {
     // update the window title every second
     if (app.title_timer.read() >= 1.0) {
         app.title_timer.reset();
-        try core.printTitle("Advanced Gen Texture Light [ {d}fps ] [ Input {d}hz ]", .{
+        try core.printTitle("Gen Texture Light [ {d}fps ] [ Input {d}hz ]", .{
             core.frameRate(),
             core.inputRate(),
         });

@@ -58,7 +58,7 @@ pub fn build(
         .{ .name = "pixel-post-process" },
         .{ .name = "two-cubes" },
         .{ .name = "instanced-cube" },
-        .{ .name = "advanced-gen-texture-light" },
+        .{ .name = "gen-texture-light" },
         .{ .name = "fractal-cube" },
         .{ .name = "map-async" },
         .{
