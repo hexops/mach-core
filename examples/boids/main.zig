@@ -108,7 +108,7 @@ pub fn init(app: *App) !void {
     const sprite_vertex_buffer = core.device.createBuffer(&gpu.Buffer.Descriptor{
         .label = "sprite_vertex_buffer",
         .usage = .{ .vertex = true },
-        .mapped_at_creation = true,
+        .mapped_at_creation = .true,
         .size = vert_buffer_data.len * @sizeOf(f32),
     });
     var vertex_mapped = sprite_vertex_buffer.getMappedRange(f32, 0, vert_buffer_data.len);
@@ -139,7 +139,7 @@ pub fn init(app: *App) !void {
     while (i < 2) : (i += 1) {
         particle_buffers[i] = core.device.createBuffer(&gpu.Buffer.Descriptor{
             .label = "particle_buffer",
-            .mapped_at_creation = true,
+            .mapped_at_creation = .true,
             .usage = .{
                 .vertex = true,
                 .storage = true,

@@ -520,14 +520,14 @@ fn prepareUniformBuffers(app: *App) void {
     app.uniform_buffers.ubo_matrices.buffer = core.device.createBuffer(&.{
         .usage = .{ .copy_dst = true, .uniform = true },
         .size = app.uniform_buffers.ubo_matrices.size,
-        .mapped_at_creation = false,
+        .mapped_at_creation = .false,
     });
 
     app.uniform_buffers.ubo_params.size = roundToMultipleOf4(u32, @as(u32, @intCast(@sizeOf(UboParams)))) + 4;
     app.uniform_buffers.ubo_params.buffer = core.device.createBuffer(&.{
         .usage = .{ .copy_dst = true, .uniform = true },
         .size = app.uniform_buffers.ubo_params.size,
-        .mapped_at_creation = false,
+        .mapped_at_creation = .false,
     });
 
     //
@@ -539,7 +539,7 @@ fn prepareUniformBuffers(app: *App) void {
     app.uniform_buffers.material_params.buffer = core.device.createBuffer(&.{
         .usage = .{ .copy_dst = true, .uniform = true },
         .size = app.uniform_buffers.material_params.buffer_size,
-        .mapped_at_creation = false,
+        .mapped_at_creation = .false,
     });
 
     //
@@ -551,7 +551,7 @@ fn prepareUniformBuffers(app: *App) void {
     app.uniform_buffers.object_params.buffer = core.device.createBuffer(&.{
         .usage = .{ .copy_dst = true, .uniform = true },
         .size = app.uniform_buffers.object_params.buffer_size,
-        .mapped_at_creation = false,
+        .mapped_at_creation = .false,
     });
 
     app.updateUniformBuffers();
@@ -636,7 +636,7 @@ fn setupPipeline(app: *App) void {
             .visibility = .{ .vertex = true, .fragment = true },
             .buffer = .{
                 .type = .uniform,
-                .has_dynamic_offset = false,
+                .has_dynamic_offset = .false,
                 .min_binding_size = app.uniform_buffers.ubo_matrices.size,
             },
         },
@@ -645,7 +645,7 @@ fn setupPipeline(app: *App) void {
             .visibility = .{ .fragment = true },
             .buffer = .{
                 .type = .uniform,
-                .has_dynamic_offset = false,
+                .has_dynamic_offset = .false,
                 .min_binding_size = app.uniform_buffers.ubo_params.size,
             },
         },
@@ -654,7 +654,7 @@ fn setupPipeline(app: *App) void {
             .visibility = .{ .fragment = true },
             .buffer = .{
                 .type = .uniform,
-                .has_dynamic_offset = true,
+                .has_dynamic_offset = .true,
                 .min_binding_size = app.uniform_buffers.material_params.model_size,
             },
         },
@@ -663,7 +663,7 @@ fn setupPipeline(app: *App) void {
             .visibility = .{ .vertex = true },
             .buffer = .{
                 .type = .uniform,
-                .has_dynamic_offset = true,
+                .has_dynamic_offset = .true,
                 .min_binding_size = app.uniform_buffers.object_params.model_size,
             },
         },
@@ -848,7 +848,7 @@ fn loadModels(allocator: std.mem.Allocator, app: *App) !void {
         model.vertex_buffer = core.device.createBuffer(&.{
             .usage = .{ .copy_dst = true, .vertex = true },
             .size = @sizeOf(Vertex) * model.vertex_count,
-            .mapped_at_creation = false,
+            .mapped_at_creation = .false,
         });
         const queue = core.queue;
         queue.writeBuffer(model.vertex_buffer, 0, vertex_buffer);
@@ -856,7 +856,7 @@ fn loadModels(allocator: std.mem.Allocator, app: *App) !void {
         model.index_buffer = core.device.createBuffer(&.{
             .usage = .{ .copy_dst = true, .index = true },
             .size = @sizeOf(u32) * model.index_count,
-            .mapped_at_creation = false,
+            .mapped_at_creation = .false,
         });
         queue.writeBuffer(model.index_buffer, 0, index_buffer);
     }

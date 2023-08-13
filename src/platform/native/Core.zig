@@ -208,7 +208,7 @@ pub fn init(
     instance.requestAdapter(&gpu.RequestAdapterOptions{
         .compatible_surface = surface,
         .power_preference = options.power_preference,
-        .force_fallback_adapter = false,
+        .force_fallback_adapter = .false,
     }, &response, util.requestAdapterCallback);
     if (response.status != .success) {
         log.err("failed to create GPU adapter: {?s}", .{response.message});
@@ -218,7 +218,7 @@ pub fn init(
 
     // Print which adapter we are going to use.
     var props = std.mem.zeroes(gpu.Adapter.Properties);
-    response.adapter.getProperties(&props);
+    response.adapter.?.getProperties(&props);
     if (props.backend_type == .null) {
         log.err("no backend found for {s} adapter", .{props.adapter_type.name()});
         std.process.exit(1);
@@ -231,7 +231,7 @@ pub fn init(
     });
 
     // Create a device with default limits/features.
-    const gpu_device = response.adapter.createDevice(&.{
+    const gpu_device = response.adapter.?.createDevice(&.{
         .required_features_count = if (options.required_features) |v| @as(u32, @intCast(v.len)) else 0,
         .required_features = if (options.required_features) |v| @as(?[*]const gpu.FeatureName, v.ptr) else null,
         .required_limits = if (options.required_limits) |limits| @as(?*const gpu.RequiredLimits, &gpu.RequiredLimits{
@@ -256,7 +256,7 @@ pub fn init(
     };
     const swap_chain = gpu_device.createSwapChain(surface, &swap_chain_desc);
 
-    mach_core.adapter = response.adapter;
+    mach_core.adapter = response.adapter.?;
     mach_core.device = gpu_device;
     mach_core.queue = gpu_device.getQueue();
     mach_core.swap_chain = swap_chain;
@@ -279,7 +279,7 @@ pub fn init(
         .user_ptr = undefined,
         .instance = instance,
         .surface = surface,
-        .gpu_adapter = response.adapter,
+        .gpu_adapter = response.adapter.?,
         .gpu_device = gpu_device,
         .max_refresh_rate = max_refresh_rate,
         .swap_chain = swap_chain,

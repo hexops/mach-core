@@ -16,13 +16,13 @@ pub fn init(app: *App) !void {
     const output = core.device.createBuffer(&.{
         .usage = .{ .storage = true, .copy_src = true },
         .size = buffer_size * @sizeOf(f32),
-        .mapped_at_creation = false,
+        .mapped_at_creation = .false,
     });
 
     const staging = core.device.createBuffer(&.{
         .usage = .{ .map_read = true, .copy_dst = true },
         .size = buffer_size * @sizeOf(f32),
-        .mapped_at_creation = false,
+        .mapped_at_creation = .false,
     });
 
     const compute_module = core.device.createShaderModuleWGSL("main.wgsl", @embedFile("main.wgsl"));

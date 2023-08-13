@@ -88,7 +88,7 @@ pub fn init(app: *App) !void {
     const vertex_buffer = core.device.createBuffer(&.{
         .usage = .{ .vertex = true },
         .size = @sizeOf(Vertex) * vertices.len,
-        .mapped_at_creation = true,
+        .mapped_at_creation = .true,
     });
     var vertex_mapped = vertex_buffer.getMappedRange(Vertex, 0, vertices.len);
     std.mem.copy(Vertex, vertex_mapped.?, vertices[0..]);
@@ -129,7 +129,7 @@ pub fn init(app: *App) !void {
     const uniform_buffer = core.device.createBuffer(&.{
         .usage = .{ .copy_dst = true, .uniform = true },
         .size = @sizeOf(UniformBufferObject),
-        .mapped_at_creation = false,
+        .mapped_at_creation = .false,
     });
 
     const bind_group = core.device.createBindGroup(
