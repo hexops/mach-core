@@ -3,7 +3,7 @@ const builtin = @import("builtin");
 const glfw = @import("mach_glfw");
 const gpu = @import("mach_gpu");
 
-pub var mach_glfw_import_path: []const u8 = "mach_gpu.mach_gpu_dawn.mach_glfw";
+pub var mach_glfw_import_path: []const u8 = "mach_glfw";
 pub var mach_gpu_import_path: []const u8 = "mach_gpu";
 
 pub fn build(b: *std.Build) !void {
@@ -67,8 +67,7 @@ pub fn testStep(b: *std.Build, optimize: std.builtin.OptimizeMode, target: std.z
         .target = main_tests.target,
         .optimize = main_tests.optimize,
     });
-    main_tests.linkLibrary(glfw_dep.artifact("mach-glfw"));
-    main_tests.addModule("glfw", glfw_dep.module("mach-glfw"));
+    main_tests.addModule("mach-glfw", glfw_dep.module("mach-glfw"));
     try @import("mach_glfw").link(b, main_tests);
 
     if (target.isLinux()) {
@@ -205,8 +204,7 @@ pub const App = struct {
                 .target = compile.target,
                 .optimize = compile.optimize,
             });
-            compile.linkLibrary(glfw_dep.artifact("mach-glfw"));
-            compile.addModule("glfw", glfw_dep.module("mach-glfw"));
+            compile.addModule("mach-glfw", glfw_dep.module("mach-glfw"));
             try @import("mach_glfw").link(b, compile);
 
             gpu.link(b, compile, .{}) catch return error.FailedToLinkGPU;

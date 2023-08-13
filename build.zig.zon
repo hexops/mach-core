@@ -19,8 +19,8 @@
             .hash = "122033b8f9bc8116edb3f2421f78a35d5dd85f71792681633cb6edc883275af2a1e7",
         },
         .mach_gpu = .{
-            .url = "https://pkg.machengine.org/mach-gpu/64ac3e8f5dcde3f5b5580a471bdfbc1037c779da.tar.gz",
-            .hash = "122066fe5c09a0a811ae388b5d7147c65134d43d786fc3289fcea44891217d2e955a",
+            .url = "https://pkg.machengine.org/mach-gpu/a86af86591827a2b779cd8eb52835929394912a4.tar.gz",
+            .hash = "12208531803f37e906974a4a4bd58b81200ae313f46f62f6384c91a32601b0a07eb6",
         },
         .mach_gpu_dawn = .{
             .url = "https://pkg.machengine.org/mach-gpu-dawn/5d463ceb63246b3b73070c774465c67dd657e045.tar.gz",
