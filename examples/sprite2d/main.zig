@@ -138,7 +138,7 @@ pub fn init(app: *App) !void {
     const sprites_buffer = core.device.createBuffer(&.{
         .usage = .{ .storage = true, .copy_dst = true },
         .size = @sizeOf(Sprite) * app.sprites.items.len,
-        .mapped_at_creation = true,
+        .mapped_at_creation = .true,
     });
     var sprites_mapped = sprites_buffer.getMappedRange(Sprite, 0, app.sprites.items.len);
     std.mem.copy(Sprite, sprites_mapped.?, app.sprites.items[0..]);
@@ -180,7 +180,7 @@ pub fn init(app: *App) !void {
     const uniform_buffer = core.device.createBuffer(&.{
         .usage = .{ .copy_dst = true, .uniform = true },
         .size = @sizeOf(UniformBufferObject),
-        .mapped_at_creation = false,
+        .mapped_at_creation = .false,
     });
 
     const bind_group = core.device.createBindGroup(

@@ -98,7 +98,7 @@ fn createVertexBuffer(primitive: Primitive) *gpu.Buffer {
     const vertex_buffer_descriptor = gpu.Buffer.Descriptor{
         .size = primitive.vertex_count * @sizeOf(VertexData),
         .usage = .{ .vertex = true, .copy_dst = true },
-        .mapped_at_creation = false,
+        .mapped_at_creation = .false,
     };
 
     const vertex_buffer = core.device.createBuffer(&vertex_buffer_descriptor);
@@ -111,7 +111,7 @@ fn createIndexBuffer(primitive: Primitive) *gpu.Buffer {
     const index_buffer_descriptor = gpu.Buffer.Descriptor{
         .size = primitive.index_count * @sizeOf(u32),
         .usage = .{ .index = true, .copy_dst = true },
-        .mapped_at_creation = false,
+        .mapped_at_creation = .false,
     };
     const index_buffer = core.device.createBuffer(&index_buffer_descriptor);
     queue.writeBuffer(index_buffer, 0, primitive.index_data.items[0..]);
@@ -132,7 +132,7 @@ fn createBindBuffer(bind_group_layout: *gpu.BindGroupLayout) void {
     uniform_buffer = core.device.createBuffer(&.{
         .usage = .{ .copy_dst = true, .uniform = true },
         .size = @sizeOf(UniformBufferObject),
-        .mapped_at_creation = false,
+        .mapped_at_creation = .false,
     });
 
     bind_group = core.device.createBindGroup(
@@ -205,7 +205,7 @@ fn createPipeline(shader_module: *gpu.ShaderModule, bind_group_layout: *gpu.Bind
     const multi_sample_state = gpu.MultisampleState{
         .count = 1,
         .mask = 0xFFFFFFFF,
-        .alpha_to_coverage_enabled = false,
+        .alpha_to_coverage_enabled = .false,
     };
 
     const bind_group_layouts = [_]*gpu.BindGroupLayout{bind_group_layout};

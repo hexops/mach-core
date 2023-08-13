@@ -134,7 +134,7 @@ pub fn init(app: *App) !void {
         const buffer = core.device.createBuffer(&.{
             .usage = .{ .uniform = true },
             .size = @sizeOf(u32),
-            .mapped_at_creation = true,
+            .mapped_at_creation = .true,
         });
 
         const buffer_mapped = buffer.getMappedRange(u32, 0, 1);

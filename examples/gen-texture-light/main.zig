@@ -818,7 +818,7 @@ inline fn initBuffer(device: *gpu.Device, usage: gpu.Buffer.UsageFlags, data: an
     const buffer = device.createBuffer(&.{
         .size = @sizeOf(T) * data.len,
         .usage = u,
-        .mapped_at_creation = true,
+        .mapped_at_creation = .true,
     });
 
     var mapped = buffer.getMappedRange(T, 0, data.len);

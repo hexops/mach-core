@@ -380,7 +380,7 @@ fn loadMeshFromModel3d(app: *App, allocator: std.mem.Allocator, model_data: [:0]
         app.vertex_buffer = core.device.createBuffer(&.{
             .usage = .{ .vertex = true },
             .size = roundToMultipleOf4(u64, buffer_size),
-            .mapped_at_creation = true,
+            .mapped_at_creation = .true,
         });
         var mapping = app.vertex_buffer.getMappedRange(Vertex, 0, vertex_buffer.len).?;
         std.mem.copy(Vertex, mapping[0..vertex_buffer.len], vertex_buffer);
@@ -391,7 +391,7 @@ fn loadMeshFromModel3d(app: *App, allocator: std.mem.Allocator, model_data: [:0]
         app.index_buffer = core.device.createBuffer(&.{
             .usage = .{ .index = true },
             .size = roundToMultipleOf4(u64, buffer_size),
-            .mapped_at_creation = true,
+            .mapped_at_creation = .true,
         });
         var mapping = app.index_buffer.getMappedRange(u16, 0, index_buffer.len).?;
         std.mem.copy(u16, mapping[0..index_buffer.len], index_buffer);
@@ -760,7 +760,7 @@ fn prepareUniformBuffers(app: *App) void {
         app.lights.config_uniform_buffer = core.device.createBuffer(&.{
             .usage = .{ .copy_dst = true, .uniform = true },
             .size = app.lights.config_uniform_buffer_size,
-            .mapped_at_creation = true,
+            .mapped_at_creation = .true,
         });
         var config_data = app.lights.config_uniform_buffer.getMappedRange(i32, 0, 1).?;
         config_data[0] = app.settings.lights_count;
@@ -875,7 +875,7 @@ fn prepareLights(app: *App) void {
     app.lights.buffer = core.device.createBuffer(&.{
         .usage = .{ .storage = true },
         .size = app.lights.buffer_size,
-        .mapped_at_creation = true,
+        .mapped_at_creation = .true,
     });
     // We randomly populate lights randomly in a box range
     // And simply move them along y-axis per frame to show they are dynamic lightings
