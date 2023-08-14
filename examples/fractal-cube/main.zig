@@ -83,7 +83,7 @@ pub fn init(app: *App) !void {
         .layout = pipeline_layout,
         .depth_stencil = &.{
             .format = .depth24_plus,
-            .depth_write_enabled = true,
+            .depth_write_enabled = .true,
             .depth_compare = .less,
         },
         .vertex = gpu.VertexState.init(.{

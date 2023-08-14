@@ -198,7 +198,7 @@ fn createPipeline(shader_module: *gpu.ShaderModule, bind_group_layout: *gpu.Bind
 
     const depth_stencil_state = gpu.DepthStencilState{
         .format = .depth24_plus,
-        .depth_write_enabled = true,
+        .depth_write_enabled = .true,
         .depth_compare = .less,
     };
 

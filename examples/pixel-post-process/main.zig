@@ -314,7 +314,7 @@ fn createDrawPipeline(app: *App) void {
         },
         .depth_stencil = &gpu.DepthStencilState{
             .format = .depth32_float,
-            .depth_write_enabled = true,
+            .depth_write_enabled = .true,
             .depth_compare = .less,
         },
     };

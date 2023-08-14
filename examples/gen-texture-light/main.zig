@@ -392,7 +392,7 @@ const Cube = struct {
             }),
             .depth_stencil = &.{
                 .format = Texture.DEPTH_FORMAT,
-                .depth_write_enabled = true,
+                .depth_write_enabled = .true,
                 .depth_compare = .less,
             },
             .primitive = .{
@@ -796,7 +796,7 @@ const Light = struct {
             }),
             .depth_stencil = &.{
                 .format = Texture.DEPTH_FORMAT,
-                .depth_write_enabled = true,
+                .depth_write_enabled = .true,
                 .depth_compare = .less,
             },
             .primitive = .{

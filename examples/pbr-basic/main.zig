@@ -711,7 +711,7 @@ fn setupPipeline(app: *App) void {
         },
         .depth_stencil = &.{
             .format = .depth24_plus_stencil8,
-            .depth_write_enabled = true,
+            .depth_write_enabled = .true,
             .depth_compare = .less,
         },
         .fragment = &gpu.FragmentState.init(.{
