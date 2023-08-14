@@ -51,9 +51,11 @@ jobs:
           7z x zig.zip
           Add-Content $env:GITHUB_PATH "C:\zig-windows-x86_64-0.12.0-dev.21+ac95cfe44\"
       - name: build
-        run: zig build
+        # Note: using -j1 flag to workaround AccessDenied error on Windows
+        run: zig build -j1
       - name: test
-        run: zig build test
+        # Note: using -j1 flag to workaround AccessDenied error on Windows
+        run: zig build -j1 test
   x86_64-macos:
     runs-on: macos-latest
     steps:
