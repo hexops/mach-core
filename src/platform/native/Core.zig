@@ -521,6 +521,10 @@ pub fn deinit(self: *Core) void {
         self.linux_gamemode != null and
         self.linux_gamemode.?)
         deinitLinuxGamemode();
+
+    self.surface.release();
+    self.gpu_adapter.release();
+    self.instance.release();
 }
 
 // Secondary app-update thread
