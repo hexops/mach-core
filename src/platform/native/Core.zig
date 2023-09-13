@@ -309,10 +309,10 @@ pub fn init(
     core.last_display_mode = .windowed;
 
     core.current_border = options.border;
-    core.last_border = true;
+    core.last_border = true; // glfw's default
 
     core.current_resizeable = options.resizable;
-    core.last_resizeable = options.resizable;
+    core.last_resizeable = true; // glfw's default
 
     core.current_headless = options.headless;
     core.last_headless = core.current_headless;
@@ -620,8 +620,8 @@ pub fn update(self: *Core, app: anytype) !bool {
                         null,
                         @intCast(self.last_windowed_pos.x),
                         @intCast(self.last_windowed_pos.y),
-                        self.last_size.width,
-                        self.last_size.height,
+                        self.last_windowed_size.width,
+                        self.last_windowed_size.height,
                         null,
                     );
                 },
