@@ -159,6 +159,9 @@ pub fn init(
         hints.visible = false; // Hiding window before creation otherwise you get the window showing up for a little bit then hiding.
     }
 
+    // ignored for borderless and windowed mode, necessary for exclusive .fullscreen mode
+    hints.auto_iconify = true;
+
     const monitors = try glfw.Monitor.getAll(allocator);
     defer allocator.free(monitors);
     var max_refresh_rate: u32 = 0;
