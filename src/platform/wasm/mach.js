@@ -168,6 +168,14 @@ const mach = {
     // TODO(wasm)
   },
 
+  machCanvasSetResizeable(canvas, value) {
+    // TODO(wasm)
+  },
+
+  machCanvasResizeable(canvas, value) {
+    // TODO(wasm)
+  },
+
   machCanvasBorder(canvas) {
     // TODO(wasm)
   },

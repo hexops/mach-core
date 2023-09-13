@@ -18,3 +18,5 @@ zig-out/
 /docgen_tmp/
 
 examples/libs/
+
+.devcontainer

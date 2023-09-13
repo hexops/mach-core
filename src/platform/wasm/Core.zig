@@ -313,6 +313,16 @@ pub fn border(self: *Core) bool {
     return false;
 }
 
+pub fn setResizeable(self: *Core, value: bool) void {
+    _ = self;
+    _ = value;
+}
+
+pub fn resizeable(self: *Core) bool {
+    _ = self;
+    return false;
+}
+
 pub fn setHeadless(self: *Core, value: bool) void {
     _ = self;
     _ = value;

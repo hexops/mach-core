@@ -13,6 +13,8 @@ pub extern "mach" fn machCanvasSetDisplayMode(canvas: CanvasId, mode: u32) void;
 pub extern "mach" fn machCanvasDisplayMode(canvas: CanvasId) u32;
 pub extern "mach" fn machCanvasSetBorder(canvas: CanvasId, value: bool) void;
 pub extern "mach" fn machCanvasBorder(canvas: CanvasId) bool;
+pub extern "mach" fn machCanvasSetResizeable(canvas: CanvasId, value: bool) void;
+pub extern "mach" fn machCanvasResizeable(canvas: CanvasId) bool;
 pub extern "mach" fn machCanvasSetHeadless(canvas: CanvasId, value: bool) void;
 pub extern "mach" fn machCanvasHeadless(canvas: CanvasId) bool;
 pub extern "mach" fn machCanvasSetVsync(canvas: CanvasId, mode: u32) void;
