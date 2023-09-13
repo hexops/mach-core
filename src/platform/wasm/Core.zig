@@ -318,7 +318,7 @@ pub fn setResizeable(self: *Core, value: bool) void {
     _ = value;
 }
 
-pub fn resizeable(self: *Core) bool {
+pub fn resizable(self: *Core) bool {
     _ = self;
     return false;
 }

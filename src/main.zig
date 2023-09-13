@@ -106,7 +106,7 @@ pub const Options = struct {
     title: [:0]const u8 = "Mach core",
     size: Size = .{ .width = 1920 / 2, .height = 1080 / 2 },
     power_preference: gpu.PowerPreference = .undefined,
-    resizeable: bool = true,
+    resizable: bool = true,
     required_features: ?[]const gpu.FeatureName = null,
     required_limits: ?gpu.Limits = null,
 };
@@ -195,8 +195,8 @@ pub inline fn setResizeable(value: bool) void {
     return internal.setResizeable(value);
 }
 
-pub inline fn resizeable() bool {
-    return internal.resizeable();
+pub inline fn resizable() bool {
+    return internal.resizable();
 }
 
 pub inline fn setHeadless(value: bool) void {

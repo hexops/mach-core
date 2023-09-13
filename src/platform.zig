@@ -27,7 +27,7 @@ comptime {
     assertHasDecl(@This().Core, "border");
 
     assertHasDecl(@This().Core, "setResizeable");
-    assertHasDecl(@This().Core, "resizeable");
+    assertHasDecl(@This().Core, "resizable");
 
     assertHasDecl(@This().Core, "setHeadless");
     assertHasDecl(@This().Core, "headless");
