@@ -901,6 +901,7 @@ pub fn setSize(self: *Core, value: Size) void {
     self.state_mu.lock();
     defer self.state_mu.unlock();
     self.current_size = value;
+    self.last_windowed_size = value;
     if (!self.current_size.eql(self.last_size)) {
         self.state_update.set();
         self.wakeMainThread();
