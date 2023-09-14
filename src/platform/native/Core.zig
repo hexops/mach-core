@@ -168,7 +168,7 @@ pub fn init(
     // The behavior of this flag is always true for retina displays in macOS, we manually set it to true to have consistent behaviors across platforms.
     // GLFW DOCS: Specified whether the window content area should be resized based on the monitor content scale of any monitor it is placed on.
     //            This includes the initial placement when the window is created.
-    // hints.scale_to_monitor = true;
+    hints.scale_to_monitor = true;
 
     const monitors = try glfw.Monitor.getAll(allocator);
     defer allocator.free(monitors);
