@@ -168,7 +168,7 @@ pub fn init(
     // The behavior of this flag is always true for retina displays in macOS, we manually set it to true to have consistent behaviors across platforms.
     // GLFW DOCS: Specified whether the window content area should be resized based on the monitor content scale of any monitor it is placed on.
     //            This includes the initial placement when the window is created.
-    hints.scale_to_monitor = true;
+    // hints.scale_to_monitor = true;
 
     const monitors = try glfw.Monitor.getAll(allocator);
     defer allocator.free(monitors);
@@ -338,6 +338,9 @@ pub fn init(
 
     core.initCallbacks();
 
+    // emit one framebuffer_resize event at the beginning
+    core.swap_chain_update.set();
+
     try core.input.start();
 
     if (builtin.os.tag == .linux and !options.is_app and
@@ -392,15 +395,17 @@ fn initCallbacks(self: *Core) void {
         fn callback(window: glfw.Window, xpos: f64, ypos: f64) void {
             const pf = (window.getUserPointer(UserPtr) orelse unreachable).self;
 
+            const scale: f32 = if (builtin.target.isDarwin()) 1.0 else window.getContentScale().x_scale;
+
             pf.input_mu.lock();
-            pf.input_state.mouse_position = .{ .x = xpos, .y = ypos };
+            pf.input_state.mouse_position = .{ .x = xpos / scale, .y = ypos / scale };
             pf.input_mu.unlock();
 
             pf.pushEvent(.{
                 .mouse_motion = .{
                     .pos = .{
-                        .x = xpos,
-                        .y = ypos,
+                        .x = pf.input_state.mouse_position.x,
+                        .y = pf.input_state.mouse_position.y,
                     },
                 },
             });
@@ -411,10 +416,13 @@ fn initCallbacks(self: *Core) void {
     const mouse_button_callback = struct {
         fn callback(window: glfw.Window, button: glfw.mouse_button.MouseButton, action: glfw.Action, mods: glfw.Mods) void {
             const pf = (window.getUserPointer(UserPtr) orelse unreachable).self;
-            const cursor_pos = pf.window.getCursorPos();
+            const cursor_pos = window.getCursorPos();
+
+            const scale: f32 = if (builtin.target.isDarwin()) 1.0 else window.getContentScale().x_scale;
+
             const mouse_button_event = MouseButtonEvent{
                 .button = toMachButton(button),
-                .pos = .{ .x = cursor_pos.xpos, .y = cursor_pos.ypos },
+                .pos = .{ .x = cursor_pos.xpos / scale, .y = cursor_pos.ypos / scale },
                 .mods = toMachMods(mods),
             };
 
@@ -561,28 +569,28 @@ pub fn appUpdateThread(self: *Core, app: anytype) void {
             }
 
             const framebuffer_size = self.window.getFramebufferSize();
-            const actual_size = self.window.getSize();
-
             glfw.getErrorCode() catch break :blk;
+            const actual_size = self.window.getSize();
+            glfw.getErrorCode() catch break :blk;
+            const pixel_ratio = self.window.getContentScale().x_scale;
+            glfw.getErrorCode() catch break :blk;
+
             if (framebuffer_size.width == 0 or framebuffer_size.height == 0) break :blk;
             if (actual_size.width == 0 or actual_size.height == 0) break :blk;
+            if (pixel_ratio == 0) break :blk;
 
             {
                 self.swap_chain_mu.lock();
                 defer self.swap_chain_mu.unlock();
-                self.swap_chain_desc.width = framebuffer_size.width;
-                self.swap_chain_desc.height = framebuffer_size.height;
-                self.swap_chain = self.gpu_device.createSwapChain(self.surface, &self.swap_chain_desc);
 
-                mach_core.swap_chain = self.swap_chain;
-                mach_core.descriptor = self.swap_chain_desc;
-            }
+                if (self.swap_chain_desc.width != framebuffer_size.width or self.swap_chain_desc.height != framebuffer_size.height) {
+                    self.swap_chain_desc.width = framebuffer_size.width;
+                    self.swap_chain_desc.height = framebuffer_size.height;
+                    self.swap_chain = self.gpu_device.createSwapChain(self.surface, &self.swap_chain_desc);
 
-            var pixel_ratio: f32 = @as(f32, @floatFromInt(framebuffer_size.width)) / @as(f32, @floatFromInt(actual_size.width));
-
-            if (self.window.getMonitor()) |monitor| {
-                // there aren't any practical concerns about different scales in x/y
-                pixel_ratio = monitor.getContentScale().x_scale;
+                    mach_core.swap_chain = self.swap_chain;
+                    mach_core.descriptor = self.swap_chain_desc;
+                }
             }
 
             self.pushEvent(.{
