@@ -162,6 +162,11 @@ pub fn init(
     // ignored for borderless and windowed mode, necessary for exclusive .fullscreen mode
     hints.auto_iconify = true;
 
+    // The behavior of this flag is always true for retina displays in macOS, we manually set it to true to have consistent behaviors across platforms.
+    // GLFW DOCS: Specified whether the window content area should be resized based on the monitor content scale of any monitor it is placed on. 
+    //            This includes the initial placement when the window is created.
+    hints.scale_to_monitor = true;
+
     const monitors = try glfw.Monitor.getAll(allocator);
     defer allocator.free(monitors);
     var max_refresh_rate: u32 = 0;
