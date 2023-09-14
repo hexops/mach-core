@@ -184,11 +184,11 @@ pub const EventIterator = struct {
                 .framebuffer_resize => blk: {
                     const width = @as(u32, @intCast(js.machEventShift()));
                     const height = @as(u32, @intCast(js.machEventShift()));
-                    const pixel_ratio = @as(u32, @intCast(js.machEventShift()));
+                    const pixel_ratio = @as(f32, @floatCast(js.machEventShiftFloat()));
                     break :blk Event{
                         .framebuffer_resize = .{
-                            .width = width * pixel_ratio,
-                            .height = height * pixel_ratio,
+                            .width = @as(u32, @intFromFloat(@as(f32, @floatFromInt(width)) * pixel_ratio)),
+                            .height = @as(u32, @intFromFloat(@as(f32, @floatFromInt(height)) * pixel_ratio)),
                             .pixel_ratio = pixel_ratio,
                         },
                     };
