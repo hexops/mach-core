@@ -92,8 +92,11 @@ current_headless: bool,
 last_headless: bool,
 current_resizeable: bool,
 last_resizeable: bool,
+
+// scaled size, usually half the frame buffer for high DPI displays (like retina in apple devices)
 current_size: Size,
 last_size: Size,
+
 current_size_limit: SizeLimit = .{
     .min = .{ .width = 350, .height = 350 },
     .max = .{ .width = null, .height = null },
@@ -163,7 +166,7 @@ pub fn init(
     hints.auto_iconify = true;
 
     // The behavior of this flag is always true for retina displays in macOS, we manually set it to true to have consistent behaviors across platforms.
-    // GLFW DOCS: Specified whether the window content area should be resized based on the monitor content scale of any monitor it is placed on. 
+    // GLFW DOCS: Specified whether the window content area should be resized based on the monitor content scale of any monitor it is placed on.
     //            This includes the initial placement when the window is created.
     hints.scale_to_monitor = true;
 
@@ -558,8 +561,11 @@ pub fn appUpdateThread(self: *Core, app: anytype) void {
             }
 
             const framebuffer_size = self.window.getFramebufferSize();
+            const actual_size = self.window.getSize();
+
             glfw.getErrorCode() catch break :blk;
             if (framebuffer_size.width == 0 or framebuffer_size.height == 0) break :blk;
+            if (actual_size.width == 0 or actual_size.height == 0) break :blk;
 
             {
                 self.swap_chain_mu.lock();
@@ -572,10 +578,18 @@ pub fn appUpdateThread(self: *Core, app: anytype) void {
                 mach_core.descriptor = self.swap_chain_desc;
             }
 
+            var pixel_ratio: f32 = @as(f32, @floatFromInt(framebuffer_size.width)) / @as(f32, @floatFromInt(actual_size.width));
+
+            if (self.window.getMonitor()) |monitor| {
+                // there aren't any practical concerns about different scales in x/y
+                pixel_ratio = monitor.getContentScale().x_scale;
+            }
+
             self.pushEvent(.{
                 .framebuffer_resize = .{
                     .width = framebuffer_size.width,
                     .height = framebuffer_size.height,
+                    .pixel_ratio = pixel_ratio,
                 },
             });
         }

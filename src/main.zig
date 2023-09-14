@@ -446,6 +446,16 @@ pub const Size = struct {
     }
 };
 
+pub const SizeWithPixelRatio = struct {
+    width: u32,
+    height: u32,
+    pixel_ratio: f32,
+
+    pub inline fn eql(a: Size, b: Size) bool {
+        return a.width == b.width and a.height == b.height and a.pixel_ratio == b.pixel_ratio;
+    }
+};
+
 pub const SizeOptional = struct {
     width: ?u32 = null,
     height: ?u32 = null,
@@ -492,7 +502,7 @@ pub const Event = union(enum) {
     },
     joystick_connected: Joystick,
     joystick_disconnected: Joystick,
-    framebuffer_resize: Size,
+    framebuffer_resize: SizeWithPixelRatio,
     focus_gained,
     focus_lost,
     close,

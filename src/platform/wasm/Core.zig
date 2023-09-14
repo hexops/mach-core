@@ -189,6 +189,7 @@ pub const EventIterator = struct {
                         .framebuffer_resize = .{
                             .width = width * pixel_ratio,
                             .height = height * pixel_ratio,
+                            .pixel_ratio = pixel_ratio,
                         },
                     };
                 },
