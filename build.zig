@@ -3,9 +3,6 @@ const builtin = @import("builtin");
 const glfw = @import("mach_glfw");
 const gpu = @import("mach_gpu");
 
-pub var mach_glfw_import_path: []const u8 = "mach_glfw";
-pub var mach_gpu_import_path: []const u8 = "mach_gpu";
-
 pub fn build(b: *std.Build) !void {
     const optimize = b.standardOptimizeOption(.{});
     const target = b.standardTargetOptions(.{});
@@ -31,16 +28,19 @@ var _module: ?*std.build.Module = null;
 pub fn module(b: *std.Build, optimize: std.builtin.OptimizeMode, target: std.zig.CrossTarget) *std.build.Module {
     if (_module) |m| return m;
 
-    const gamemode_dep = b.dependency("mach_gamemode", .{});
+    const gamemode_dep = b.dependency("mach_gamemode", .{
+        .target = target,
+        .optimize = optimize,
+    });
 
     _module = b.createModule(.{
         .source_file = .{ .path = sdkPath("/src/main.zig") },
         .dependencies = &.{
-            .{ .name = "gpu", .module = b.dependency(mach_gpu_import_path, .{
+            .{ .name = "gpu", .module = b.dependency("mach_gpu", .{
                 .target = target,
                 .optimize = optimize,
             }).module("mach-gpu") },
-            .{ .name = "glfw", .module = b.dependency(mach_glfw_import_path, .{
+            .{ .name = "glfw", .module = b.dependency("mach_glfw", .{
                 .target = target,
                 .optimize = optimize,
             }).module("mach-glfw") },
@@ -63,7 +63,7 @@ pub fn testStep(b: *std.Build, optimize: std.builtin.OptimizeMode, target: std.z
     }
 
     // Use mach-glfw
-    const glfw_dep = b.dependency(mach_glfw_import_path, .{
+    const glfw_dep = b.dependency("mach_glfw", .{
         .target = main_tests.target,
         .optimize = main_tests.optimize,
     });
@@ -74,7 +74,10 @@ pub fn testStep(b: *std.Build, optimize: std.builtin.OptimizeMode, target: std.z
     }).builder, main_tests);
 
     if (target.isLinux()) {
-        const gamemode_dep = b.dependency("mach_gamemode", .{});
+        const gamemode_dep = b.dependency("mach_gamemode", .{
+            .target = main_tests.target,
+            .optimize = main_tests.optimize,
+        });
         main_tests.addModule("gamemode", gamemode_dep.module("mach-gamemode"));
     }
     main_tests.addIncludePath(.{ .path = sdkPath("/include") });
@@ -158,13 +161,16 @@ pub const App = struct {
                 });
                 // TODO(core): figure out why we need to disable LTO: https://github.com/hexops/mach/issues/597
                 exe.want_lto = false;
-                exe.addModule("glfw", b.dependency(mach_glfw_import_path, .{
+                exe.addModule("glfw", b.dependency("mach_glfw", .{
                     .target = exe.target,
                     .optimize = exe.optimize,
                 }).module("mach-glfw"));
 
                 if (target.os.tag == .linux) {
-                    const gamemode_dep = b.dependency("mach_gamemode", .{});
+                    const gamemode_dep = b.dependency("mach_gamemode", .{
+                        .target = exe.target,
+                        .optimize = exe.optimize,
+                    });
                     exe.addModule("gamemode", gamemode_dep.module("mach-gamemode"));
                 }
 
@@ -204,7 +210,7 @@ pub const App = struct {
         // Link dependencies
         if (platform != .web) {
             // Use mach-glfw
-            const glfw_dep = b.dependency(mach_glfw_import_path, .{
+            const glfw_dep = b.dependency("mach_glfw", .{
                 .target = compile.target,
                 .optimize = compile.optimize,
             });
