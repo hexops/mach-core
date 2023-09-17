@@ -68,7 +68,10 @@ pub fn testStep(b: *std.Build, optimize: std.builtin.OptimizeMode, target: std.z
         .optimize = main_tests.optimize,
     });
     main_tests.addModule("mach-glfw", glfw_dep.module("mach-glfw"));
-    try @import("mach_glfw").link(b, main_tests);
+    @import("mach_glfw").link(b.dependency("mach_glfw", .{
+        .target = main_tests.target,
+        .optimize = main_tests.optimize,
+    }).builder, main_tests);
 
     if (target.isLinux()) {
         const gamemode_dep = b.dependency("mach_gamemode", .{});
@@ -118,6 +121,7 @@ pub const App = struct {
 
         var dependencies = std.ArrayList(std.build.ModuleDependency).init(b.allocator);
         try dependencies.append(.{ .name = "core", .module = module(b, options.optimize, options.target) });
+
         if (options.deps) |app_deps| try dependencies.appendSlice(app_deps);
 
         const app_module = b.createModule(.{
@@ -205,9 +209,14 @@ pub const App = struct {
                 .optimize = compile.optimize,
             });
             compile.addModule("mach-glfw", glfw_dep.module("mach-glfw"));
-            try @import("mach_glfw").link(b, compile);
-
-            gpu.link(b, compile, .{}) catch return error.FailedToLinkGPU;
+            @import("mach_glfw").link(b.dependency("mach_glfw", .{
+                .target = compile.target,
+                .optimize = compile.optimize,
+            }).builder, compile);
+            gpu.link(b.dependency("mach_gpu", .{
+                .target = compile.target,
+                .optimize = compile.optimize,
+            }).builder, compile, .{}) catch return error.FailedToLinkGPU;
         }
 
         const run = b.addRunArtifact(compile);
