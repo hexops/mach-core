@@ -522,7 +522,12 @@ pub fn deinit(self: *Core) void {
         self.linux_gamemode.?)
         deinitLinuxGamemode();
 
+    self.gpu_device.setDeviceLostCallback(null, null);
+
     self.surface.release();
+    self.swap_chain.release();
+    mach_core.queue.release();
+    self.gpu_device.release();
     self.gpu_adapter.release();
     self.instance.release();
 }
