@@ -4,8 +4,6 @@ const gpu = core.gpu;
 
 pub const App = @This();
 
-var gpa = std.heap.GeneralPurposeAllocator(.{}){};
-
 title_timer: core.Timer,
 pipeline: *gpu.RenderPipeline,
 texture: *gpu.Texture,
@@ -55,14 +53,12 @@ pub fn init(app: *App) !void {
         .usage = .{ .render_attachment = true },
     });
     app.texture_view = app.texture.createView(null);
-
-    shader_module.release();
 }
 
 pub fn deinit(app: *App) void {
-    defer _ = gpa.deinit();
     defer core.deinit();
 
+    app.pipeline.release();
     app.texture.release();
     app.texture_view.release();
 }
