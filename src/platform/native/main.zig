@@ -8,10 +8,17 @@ pub usingnamespace @import("app");
 const App = @import("app").App;
 
 const std = @import("std");
+const builtin = @import("builtin");
 const core = @import("core");
+const dusk = @import("mach-dusk");
+const glfw = @import("mach-glfw");
 const gpu = core.gpu;
 
-pub const GPUInterface = if (@hasDecl(App, "GPUInterface")) App.GPUInterface else gpu.dawn.Interface;
+pub const GPUInterface = if (@hasDecl(App, "GPUInterface")) App.GPUInterface else dusk.Interface;
+
+fn baseLoader(_: u32, name: [*:0]const u8) ?*const fn () callconv(.C) void {
+    return glfw.getInstanceProcAddress(null, name);
+}
 
 pub fn main() !void {
     // Run from the directory where the executable is located so relative assets can be found.
@@ -19,12 +26,14 @@ pub fn main() !void {
     const path = std.fs.selfExeDirPath(buffer[0..]) catch ".";
     std.os.chdir(path) catch {};
 
-    // Initialize GPU implementation
-    gpu.Impl.init();
-
     var gpa = std.heap.GeneralPurposeAllocator(.{}){};
     defer _ = gpa.deinit();
     core.allocator = gpa.allocator();
+
+    // Initialize GPU implementation
+    if (builtin.target.os.tag == .linux) try gpu.Impl.init(gpa.allocator(), .{ .baseLoader = @ptrCast(&baseLoader) });
+    if (builtin.target.isDarwin()) try gpu.Impl.init(gpa.allocator(), .{});
+    if (builtin.target.os.tag == .windows) try gpu.Impl.init(gpa.allocator(), .{});
 
     var app: App = undefined;
     try app.init();

@@ -18,6 +18,10 @@
             .url = "https://pkg.machengine.org/mach-gamemode/e8cf3b00c1e7ce47c15a0b9a4def8493dd84fef1.tar.gz",
             .hash = "122033b8f9bc8116edb3f2421f78a35d5dd85f71792681633cb6edc883275af2a1e7",
         },
+        .mach_dusk = .{
+            .url = "https://pkg.machengine.org/mach-dusk/10dcc8f73d40deb12f3daa96f3feec9e72609137.tar.gz",
+            .hash = "1220eb2a318dfe80293ef0b4ccedf5dd8d8057e749a715b1ae153d03afd58f1a974e",
+        },
         .mach_gpu = .{
             .url = "https://pkg.machengine.org/mach-gpu/3719f54c902c7a71b4ff0ce53a971edd3964fcac.tar.gz",
             .hash = "1220a6aa5e161806d191e6a39c08dab0c4af6f97147529d658266a48b473dbea299d",

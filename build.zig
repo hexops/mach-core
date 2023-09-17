@@ -44,6 +44,10 @@ pub fn module(b: *std.Build, optimize: std.builtin.OptimizeMode, target: std.zig
                 .target = target,
                 .optimize = optimize,
             }).module("mach-glfw") },
+            .{ .name = "mach-dusk", .module = b.dependency("mach_dusk", .{
+                .target = target,
+                .optimize = optimize,
+            }).module("mach-dusk") },
             .{ .name = "gamemode", .module = gamemode_dep.module("mach-gamemode") },
         },
     });
@@ -118,6 +122,7 @@ pub const App = struct {
 
         var dependencies = std.ArrayList(std.build.ModuleDependency).init(b.allocator);
         try dependencies.append(.{ .name = "core", .module = module(b, options.optimize, options.target) });
+
         if (options.deps) |app_deps| try dependencies.appendSlice(app_deps);
 
         const app_module = b.createModule(.{
@@ -206,6 +211,11 @@ pub const App = struct {
             });
             compile.addModule("mach-glfw", glfw_dep.module("mach-glfw"));
             try @import("mach_glfw").link(b, compile);
+
+            compile.addModule("mach-dusk", b.dependency("mach_dusk", .{
+                .target = options.target,
+                .optimize = options.optimize,
+            }).module("mach-dusk"));
 
             gpu.link(b, compile, .{}) catch return error.FailedToLinkGPU;
         }
