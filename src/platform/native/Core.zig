@@ -1003,7 +1003,7 @@ pub fn mouseReleased(self: *Core, button: MouseButton) bool {
 }
 
 // May be called from any thread.
-pub fn mousePosition(self: *Core) Core.Position {
+pub fn mousePosition(self: *Core) mach_core.Position {
     self.input_mu.lockShared();
     defer self.input_mu.unlockShared();
     return self.input_state.mouse_position;
