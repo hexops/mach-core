@@ -94,6 +94,7 @@ pub fn build(
         for (example.deps) |d| try deps.append(d.moduleDependency(b, target, optimize));
         const app = try core.App.init(
             b,
+            b,
             .{
                 .name = example.name,
                 .src = "examples/" ++ example.name ++ "/main.zig",
