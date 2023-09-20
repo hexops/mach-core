@@ -39,7 +39,7 @@ pub fn init(app: *App) !void {
 
 pub fn deinit(app: *App) void {
     defer core.deinit();
-    _ = app;
+    app.pipeline.release();
 }
 
 pub fn update(app: *App) !bool {

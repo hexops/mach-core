@@ -548,7 +548,12 @@ pub fn deinit(self: *Core) void {
         self.linux_gamemode.?)
         deinitLinuxGamemode();
 
+    self.gpu_device.setDeviceLostCallback(null, null);
+
     self.surface.release();
+    self.swap_chain.release();
+    mach_core.queue.release();
+    self.gpu_device.release();
     self.gpu_adapter.release();
     self.instance.release();
 }
@@ -1069,7 +1074,7 @@ pub fn mouseReleased(self: *Core, button: MouseButton) bool {
 }
 
 // May be called from any thread.
-pub fn mousePosition(self: *Core) Core.Position {
+pub fn mousePosition(self: *Core) mach_core.Position {
     self.input_mu.lockShared();
     defer self.input_mu.unlockShared();
     return self.input_state.mouse_position;

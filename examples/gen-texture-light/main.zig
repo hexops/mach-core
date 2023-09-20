@@ -621,7 +621,7 @@ const Texture = struct {
             .max_anisotropy = 1, // 1,2,4,8,16
         });
 
-        device.getQueue().writeTexture(
+        core.queue.writeTexture(
             &gpu.ImageCopyTexture{
                 .texture = texture,
             },
