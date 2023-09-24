@@ -24,7 +24,7 @@ const Frequency = @import("../../Frequency.zig");
 const log = std.log.scoped(.mach);
 
 pub const defaultLog = std.log.defaultLog;
-pub const defaultPanic = std.debug.default_panic;
+pub const defaultPanic = std.debug.panicImpl;
 
 pub const Core = @This();
 
@@ -136,7 +136,7 @@ pub fn init(
     input: *Frequency,
     options: Options,
 ) !void {
-    _ = gpu.Export(@import("root").GPUInterface);
+    if (!@import("builtin").is_test) _ = gpu.Export(@import("root").GPUInterface);
 
     const backend_type = try util.detectBackendType(allocator);
 
