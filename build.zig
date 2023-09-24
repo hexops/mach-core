@@ -25,14 +25,7 @@ pub fn build(b: *std.Build) !void {
             .optimize = main_tests.optimize,
         });
         main_tests.addModule("mach-glfw", glfw_dep.module("mach-glfw"));
-        @import("mach_glfw").link(b.dependency("mach_glfw", .{
-            .target = main_tests.target,
-            .optimize = main_tests.optimize,
-        }).builder, main_tests);
-        gpu.link(b.dependency("mach_gpu", .{
-            .target = main_tests.target,
-            .optimize = main_tests.optimize,
-        }).builder, main_tests, .{}) catch unreachable;
+        link(b, main_tests);
 
         if (target.isLinux()) {
             const gamemode_dep = b.dependency("mach_gamemode", .{
@@ -222,14 +215,7 @@ pub const App = struct {
                 .optimize = compile.optimize,
             });
             compile.addModule("mach-glfw", glfw_dep.module("mach-glfw"));
-            @import("mach_glfw").link(core_builder.dependency("mach_glfw", .{
-                .target = compile.target,
-                .optimize = compile.optimize,
-            }).builder, compile);
-            gpu.link(core_builder.dependency("mach_gpu", .{
-                .target = compile.target,
-                .optimize = compile.optimize,
-            }).builder, compile, .{}) catch return error.FailedToLinkGPU;
+            link(core_builder, compile);
         }
 
         const run = app_builder.addRunArtifact(compile);
@@ -246,6 +232,17 @@ pub const App = struct {
         };
     }
 };
+
+fn link(core_builder: *std.Build, step: *std.build.CompileStep) void {
+    @import("mach_glfw").link(core_builder.dependency("mach_glfw", .{
+        .target = step.target,
+        .optimize = step.optimize,
+    }).builder, step);
+    gpu.link(core_builder.dependency("mach_gpu", .{
+        .target = step.target,
+        .optimize = step.optimize,
+    }).builder, step, .{}) catch unreachable;
+}
 
 comptime {
     const min_zig = std.SemanticVersion.parse("0.11.0") catch unreachable;
