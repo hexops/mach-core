@@ -8,8 +8,51 @@ pub fn build(b: *std.Build) !void {
     const target = b.standardTargetOptions(.{});
 
     if (target.getCpuArch() != .wasm32) {
+        const main_tests = b.addTest(.{
+            .name = "core-tests",
+            .root_source_file = .{ .path = sdkPath("/src/main.zig") },
+            .target = target,
+            .optimize = optimize,
+        });
+        var iter = module(b, optimize, target).dependencies.iterator();
+        while (iter.next()) |e| {
+            main_tests.addModule(e.key_ptr.*, e.value_ptr.*);
+        }
+
+        // Use mach-glfw
+        const glfw_dep = b.dependency("mach_glfw", .{
+            .target = main_tests.target,
+            .optimize = main_tests.optimize,
+        });
+        main_tests.addModule("mach-glfw", glfw_dep.module("mach-glfw"));
+        @import("mach_glfw").link(b.dependency("mach_glfw", .{
+            .target = main_tests.target,
+            .optimize = main_tests.optimize,
+        }).builder, main_tests);
+        gpu.link(b.dependency("mach_gpu", .{
+            .target = main_tests.target,
+            .optimize = main_tests.optimize,
+        }).builder, main_tests, .{}) catch unreachable;
+
+        if (target.isLinux()) {
+            const gamemode_dep = b.dependency("mach_gamemode", .{
+                .target = main_tests.target,
+                .optimize = main_tests.optimize,
+            });
+            main_tests.addModule("gamemode", gamemode_dep.module("mach-gamemode"));
+        }
+        b.installArtifact(main_tests);
+
         const test_step = b.step("test", "run tests");
-        test_step.dependOn(&(try testStep(b, optimize, target)).step);
+        test_step.dependOn(&b.addRunArtifact(main_tests).step);
+
+        const install_docs = b.addInstallDirectory(.{
+            .source_dir = main_tests.getEmittedDocs(),
+            .install_dir = .prefix, // default build output prefix, ./zig-out
+            .install_subdir = "docs",
+        });
+        const docs_step = b.step("docs", "Generate API docs");
+        docs_step.dependOn(&install_docs.step);
     }
 
     try @import("build_examples.zig").build(b, optimize, target);
@@ -32,6 +75,10 @@ pub fn module(b: *std.Build, optimize: std.builtin.OptimizeMode, target: std.zig
         .target = target,
         .optimize = optimize,
     });
+    const sysjs_dep = b.dependency("mach_sysjs", .{
+        .target = target,
+        .optimize = optimize,
+    });
 
     _module = b.createModule(.{
         .source_file = .{ .path = sdkPath("/src/main.zig") },
@@ -45,44 +92,10 @@ pub fn module(b: *std.Build, optimize: std.builtin.OptimizeMode, target: std.zig
                 .optimize = optimize,
             }).module("mach-glfw") },
             .{ .name = "gamemode", .module = gamemode_dep.module("mach-gamemode") },
+            .{ .name = "sysjs", .module = sysjs_dep.module("mach-sysjs") },
         },
     });
     return _module.?;
-}
-
-pub fn testStep(b: *std.Build, optimize: std.builtin.OptimizeMode, target: std.zig.CrossTarget) !*std.build.RunStep {
-    const main_tests = b.addTest(.{
-        .name = "core-tests",
-        .root_source_file = .{ .path = sdkPath("/src/main.zig") },
-        .target = target,
-        .optimize = optimize,
-    });
-    var iter = module(b, optimize, target).dependencies.iterator();
-    while (iter.next()) |e| {
-        main_tests.addModule(e.key_ptr.*, e.value_ptr.*);
-    }
-
-    // Use mach-glfw
-    const glfw_dep = b.dependency("mach_glfw", .{
-        .target = main_tests.target,
-        .optimize = main_tests.optimize,
-    });
-    main_tests.addModule("mach-glfw", glfw_dep.module("mach-glfw"));
-    @import("mach_glfw").link(b.dependency("mach_glfw", .{
-        .target = main_tests.target,
-        .optimize = main_tests.optimize,
-    }).builder, main_tests);
-
-    if (target.isLinux()) {
-        const gamemode_dep = b.dependency("mach_gamemode", .{
-            .target = main_tests.target,
-            .optimize = main_tests.optimize,
-        });
-        main_tests.addModule("gamemode", gamemode_dep.module("mach-gamemode"));
-    }
-    main_tests.addIncludePath(.{ .path = sdkPath("/include") });
-    b.installArtifact(main_tests);
-    return b.addRunArtifact(main_tests);
 }
 
 pub const App = struct {
@@ -94,7 +107,6 @@ pub const App = struct {
     platform: Platform,
     res_dirs: ?[]const []const u8,
     watch_paths: ?[]const []const u8,
-    sysjs_dep: ?*std.Build.Dependency,
 
     pub const Platform = enum {
         native,
@@ -133,11 +145,6 @@ pub const App = struct {
             .dependencies = try dependencies.toOwnedSlice(),
         });
 
-        const sysjs_dep = if (platform == .web) core_builder.dependency("mach_sysjs", .{
-            .target = options.target,
-            .optimize = options.optimize,
-        }) else null;
-
         const compile = blk: {
             if (platform == .web) {
                 // wasm libraries should go into zig-out/www/
@@ -150,7 +157,6 @@ pub const App = struct {
                     .optimize = options.optimize,
                 });
                 lib.rdynamic = true;
-                lib.addModule("sysjs", sysjs_dep.?.module("mach-sysjs"));
 
                 break :blk lib;
             } else {
@@ -237,7 +243,6 @@ pub const App = struct {
             .platform = platform,
             .res_dirs = options.res_dirs,
             .watch_paths = options.watch_paths,
-            .sysjs_dep = sysjs_dep,
         };
     }
 };
