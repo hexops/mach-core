@@ -889,7 +889,7 @@ pub fn setSizeLimit(self: *Core, limit: SizeLimit) void {
     self.state_mu.lock();
     defer self.state_mu.unlock();
     self.current_size_limit = limit;
-    if (!self.current_size_limit.equal(self.last_size_limit)) {
+    if (!self.current_size_limit.eql(self.last_size_limit)) {
         self.state_update.set();
         self.wakeMainThread();
     }

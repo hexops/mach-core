@@ -699,3 +699,28 @@ pub const CursorShape = enum {
 pub const Joystick = enum(u8) {
     zero,
 };
+
+test {
+    @import("std").testing.refAllDecls(Timer);
+    @import("std").testing.refAllDeclsRecursive(platform_util);
+    @import("std").testing.refAllDecls(Frequency);
+    @import("std").testing.refAllDecls(platform);
+
+    @import("std").testing.refAllDeclsRecursive(Options);
+    @import("std").testing.refAllDeclsRecursive(EventIterator);
+    @import("std").testing.refAllDeclsRecursive(VSyncMode);
+    @import("std").testing.refAllDeclsRecursive(Size);
+    @import("std").testing.refAllDeclsRecursive(SizeOptional);
+    @import("std").testing.refAllDeclsRecursive(SizeLimit);
+    @import("std").testing.refAllDeclsRecursive(Position);
+    @import("std").testing.refAllDeclsRecursive(Event);
+    @import("std").testing.refAllDeclsRecursive(KeyEvent);
+    @import("std").testing.refAllDeclsRecursive(MouseButtonEvent);
+    @import("std").testing.refAllDeclsRecursive(MouseButton);
+    @import("std").testing.refAllDeclsRecursive(Key);
+    @import("std").testing.refAllDeclsRecursive(KeyMods);
+    @import("std").testing.refAllDeclsRecursive(DisplayMode);
+    @import("std").testing.refAllDeclsRecursive(CursorMode);
+    @import("std").testing.refAllDeclsRecursive(CursorShape);
+    @import("std").testing.refAllDeclsRecursive(Joystick);
+}
