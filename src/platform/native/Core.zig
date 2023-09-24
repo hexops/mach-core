@@ -1,7 +1,7 @@
 const builtin = @import("builtin");
 const std = @import("std");
-const gpu = @import("gpu");
-const glfw = @import("glfw");
+const gpu = @import("mach-gpu");
+const glfw = @import("mach-glfw");
 const mach_core = @import("../../main.zig");
 const util = @import("util.zig");
 const Options = @import("../../main.zig").Options;
@@ -1212,7 +1212,7 @@ fn wantGamemode(allocator: std.mem.Allocator) error{ OutOfMemory, InvalidUtf8 }!
 }
 
 fn initLinuxGamemode() bool {
-    const gamemode = @import("gamemode");
+    const gamemode = @import("mach-gamemode");
     gamemode.start();
     if (!gamemode.isActive()) return false;
     log.info("gamemode: activated", .{});
@@ -1220,6 +1220,6 @@ fn initLinuxGamemode() bool {
 }
 
 fn deinitLinuxGamemode() void {
-    const gamemode = @import("gamemode");
+    const gamemode = @import("mach-gamemode");
     gamemode.stop();
 }

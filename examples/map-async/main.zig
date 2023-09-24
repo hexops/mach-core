@@ -1,5 +1,5 @@
 const std = @import("std");
-const core = @import("core");
+const core = @import("mach-core");
 const gpu = core.gpu;
 
 pub const App = @This();

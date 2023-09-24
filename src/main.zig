@@ -1,8 +1,8 @@
 const std = @import("std");
 const builtin = @import("builtin");
 
-pub const gpu = @import("gpu");
-pub const sysjs = @import("sysjs");
+pub const gpu = @import("mach-gpu");
+pub const sysjs = @import("mach-sysjs");
 pub const Timer = @import("Timer.zig");
 const platform_util = if (builtin.cpu.arch == .wasm32) {} else @import("platform/native/util.zig");
 const Frequency = @import("Frequency.zig");

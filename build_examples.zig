@@ -5,6 +5,7 @@ pub fn build(
     b: *std.Build,
     optimize: std.builtin.OptimizeMode,
     target: std.zig.CrossTarget,
+    mach_core_mod: *std.build.Module,
 ) !void {
     try ensureDependencies(b.allocator);
 
@@ -102,6 +103,7 @@ pub fn build(
                 .optimize = optimize,
                 .deps = deps.items,
                 .watch_paths = &.{"examples/" ++ example.name},
+                .mach_core_mod = mach_core_mod,
             },
         );
 
