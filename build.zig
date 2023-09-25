@@ -110,7 +110,7 @@ pub const App = struct {
 
         var dependencies = std.ArrayList(std.build.ModuleDependency).init(app_builder.allocator);
 
-        const mach_core_mod = options.mach_core_mod orelse app_builder.dependency("mach_core", .{
+        const mach_core_mod = options.mach_core_mod orelse core_builder.dependency("mach_core", .{
             .target = options.target,
             .optimize = options.optimize,
         }).module("mach-core");
