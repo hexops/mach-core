@@ -1,7 +1,7 @@
 const std = @import("std");
 
-const glfw = @import("glfw");
-const gpu = @import("gpu");
+const glfw = @import("mach-glfw");
+const gpu = @import("mach-gpu");
 const objc = @import("objc_message.zig");
 
 pub inline fn printUnhandledErrorCallback(_: void, typ: gpu.ErrorType, message: [*:0]const u8) void {

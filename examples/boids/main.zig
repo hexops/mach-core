@@ -1,7 +1,7 @@
 /// A port of Austin Eng's "computeBoids" webgpu sample.
 /// https://github.com/austinEng/webgpu-samples/blob/main/src/sample/computeBoids/main.ts
 const std = @import("std");
-const core = @import("core");
+const core = @import("mach-core");
 const gpu = core.gpu;
 
 title_timer: core.Timer,

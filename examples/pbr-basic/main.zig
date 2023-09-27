@@ -1,5 +1,5 @@
 const std = @import("std");
-const core = @import("core");
+const core = @import("mach-core");
 const gpu = core.gpu;
 const m3d = @import("model3d");
 const zm = @import("zmath");

@@ -1,8 +1,8 @@
 const std = @import("std");
 const builtin = @import("builtin");
 
-pub const gpu = @import("gpu");
-pub const sysjs = @import("sysjs");
+pub const gpu = @import("mach-gpu");
+pub const sysjs = @import("mach-sysjs");
 pub const Timer = @import("Timer.zig");
 const platform_util = if (builtin.cpu.arch == .wasm32) {} else @import("platform/native/util.zig");
 const Frequency = @import("Frequency.zig");
@@ -718,3 +718,28 @@ pub const CursorShape = enum {
 pub const Joystick = enum(u8) {
     zero,
 };
+
+test {
+    @import("std").testing.refAllDecls(Timer);
+    @import("std").testing.refAllDeclsRecursive(platform_util);
+    @import("std").testing.refAllDecls(Frequency);
+    @import("std").testing.refAllDecls(platform);
+
+    @import("std").testing.refAllDeclsRecursive(Options);
+    @import("std").testing.refAllDeclsRecursive(EventIterator);
+    @import("std").testing.refAllDeclsRecursive(VSyncMode);
+    @import("std").testing.refAllDeclsRecursive(Size);
+    @import("std").testing.refAllDeclsRecursive(SizeOptional);
+    @import("std").testing.refAllDeclsRecursive(SizeLimit);
+    @import("std").testing.refAllDeclsRecursive(Position);
+    @import("std").testing.refAllDeclsRecursive(Event);
+    @import("std").testing.refAllDeclsRecursive(KeyEvent);
+    @import("std").testing.refAllDeclsRecursive(MouseButtonEvent);
+    @import("std").testing.refAllDeclsRecursive(MouseButton);
+    @import("std").testing.refAllDeclsRecursive(Key);
+    @import("std").testing.refAllDeclsRecursive(KeyMods);
+    @import("std").testing.refAllDeclsRecursive(DisplayMode);
+    @import("std").testing.refAllDeclsRecursive(CursorMode);
+    @import("std").testing.refAllDeclsRecursive(CursorShape);
+    @import("std").testing.refAllDeclsRecursive(Joystick);
+}

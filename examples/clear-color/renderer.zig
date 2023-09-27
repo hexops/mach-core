@@ -1,4 +1,4 @@
-const core = @import("core");
+const core = @import("mach-core");
 const gpu = core.gpu;
 
 pub const Renderer = @This();

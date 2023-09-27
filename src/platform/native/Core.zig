@@ -1,7 +1,7 @@
 const builtin = @import("builtin");
 const std = @import("std");
-const gpu = @import("gpu");
-const glfw = @import("glfw");
+const gpu = @import("mach-gpu");
+const glfw = @import("mach-glfw");
 const mach_core = @import("../../main.zig");
 const util = @import("util.zig");
 const Options = @import("../../main.zig").Options;
@@ -24,7 +24,7 @@ const Frequency = @import("../../Frequency.zig");
 const log = std.log.scoped(.mach);
 
 pub const defaultLog = std.log.defaultLog;
-pub const defaultPanic = std.debug.default_panic;
+pub const defaultPanic = std.debug.panicImpl;
 
 pub const Core = @This();
 
@@ -141,7 +141,7 @@ pub fn init(
     input: *Frequency,
     options: Options,
 ) !void {
-    _ = gpu.Export(@import("root").GPUInterface);
+    if (!@import("builtin").is_test) _ = gpu.Export(@import("root").GPUInterface);
 
     const backend_type = try util.detectBackendType(allocator);
 
@@ -955,7 +955,7 @@ pub fn setSizeLimit(self: *Core, limit: SizeLimit) void {
     self.state_mu.lock();
     defer self.state_mu.unlock();
     self.current_size_limit = limit;
-    if (!self.current_size_limit.equal(self.last_size_limit)) {
+    if (!self.current_size_limit.eql(self.last_size_limit)) {
         self.state_update.set();
         self.wakeMainThread();
     }
@@ -1278,7 +1278,7 @@ fn wantGamemode(allocator: std.mem.Allocator) error{ OutOfMemory, InvalidUtf8 }!
 }
 
 fn initLinuxGamemode() bool {
-    const gamemode = @import("gamemode");
+    const gamemode = @import("mach-gamemode");
     gamemode.start();
     if (!gamemode.isActive()) return false;
     log.info("gamemode: activated", .{});
@@ -1286,6 +1286,6 @@ fn initLinuxGamemode() bool {
 }
 
 fn deinitLinuxGamemode() void {
-    const gamemode = @import("gamemode");
+    const gamemode = @import("mach-gamemode");
     gamemode.stop();
 }

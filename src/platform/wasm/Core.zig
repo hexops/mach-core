@@ -1,5 +1,5 @@
 const std = @import("std");
-const gpu = @import("gpu");
+const gpu = @import("mach-gpu");
 const js = @import("js.zig");
 const Timer = @import("Timer.zig");
 const mach_core = @import("../../main.zig");
