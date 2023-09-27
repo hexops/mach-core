@@ -44,6 +44,8 @@ pub fn build(
         }
     };
 
+    const use_dusk = b.option(bool, "use-dusk", "Use the experimental Zig WebGPU implementation") orelse false;
+
     inline for ([_]struct {
         name: []const u8,
         deps: []const Dependency = &.{},
@@ -101,6 +103,7 @@ pub fn build(
                 .src = "examples/" ++ example.name ++ "/main.zig",
                 .target = target,
                 .optimize = optimize,
+                .use_dusk = use_dusk,
                 .deps = deps.items,
                 .watch_paths = &.{"examples/" ++ example.name},
                 .mach_core_mod = mach_core_mod,

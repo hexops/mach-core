@@ -135,6 +135,7 @@ pub fn update(app: *App) !bool {
         .store_op = .store,
     };
 
+    const queue = core.queue;
     const encoder = core.device.createCommandEncoder(null);
     const render_pass_info = gpu.RenderPassDescriptor.init(.{
         .color_attachments = &.{color_attachment},
@@ -158,7 +159,7 @@ pub fn update(app: *App) !bool {
         const ubo = UniformBufferObject{
             .mat = zm.transpose(mvp),
         };
-        encoder.writeBuffer(app.uniform_buffer, 0, &[_]UniformBufferObject{ubo});
+        queue.writeBuffer(app.uniform_buffer, 0, &[_]UniformBufferObject{ubo});
     }
 
     const pass = encoder.beginRenderPass(&render_pass_info);
@@ -172,7 +173,6 @@ pub fn update(app: *App) !bool {
     var command = encoder.finish(null);
     encoder.release();
 
-    const queue = core.queue;
     queue.submit(&[_]*gpu.CommandBuffer{command});
     command.release();
     core.swap_chain.present();
