@@ -1,8 +1,8 @@
 const builtin = @import("builtin");
 const std = @import("std");
-const gpu = @import("mach-gpu");
 const glfw = @import("mach-glfw");
 const mach_core = @import("../../main.zig");
+const gpu = mach_core.gpu;
 const util = @import("util.zig");
 const Options = @import("../../main.zig").Options;
 const Event = @import("../../main.zig").Event;
@@ -136,7 +136,8 @@ pub fn init(
     input: *Frequency,
     options: Options,
 ) !void {
-    if (!@import("builtin").is_test) _ = gpu.Export(@import("root").GPUInterface);
+    if (!@import("builtin").is_test and mach_core.options.use_wgpu) _ = mach_core.wgpu.Export(@import("root").GPUInterface);
+    if (!@import("builtin").is_test and mach_core.options.use_dgpu) _ = mach_core.dgpu.Export(@import("root").DGPUInterface);
 
     const backend_type = try util.detectBackendType(allocator);
 

@@ -103,7 +103,6 @@ pub const App = struct {
             src: []const u8,
             target: std.zig.CrossTarget,
             optimize: std.builtin.OptimizeMode,
-            use_dusk: bool = false,
             custom_entrypoint: ?[]const u8 = null,
             deps: ?[]const std.build.ModuleDependency = null,
             res_dirs: ?[]const []const u8 = null,
@@ -115,9 +114,6 @@ pub const App = struct {
         const platform = Platform.fromTarget(target);
 
         var dependencies = std.ArrayList(std.build.ModuleDependency).init(app_builder.allocator);
-
-        const build_options = app_builder.addOptions();
-        build_options.addOption(bool, "use_dusk", options.use_dusk);
 
         const mach_core_mod = options.mach_core_mod orelse app_builder.dependency("mach_core", .{
             .target = options.target,
@@ -164,7 +160,6 @@ pub const App = struct {
 
         if (options.custom_entrypoint == null) compile.main_pkg_path = .{ .path = sdkPath("/src") };
         compile.addModule("mach-core", mach_core_mod);
-        compile.addModule("build-options", build_options.createModule());
         compile.addModule("app", app_module);
 
         // Installation step
