@@ -44,12 +44,11 @@ pub fn build(
         }
     };
 
-    const use_dusk = b.option(bool, "use-dusk", "Use the experimental Zig WebGPU implementation") orelse false;
-
     inline for ([_]struct {
         name: []const u8,
         deps: []const Dependency = &.{},
         std_platform_only: bool = false,
+        dusk: bool = false,
     }{
         .{ .name = "wasm-test" },
         .{ .name = "triangle" },
@@ -78,6 +77,9 @@ pub fn build(
         .{ .name = "sprite2d", .deps = &.{ .zigimg, .assets } },
         .{ .name = "image-blur", .deps = &.{ .zigimg, .assets } },
         .{ .name = "cubemap", .deps = &.{ .zigimg, .assets } },
+
+        // Dusk
+        .{ .name = "triangle", .dusk = true },
     }) |example| {
         // FIXME: this is workaround for a problem that some examples
         // (having the std_platform_only=true field) as well as zigimg
@@ -95,17 +97,23 @@ pub fn build(
             .module = b.createModule(.{ .source_file = .{ .path = "examples/zmath.zig" } }),
         });
         for (example.deps) |d| try deps.append(d.moduleDependency(b, target, optimize));
+        const cmd_name = if (example.dusk) "dusk-" ++ example.name else example.name;
         const app = try core.App.init(
             b,
             b,
             .{
-                .name = example.name,
-                .src = "examples/" ++ example.name ++ "/main.zig",
+                .name = cmd_name,
+                .src = if (example.dusk)
+                    "examples/dusk/" ++ example.name ++ "/main.zig"
+                else
+                    "examples/" ++ example.name ++ "/main.zig",
                 .target = target,
                 .optimize = optimize,
-                .use_dusk = use_dusk,
                 .deps = deps.items,
-                .watch_paths = &.{"examples/" ++ example.name},
+                .watch_paths = if (example.dusk)
+                    &.{"examples/dusk/" ++ example.name}
+                else
+                    &.{"examples/" ++ example.name},
                 .mach_core_mod = mach_core_mod,
             },
         );
@@ -118,11 +126,11 @@ pub fn build(
             else => {},
         };
 
-        const install_step = b.step(example.name, "Install " ++ example.name);
+        const install_step = b.step(cmd_name, "Install " ++ cmd_name);
         install_step.dependOn(&app.install.step);
         b.getInstallStep().dependOn(install_step);
 
-        const run_step = b.step("run-" ++ example.name, "Run " ++ example.name);
+        const run_step = b.step("run-" ++ cmd_name, "Run " ++ cmd_name);
         run_step.dependOn(&app.run.step);
     }
 }
