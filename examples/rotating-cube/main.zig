@@ -113,6 +113,7 @@ pub fn deinit(app: *App) void {
     app.vertex_buffer.release();
     app.uniform_buffer.release();
     app.bind_group.release();
+    app.pipeline.release();
 }
 
 pub fn update(app: *App) !bool {
