@@ -19,8 +19,8 @@
             .hash = "12207678927df42d7895a72fc220a5a18e21f241b42ca6cb6c1c3004a54bdd314d1d",
         },
         .mach_dusk = .{
-            .url = "https://pkg.machengine.org/mach-dusk/f7602a391c3d2cd1e9beb6c7b05a80c3e6f2d2ba.tar.gz",
-            .hash = "12205200384a28668d260e0864ac66ccb2135e7b8837ed0b3c7e3a005645a6871e5a",
+            .url = "https://pkg.machengine.org/mach-dusk/77fff1264dffabe5d5187483dab04b8d3710d71b.tar.gz",
+            .hash = "1220e6ad3df209a470b920fd0e8e30ebc1f83028a8a433055fedaad4bf73b31c2464",
         },
         .mach_gpu = .{
             .url = "https://pkg.machengine.org/mach-gpu/26c9273ab19ebd0368c0a598907943f2c5ed1f73.tar.gz",

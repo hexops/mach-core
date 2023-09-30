@@ -79,7 +79,12 @@ pub fn build(
         .{ .name = "cubemap", .deps = &.{ .zigimg, .assets } },
 
         // Dusk
+        .{ .name = "boids", .dusk = true },
+        .{ .name = "clear-color", .dusk = true },
+        .{ .name = "map-async", .dusk = true },
+        .{ .name = "rotating-cube", .dusk = true },
         .{ .name = "triangle", .dusk = true },
+        .{ .name = "triangle-msaa", .dusk = true },
     }) |example| {
         // FIXME: this is workaround for a problem that some examples
         // (having the std_platform_only=true field) as well as zigimg
