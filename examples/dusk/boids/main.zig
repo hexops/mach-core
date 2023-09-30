@@ -16,6 +16,11 @@ frame_counter: usize,
 
 pub const App = @This();
 
+pub const mach_core_options = core.ComptimeOptions{
+    .use_wgpu = false,
+    .use_dgpu = true,
+};
+
 var gpa = std.heap.GeneralPurposeAllocator(.{}){};
 
 const num_particle = 1500;
