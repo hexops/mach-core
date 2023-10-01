@@ -555,6 +555,7 @@ pub fn appUpdateThread(self: *Core, app: anytype) void {
             {
                 self.swap_chain_mu.lock();
                 defer self.swap_chain_mu.unlock();
+                mach_core.swap_chain.release();
                 self.swap_chain_desc.width = framebuffer_size.width;
                 self.swap_chain_desc.height = framebuffer_size.height;
                 self.swap_chain = self.gpu_device.createSwapChain(self.surface, &self.swap_chain_desc);
