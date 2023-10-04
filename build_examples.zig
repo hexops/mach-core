@@ -157,7 +157,7 @@ fn ensureDependencies(allocator: std.mem.Allocator) !void {
     try optional_dependency.ensureGitRepoCloned(
         allocator,
         "https://github.com/slimsag/zigimg",
-        "814064a8935dceee99adb11f2b17871b84f75a2b",
+        "9b455a1d74cd5d6c4c6ec1d853a91cfafb143984",
         sdkPath("/examples/libs/zigimg"),
     );
 }
