@@ -207,7 +207,7 @@ pub const App = struct {
     }
 };
 
-fn link(core_builder: *std.Build, step: *std.build.CompileStep) void {
+pub fn link(core_builder: *std.Build, step: *std.build.CompileStep) void {
     @import("mach_glfw").link(core_builder.dependency("mach_glfw", .{
         .target = step.target,
         .optimize = step.optimize,
