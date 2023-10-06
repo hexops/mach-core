@@ -12,17 +12,23 @@ const UniformBufferObject = struct {
 var gpa = std.heap.GeneralPurposeAllocator(.{}){};
 
 title_timer: core.Timer,
-
 timer: core.Timer,
 pipeline: *gpu.RenderPipeline,
 vertex_buffer: *gpu.Buffer,
 uniform_buffer: *gpu.Buffer,
-bind_group: *gpu.BindGroup,
+bind_group1: *gpu.BindGroup,
+bind_group2: *gpu.BindGroup,
 
 pub const App = @This();
 
+pub const mach_core_options = core.ComptimeOptions{
+    .use_wgpu = false,
+    .use_dgpu = true,
+};
+
 pub fn init(app: *App) !void {
     try core.init(.{});
+    app.title_timer = try core.Timer.start();
     app.timer = try core.Timer.start();
 
     const shader_module = core.device.createShaderModuleWGSL("shader.wgsl", @embedFile("shader.wgsl"));
@@ -37,8 +43,10 @@ pub fn init(app: *App) !void {
         .attributes = &vertex_attributes,
     });
 
+    const blend = gpu.BlendState{};
     const color_target = gpu.ColorTargetState{
         .format = core.descriptor.format,
+        .blend = &blend,
         .write_mask = gpu.ColorWriteMaskFlags.all,
     };
     const fragment = gpu.FragmentState.init(.{
@@ -81,29 +89,37 @@ pub fn init(app: *App) !void {
     std.mem.copy(Vertex, vertex_mapped.?, vertices[0..]);
     vertex_buffer.unmap();
 
-    const x_count = 4;
-    const y_count = 4;
-    const num_instances = x_count * y_count;
-
+    // uniformBindGroup offset must be 256-byte aligned
+    const uniform_offset = 256;
     const uniform_buffer = core.device.createBuffer(&.{
-        .usage = .{ .copy_dst = true, .uniform = true },
-        .size = @sizeOf(UniformBufferObject) * num_instances,
+        .usage = .{ .uniform = true, .copy_dst = true },
+        .size = @sizeOf(UniformBufferObject) + uniform_offset,
         .mapped_at_creation = .false,
     });
-    const bind_group = core.device.createBindGroup(
+
+    const bind_group1 = core.device.createBindGroup(
         &gpu.BindGroup.Descriptor.init(.{
             .layout = bgl,
             .entries = &.{
-                gpu.BindGroup.Entry.buffer(0, uniform_buffer, 0, @sizeOf(UniformBufferObject) * num_instances),
+                gpu.BindGroup.Entry.buffer(0, uniform_buffer, 0, @sizeOf(UniformBufferObject)),
             },
         }),
     );
 
-    app.title_timer = try core.Timer.start();
+    const bind_group2 = core.device.createBindGroup(
+        &gpu.BindGroup.Descriptor.init(.{
+            .layout = bgl,
+            .entries = &.{
+                gpu.BindGroup.Entry.buffer(0, uniform_buffer, uniform_offset, @sizeOf(UniformBufferObject)),
+            },
+        }),
+    );
+
     app.pipeline = core.device.createRenderPipeline(&pipeline_descriptor);
     app.vertex_buffer = vertex_buffer;
     app.uniform_buffer = uniform_buffer;
-    app.bind_group = bind_group;
+    app.bind_group1 = bind_group1;
+    app.bind_group2 = bind_group2;
 
     shader_module.release();
     pipeline_layout.release();
@@ -116,8 +132,9 @@ pub fn deinit(app: *App) void {
 
     app.pipeline.release();
     app.vertex_buffer.release();
-    app.bind_group.release();
     app.uniform_buffer.release();
+    app.bind_group1.release();
+    app.bind_group2.release();
 }
 
 pub fn update(app: *App) !bool {
@@ -146,40 +163,46 @@ pub fn update(app: *App) !bool {
     });
 
     {
-        const proj = zm.perspectiveFovRh(
-            (std.math.pi / 3.0),
-            @as(f32, @floatFromInt(core.descriptor.width)) / @as(f32, @floatFromInt(core.descriptor.height)),
-            10,
-            30,
-        );
-
-        var ubos: [16]UniformBufferObject = undefined;
         const time = app.timer.read();
-        const step: f32 = 4.0;
-        var m: u8 = 0;
-        var x: u8 = 0;
-        while (x < 4) : (x += 1) {
-            var y: u8 = 0;
-            while (y < 4) : (y += 1) {
-                const trans = zm.translation(step * (@as(f32, @floatFromInt(x)) - 2.0 + 0.5), step * (@as(f32, @floatFromInt(y)) - 2.0 + 0.5), -20);
-                const localTime = time + @as(f32, @floatFromInt(m)) * 0.5;
-                const model = zm.mul(zm.mul(zm.mul(zm.rotationX(localTime * (std.math.pi / 2.1)), zm.rotationY(localTime * (std.math.pi / 0.9))), zm.rotationZ(localTime * (std.math.pi / 1.3))), trans);
-                const mvp = zm.mul(model, proj);
-                const ubo = UniformBufferObject{
-                    .mat = mvp,
-                };
-                ubos[m] = ubo;
-                m += 1;
-            }
-        }
-        encoder.writeBuffer(app.uniform_buffer, 0, &ubos);
+        const rotation1 = zm.mul(zm.rotationX(time * (std.math.pi / 2.0)), zm.rotationZ(time * (std.math.pi / 2.0)));
+        const rotation2 = zm.mul(zm.rotationZ(time * (std.math.pi / 2.0)), zm.rotationX(time * (std.math.pi / 2.0)));
+        const model1 = zm.mul(rotation1, zm.translation(-2, 0, 0));
+        const model2 = zm.mul(rotation2, zm.translation(2, 0, 0));
+        const view = zm.lookAtRh(
+            zm.Vec{ 0, -4, 2, 1 },
+            zm.Vec{ 0, 0, 0, 1 },
+            zm.Vec{ 0, 0, 1, 0 },
+        );
+        const proj = zm.perspectiveFovRh(
+            (2.0 * std.math.pi / 5.0),
+            @as(f32, @floatFromInt(core.descriptor.width)) / @as(f32, @floatFromInt(core.descriptor.height)),
+            1,
+            100,
+        );
+        const mvp1 = zm.mul(zm.mul(model1, view), proj);
+        const mvp2 = zm.mul(zm.mul(model2, view), proj);
+        const ubo1 = UniformBufferObject{
+            .mat = zm.transpose(mvp1),
+        };
+        const ubo2 = UniformBufferObject{
+            .mat = zm.transpose(mvp2),
+        };
+
+        core.queue.writeBuffer(app.uniform_buffer, 0, &[_]UniformBufferObject{ubo1});
+
+        // bind_group2 offset
+        core.queue.writeBuffer(app.uniform_buffer, 256, &[_]UniformBufferObject{ubo2});
     }
 
     const pass = encoder.beginRenderPass(&render_pass_info);
     pass.setPipeline(app.pipeline);
     pass.setVertexBuffer(0, app.vertex_buffer, 0, @sizeOf(Vertex) * vertices.len);
-    pass.setBindGroup(0, app.bind_group, &.{0});
-    pass.draw(vertices.len, 16, 0, 0);
+
+    pass.setBindGroup(0, app.bind_group1, &.{0});
+    pass.draw(vertices.len, 1, 0, 0);
+    pass.setBindGroup(0, app.bind_group2, &.{0});
+    pass.draw(vertices.len, 1, 0, 0);
+
     pass.end();
     pass.release();
 
@@ -195,7 +218,7 @@ pub fn update(app: *App) !bool {
     // update the window title every second
     if (app.title_timer.read() >= 1.0) {
         app.title_timer.reset();
-        try core.printTitle("Instanced Cube [ {d}fps ] [ Input {d}hz ]", .{
+        try core.printTitle("Two Cubes [ {d}fps ] [ Input {d}hz ]", .{
             core.frameRate(),
             core.inputRate(),
         });

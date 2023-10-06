@@ -21,6 +21,11 @@ bind_group: *gpu.BindGroup,
 
 pub const App = @This();
 
+pub const mach_core_options = core.ComptimeOptions{
+    .use_wgpu = false,
+    .use_dgpu = true,
+};
+
 pub fn init(app: *App) !void {
     try core.init(.{});
     app.timer = try core.Timer.start();
