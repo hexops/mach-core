@@ -81,10 +81,13 @@ pub fn build(
         // Dusk
         .{ .name = "boids", .dusk = true },
         .{ .name = "clear-color", .dusk = true },
+        .{ .name = "instanced-cube", .dusk = true },
         .{ .name = "map-async", .dusk = true },
+        .{ .name = "procedural-primitives", .dusk = true },
         .{ .name = "rotating-cube", .dusk = true },
         .{ .name = "triangle", .dusk = true },
         .{ .name = "triangle-msaa", .dusk = true },
+        .{ .name = "two-cubes", .dusk = true },
     }) |example| {
         // FIXME: this is workaround for a problem that some examples
         // (having the std_platform_only=true field) as well as zigimg
@@ -130,6 +133,15 @@ pub fn build(
             }).artifact("mach-model3d")),
             else => {},
         };
+
+        if (example.dusk) {
+            const mach_dusk_dep = b.dependency("mach_dusk", .{
+                .target = target,
+                .optimize = optimize,
+            });
+            app.compile.linkLibrary(mach_dusk_dep.artifact("mach-dusk"));
+            @import("mach_dusk").link(mach_dusk_dep.builder, app.compile);
+        }
 
         const install_step = b.step(cmd_name, "Install " ++ cmd_name);
         install_step.dependOn(&app.install.step);
