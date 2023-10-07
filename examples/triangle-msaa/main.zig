@@ -13,7 +13,6 @@ const sample_count = 4;
 
 pub fn init(app: *App) !void {
     try core.init(.{});
-    app.title_timer = try core.Timer.start();
 
     const shader_module = core.device.createShaderModuleWGSL("shader.wgsl", @embedFile("shader.wgsl"));
     defer shader_module.release();
@@ -40,10 +39,10 @@ pub fn init(app: *App) !void {
             .count = sample_count,
         },
     };
+    const pipeline = core.device.createRenderPipeline(&pipeline_descriptor);
+    errdefer pipeline.release();
 
-    app.pipeline = core.device.createRenderPipeline(&pipeline_descriptor);
-
-    app.texture = core.device.createTexture(&gpu.Texture.Descriptor{
+    const texture = core.device.createTexture(&gpu.Texture.Descriptor{
         .size = gpu.Extent3D{
             .width = core.descriptor.width,
             .height = core.descriptor.height,
@@ -52,15 +51,24 @@ pub fn init(app: *App) !void {
         .format = core.descriptor.format,
         .usage = .{ .render_attachment = true },
     });
-    app.texture_view = app.texture.createView(null);
+    errdefer texture.release();
+
+    const texture_view = texture.createView(null);
+    errdefer texture_view.release();
+
+    app.* = .{
+        .title_timer = try core.Timer.start(),
+        .pipeline = pipeline,
+        .texture = texture,
+        .texture_view = texture_view,
+    };
 }
 
 pub fn deinit(app: *App) void {
-    defer core.deinit();
-
-    app.pipeline.release();
-    app.texture.release();
     app.texture_view.release();
+    app.texture.release();
+    app.pipeline.release();
+    core.deinit();
 }
 
 pub fn update(app: *App) !bool {

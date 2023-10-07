@@ -33,13 +33,17 @@ pub fn init(app: *App) !void {
         },
     };
     const pipeline = core.device.createRenderPipeline(&pipeline_descriptor);
+    errdefer pipeline.release();
 
-    app.* = .{ .title_timer = try core.Timer.start(), .pipeline = pipeline };
+    app.* = .{
+        .title_timer = try core.Timer.start(),
+        .pipeline = pipeline,
+    };
 }
 
 pub fn deinit(app: *App) void {
-    defer core.deinit();
     app.pipeline.release();
+    core.deinit();
 }
 
 pub fn update(app: *App) !bool {
@@ -51,7 +55,6 @@ pub fn update(app: *App) !bool {
         }
     }
 
-    const queue = core.queue;
     const back_buffer_view = core.swap_chain.getCurrentTextureView().?;
     const color_attachment = gpu.RenderPassColorAttachment{
         .view = back_buffer_view,
@@ -73,6 +76,7 @@ pub fn update(app: *App) !bool {
     var command = encoder.finish(null);
     encoder.release();
 
+    const queue = core.queue;
     queue.submit(&[_]*gpu.CommandBuffer{command});
     command.release();
     core.swap_chain.present();
