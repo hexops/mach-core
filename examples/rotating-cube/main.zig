@@ -23,6 +23,7 @@ pub fn init(app: *App) !void {
     try core.init(.{});
 
     const shader_module = core.device.createShaderModuleWGSL("shader.wgsl", @embedFile("shader.wgsl"));
+    defer shader_module.release();
 
     const vertex_attributes = [_]gpu.VertexAttribute{
         .{ .format = .float32x4, .offset = @offsetOf(Vertex, "pos"), .shader_location = 0 },
@@ -52,11 +53,13 @@ pub fn init(app: *App) !void {
             .entries = &.{bgle},
         }),
     );
+    defer bgl.release();
 
     const bind_group_layouts = [_]*gpu.BindGroupLayout{bgl};
     const pipeline_layout = core.device.createPipelineLayout(&gpu.PipelineLayout.Descriptor.init(.{
         .bind_group_layouts = &bind_group_layouts,
     }));
+    defer pipeline_layout.release();
 
     const pipeline_descriptor = gpu.RenderPipeline.Descriptor{
         .fragment = &fragment,
@@ -76,6 +79,7 @@ pub fn init(app: *App) !void {
         .size = @sizeOf(Vertex) * vertices.len,
         .mapped_at_creation = .true,
     });
+    errdefer vertex_buffer.release();
     var vertex_mapped = vertex_buffer.getMappedRange(Vertex, 0, vertices.len);
     std.mem.copy(Vertex, vertex_mapped.?, vertices[0..]);
     vertex_buffer.unmap();
@@ -85,6 +89,8 @@ pub fn init(app: *App) !void {
         .size = @sizeOf(UniformBufferObject),
         .mapped_at_creation = .false,
     });
+    errdefer uniform_buffer.release();
+
     const bind_group = core.device.createBindGroup(
         &gpu.BindGroup.Descriptor.init(.{
             .layout = bgl,
@@ -93,27 +99,28 @@ pub fn init(app: *App) !void {
             },
         }),
     );
+    errdefer bind_group.release();
 
-    app.title_timer = try core.Timer.start();
-    app.timer = try core.Timer.start();
-    app.pipeline = core.device.createRenderPipeline(&pipeline_descriptor);
-    app.vertex_buffer = vertex_buffer;
-    app.uniform_buffer = uniform_buffer;
-    app.bind_group = bind_group;
+    const pipeline = core.device.createRenderPipeline(&pipeline_descriptor);
+    errdefer pipeline.release();
 
-    shader_module.release();
-    pipeline_layout.release();
-    bgl.release();
+    app.* = .{
+        .title_timer = try core.Timer.start(),
+        .timer = try core.Timer.start(),
+        .pipeline = pipeline,
+        .vertex_buffer = vertex_buffer,
+        .uniform_buffer = uniform_buffer,
+        .bind_group = bind_group,
+    };
 }
 
 pub fn deinit(app: *App) void {
-    defer _ = gpa.deinit();
-    defer core.deinit();
-
-    app.vertex_buffer.release();
-    app.uniform_buffer.release();
-    app.bind_group.release();
     app.pipeline.release();
+    app.bind_group.release();
+    app.uniform_buffer.release();
+    app.vertex_buffer.release();
+    core.deinit();
+    _ = gpa.deinit();
 }
 
 pub fn update(app: *App) !bool {
