@@ -31,4 +31,15 @@
             .hash = "122002e355cf42b8d257efc95229c9ee6be4cca189c1718f86179cb7c21225beeb75",
         },
     },
+    .paths = .{
+        "build_examples.zig",
+        "build.zig",
+        "build.zig.zon",
+        "examples",
+        "LICENSE",
+        "LICENSE-APACHE",
+        "LICENSE-MIT",
+        "README.md",
+        "src",
+    },
 }

@@ -141,6 +141,7 @@ pub const App = struct {
                     .root_source_file = .{ .path = options.custom_entrypoint orelse sdkPath("/src/platform/wasm/main.zig") },
                     .target = options.target,
                     .optimize = options.optimize,
+                    .main_mod_path = if (options.custom_entrypoint == null) .{ .path = sdkPath("/src") } else null,
                 });
                 lib.rdynamic = true;
 
@@ -151,6 +152,7 @@ pub const App = struct {
                     .root_source_file = .{ .path = options.custom_entrypoint orelse sdkPath("/src/platform/native/main.zig") },
                     .target = options.target,
                     .optimize = options.optimize,
+                    .main_mod_path = if (options.custom_entrypoint == null) .{ .path = sdkPath("/src") } else null,
                 });
                 // TODO(core): figure out why we need to disable LTO: https://github.com/hexops/mach/issues/597
                 exe.want_lto = false;
@@ -158,7 +160,6 @@ pub const App = struct {
             }
         };
 
-        if (options.custom_entrypoint == null) compile.main_pkg_path = .{ .path = sdkPath("/src") };
         compile.addModule("mach-core", mach_core_mod);
         compile.addModule("app", app_module);
 
