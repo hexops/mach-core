@@ -233,6 +233,14 @@ pub fn init(
 
     // Create a device with default limits/features.
     const gpu_device = response.adapter.?.createDevice(&.{
+        .next_in_chain = .{
+            .dawn_toggles_descriptor = &gpu.dawn.TogglesDescriptor.init(.{
+                .enabled_toggles = &[_][*:0]const u8{
+                    "allow_unsafe_apis",
+                },
+            }),
+        },
+
         .required_features_count = if (options.required_features) |v| @as(u32, @intCast(v.len)) else 0,
         .required_features = if (options.required_features) |v| @as(?[*]const gpu.FeatureName, v.ptr) else null,
         .required_limits = if (options.required_limits) |limits| @as(?*const gpu.RequiredLimits, &gpu.RequiredLimits{
