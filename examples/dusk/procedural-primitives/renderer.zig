@@ -84,7 +84,7 @@ pub fn init(allocator: std.mem.Allocator, timer: core.Timer) !void {
         defer cone_primitive.index_data.deinit();
     }
     var bind_group_layout = createBindGroupLayout();
-    bind_group_layout.release();
+    defer bind_group_layout.release();
 
     createBindBuffer(bind_group_layout);
 
@@ -141,7 +141,7 @@ fn createBindBuffer(bind_group_layout: *gpu.BindGroupLayout) void {
         &gpu.BindGroup.Descriptor.init(.{
             .layout = bind_group_layout,
             .entries = &.{
-                gpu.BindGroup.Entry.buffer(0, uniform_buffer, 0, @sizeOf(UniformBufferObject)),
+                gpu.BindGroup.Entry.buffer(0, uniform_buffer, 0, @sizeOf(UniformBufferObject), @sizeOf(UniformBufferObject)),
             },
         }),
     );

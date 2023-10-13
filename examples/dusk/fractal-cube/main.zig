@@ -17,6 +17,11 @@ const vertices = @import("cube_mesh.zig").vertices;
 
 pub const App = @This();
 
+pub const mach_core_options = core.ComptimeOptions{
+    .use_wgpu = false,
+    .use_dgpu = true,
+};
+
 const UniformBufferObject = struct {
     mat: zm.Mat,
 };
@@ -146,7 +151,7 @@ pub fn init(app: *App) !void {
         &gpu.BindGroup.Descriptor.init(.{
             .layout = bgl,
             .entries = &.{
-                gpu.BindGroup.Entry.buffer(0, uniform_buffer, 0, @sizeOf(UniformBufferObject)),
+                gpu.BindGroup.Entry.buffer(0, uniform_buffer, 0, @sizeOf(UniformBufferObject), @sizeOf(UniformBufferObject)),
                 gpu.BindGroup.Entry.sampler(1, sampler),
                 gpu.BindGroup.Entry.textureView(2, cube_texture_view),
             },
@@ -259,7 +264,7 @@ pub fn update(app: *App) !bool {
                     &gpu.BindGroup.Descriptor.init(.{
                         .layout = app.bgl,
                         .entries = &.{
-                            gpu.BindGroup.Entry.buffer(0, app.uniform_buffer, 0, @sizeOf(UniformBufferObject)),
+                            gpu.BindGroup.Entry.buffer(0, app.uniform_buffer, 0, @sizeOf(UniformBufferObject), @sizeOf(UniformBufferObject)),
                             gpu.BindGroup.Entry.sampler(1, app.sampler),
                             gpu.BindGroup.Entry.textureView(2, app.cube_texture_view),
                         },

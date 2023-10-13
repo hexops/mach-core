@@ -46,7 +46,7 @@ pub fn init(app: *App) !void {
     const compute_bind_group = core.device.createBindGroup(&gpu.BindGroup.Descriptor.init(.{
         .layout = layout,
         .entries = &.{
-            gpu.BindGroup.Entry.buffer(0, output, 0, buffer_size * @sizeOf(f32)),
+            gpu.BindGroup.Entry.buffer(0, output, 0, buffer_size * @sizeOf(f32), @sizeOf(f32)),
         },
     }));
     defer compute_bind_group.release();

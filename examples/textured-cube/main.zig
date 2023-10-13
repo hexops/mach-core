@@ -84,6 +84,7 @@ pub fn init(app: *App) !void {
         },
     };
     const pipeline = core.device.createRenderPipeline(&pipeline_descriptor);
+    shader_module.release();
 
     const vertex_buffer = core.device.createBuffer(&.{
         .usage = .{ .vertex = true },
@@ -132,16 +133,23 @@ pub fn init(app: *App) !void {
         .mapped_at_creation = .false,
     });
 
+    const texture_view = cube_texture.createView(&gpu.TextureView.Descriptor{});
+    cube_texture.release();
+
+    const bind_group_layout = pipeline.getBindGroupLayout(0);
     const bind_group = core.device.createBindGroup(
         &gpu.BindGroup.Descriptor.init(.{
-            .layout = pipeline.getBindGroupLayout(0),
+            .layout = bind_group_layout,
             .entries = &.{
                 gpu.BindGroup.Entry.buffer(0, uniform_buffer, 0, @sizeOf(UniformBufferObject)),
                 gpu.BindGroup.Entry.sampler(1, sampler),
-                gpu.BindGroup.Entry.textureView(2, cube_texture.createView(&gpu.TextureView.Descriptor{})),
+                gpu.BindGroup.Entry.textureView(2, texture_view),
             },
         }),
     );
+    sampler.release();
+    texture_view.release();
+    bind_group_layout.release();
 
     const depth_texture = core.device.createTexture(&gpu.Texture.Descriptor{
         .size = gpu.Extent3D{
@@ -170,14 +178,13 @@ pub fn init(app: *App) !void {
     app.bind_group = bind_group;
     app.depth_texture = depth_texture;
     app.depth_texture_view = depth_texture_view;
-
-    shader_module.release();
 }
 
 pub fn deinit(app: *App) void {
     defer _ = gpa.deinit();
     defer core.deinit();
 
+    app.pipeline.release();
     app.vertex_buffer.release();
     app.uniform_buffer.release();
     app.bind_group.release();

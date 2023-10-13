@@ -99,7 +99,7 @@ pub fn init(app: *App) !void {
         &gpu.BindGroup.Descriptor.init(.{
             .layout = bgl,
             .entries = &.{
-                gpu.BindGroup.Entry.buffer(0, uniform_buffer, 0, @sizeOf(UniformBufferObject) * num_instances),
+                gpu.BindGroup.Entry.buffer(0, uniform_buffer, 0, @sizeOf(UniformBufferObject) * num_instances, @sizeOf(UniformBufferObject)),
             },
         }),
     );

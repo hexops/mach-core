@@ -84,7 +84,7 @@ pub fn init(allocator: std.mem.Allocator, timer: core.Timer) !void {
         defer cone_primitive.index_data.deinit();
     }
     var bind_group_layout = createBindGroupLayout();
-    bind_group_layout.release();
+    defer bind_group_layout.release();
 
     createBindBuffer(bind_group_layout);
 

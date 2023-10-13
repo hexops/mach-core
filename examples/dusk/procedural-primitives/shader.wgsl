@@ -4,20 +4,18 @@ struct Uniforms {
 
 @binding(0) @group(0) var<uniform> ubo : Uniforms;
 
-struct VertexInput {
-    @location(0) position: vec3<f32>,
-    @location(1) normal: vec3<f32>,
-};
-
 struct VertexOutput {
     @builtin(position) position: vec4<f32>,
     @location(0) normal: vec3<f32>,
 };
 
-@vertex fn vertex_main(in : VertexInput) -> VertexOutput {
+@vertex fn vertex_main(
+    @location(0) position: vec3<f32>,
+    @location(1) normal: vec3<f32>,
+) -> VertexOutput {
     var out: VertexOutput;
-    out.position = vec4<f32>(in.position, 1.0) * ubo.mvp_matrix;
-    out.normal = in.normal;
+    out.position = vec4<f32>(position, 1.0) * ubo.mvp_matrix;
+    out.normal = normal;
     return out;
 }
 
