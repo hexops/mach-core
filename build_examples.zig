@@ -75,6 +75,7 @@ pub fn build(
         },
         .{ .name = "textured-cube", .deps = &.{ .zigimg, .assets } },
         .{ .name = "sprite2d", .deps = &.{ .zigimg, .assets } },
+        .{ .name = "image", .deps = &.{ .zigimg, .assets } },
         .{ .name = "image-blur", .deps = &.{ .zigimg, .assets } },
         .{ .name = "cubemap", .deps = &.{ .zigimg, .assets } },
 
@@ -89,6 +90,7 @@ pub fn build(
         .{ .name = "procedural-primitives", .dusk = true },
         .{ .name = "rotating-cube", .dusk = true },
         .{ .name = "sprite2d", .deps = &.{ .zigimg, .assets }, .dusk = true },
+        .{ .name = "image", .deps = &.{ .zigimg, .assets }, .dusk = true },
         .{ .name = "textured-cube", .deps = &.{ .zigimg, .assets }, .dusk = true },
         .{ .name = "triangle", .dusk = true },
         .{ .name = "triangle-msaa", .dusk = true },
