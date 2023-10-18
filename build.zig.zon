@@ -33,8 +33,8 @@
             .hash = "12204f96bd18a7291c9802a657516744a987098e99b67109f2fbf9fba1f867c04c99",
         },
         .mach_dusk = .{
-            .url = "https://pkg.machengine.org/mach-dusk/f43ab60b1957864b203f766dfcd3a9a0e86f85df.tar.gz",
-            .hash = "122026f48559cc8b946f4bc62c9f9f48ecca84c16f19e20eedf1d48e03c26314882b",
+            .url = "https://pkg.machengine.org/mach-dusk/1d1f34c5f8865108d1953c9462429d14d5d8d9f2.tar.gz",
+            .hash = "12202ecd84876058a6659f6a94d29118f1a741d91dc0a28e371c2d7eeb62497439bc",
         },
         .mach_gpu = .{
             .url = "https://pkg.machengine.org/mach-gpu/1189b55b5a1bd1a4a03eb0c3a9b358e6bdfa7e52.tar.gz",

@@ -17,6 +17,11 @@ const Quat = zm.Quat;
 
 pub const App = @This();
 
+pub const mach_core_options = core.ComptimeOptions{
+    .use_wgpu = false,
+    .use_dgpu = true,
+};
+
 var gpa = std.heap.GeneralPurposeAllocator(.{}){};
 
 title_timer: core.Timer,
@@ -257,7 +262,7 @@ const Camera = struct {
         const bind_group = device.createBindGroup(&gpu.BindGroup.Descriptor.init(.{
             .layout = layout,
             .entries = &.{
-                gpu.BindGroup.Entry.buffer(0, buffer.buffer, 0, buffer.size),
+                gpu.BindGroup.Entry.buffer(0, buffer.buffer, 0, buffer.size, buffer.size),
             },
         }));
         layout.release();
@@ -756,7 +761,7 @@ const Light = struct {
         const bind_group = device.createBindGroup(&gpu.BindGroup.Descriptor.init(.{
             .layout = layout,
             .entries = &.{
-                gpu.BindGroup.Entry.buffer(0, buffer.buffer, 0, buffer.size),
+                gpu.BindGroup.Entry.buffer(0, buffer.buffer, 0, buffer.size, buffer.size),
             },
         }));
         layout.release();

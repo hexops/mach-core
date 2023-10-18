@@ -97,6 +97,7 @@ fn BRDF(L : vec3<f32>, V : vec3<f32>, N : vec3<f32>, metallic : f32, roughness :
     return color;
 }
 
+// TODO - global variable declaration order
 @fragment fn frag_main(
      @location(0) position : vec3<f32>,
      @location(1) normal: vec3<f32> 

@@ -10,6 +10,11 @@ const quad = @import("quad_mesh.zig").quad;
 
 pub const App = @This();
 
+pub const mach_core_options = core.ComptimeOptions{
+    .use_wgpu = false,
+    .use_dgpu = true,
+};
+
 const pixel_size = 8;
 
 const UniformBufferObject = struct {
@@ -306,7 +311,7 @@ fn createDrawPipeline(app: *App) void {
         &gpu.BindGroup.Descriptor.init(.{
             .layout = bgl,
             .entries = &.{
-                gpu.BindGroup.Entry.buffer(0, uniform_buffer, 0, @sizeOf(UniformBufferObject)),
+                gpu.BindGroup.Entry.buffer(0, uniform_buffer, 0, @sizeOf(UniformBufferObject), @sizeOf(UniformBufferObject)),
             },
         }),
     );
@@ -432,7 +437,7 @@ fn createPostPipeline(app: *App) void {
                 gpu.BindGroup.Entry.sampler(3, depth_sampler),
                 gpu.BindGroup.Entry.textureView(4, app.normal_texture_view),
                 gpu.BindGroup.Entry.sampler(5, normal_sampler),
-                gpu.BindGroup.Entry.buffer(6, uniform_buffer, 0, @sizeOf(PostUniformBufferObject)),
+                gpu.BindGroup.Entry.buffer(6, uniform_buffer, 0, @sizeOf(PostUniformBufferObject), @sizeOf(PostUniformBufferObject)),
             },
         }),
     );
