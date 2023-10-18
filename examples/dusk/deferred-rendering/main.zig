@@ -8,6 +8,11 @@ const VertexWriter = @import("vertex_writer.zig").VertexWriter;
 
 pub const App = @This();
 
+pub const mach_core_options = core.ComptimeOptions{
+    .use_wgpu = false,
+    .use_dgpu = true,
+};
+
 const Vec2 = [2]f32;
 const Vec3 = [3]f32;
 const Vec4 = [4]f32;
@@ -790,11 +795,13 @@ fn prepareUniformBuffers(app: *App) void {
                 .binding = 0,
                 .buffer = app.model_uniform_buffer,
                 .size = @sizeOf(Mat4) * 2,
+                .elem_size = @sizeOf(Mat4) * 2,
             },
             .{
                 .binding = 1,
                 .buffer = app.camera_uniform_buffer,
                 .size = camera_uniform_buffer_size,
+                .elem_size = camera_uniform_buffer_size,
             },
         };
         const bind_group_layout = app.write_gbuffers_pipeline.getBindGroupLayout(0);
@@ -821,6 +828,7 @@ fn prepareUniformBuffers(app: *App) void {
                 .binding = 0,
                 .buffer = app.surface_size_uniform_buffer,
                 .size = @sizeOf(f32) * 2,
+                .elem_size = @sizeOf(f32) * 2,
             },
         };
         app.surface_size_uniform_bind_group = core.device.createBindGroup(
@@ -934,16 +942,19 @@ fn prepareLights(app: *App) void {
                 .binding = 0,
                 .buffer = app.lights.buffer,
                 .size = app.lights.buffer_size,
+                .elem_size = @sizeOf(f32) * light_data_stride,
             },
             .{
                 .binding = 1,
                 .buffer = app.lights.config_uniform_buffer,
                 .size = app.lights.config_uniform_buffer_size,
+                .elem_size = @intCast(app.lights.config_uniform_buffer_size),
             },
             .{
                 .binding = 2,
                 .buffer = app.camera_uniform_buffer,
                 .size = camera_uniform_buffer_size,
+                .elem_size = camera_uniform_buffer_size,
             },
         };
         app.lights.buffer_bind_group = core.device.createBindGroup(
@@ -962,16 +973,19 @@ fn prepareLights(app: *App) void {
                 .binding = 0,
                 .buffer = app.lights.buffer,
                 .size = app.lights.buffer_size,
+                .elem_size = @sizeOf(f32) * light_data_stride,
             },
             .{
                 .binding = 1,
                 .buffer = app.lights.config_uniform_buffer,
                 .size = app.lights.config_uniform_buffer_size,
+                .elem_size = @intCast(app.lights.config_uniform_buffer_size),
             },
             .{
                 .binding = 2,
                 .buffer = app.lights.extent_buffer,
                 .size = app.lights.extent_buffer_size,
+                .elem_size = @intCast(app.lights.extent_buffer_size),
             },
         };
         const bind_group_layout = app.light_update_compute_pipeline.getBindGroupLayout(0);

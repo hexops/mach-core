@@ -10,6 +10,7 @@ struct VertexOutput {
 };
 
 @vertex fn vertex_main(
+    // TODO - struct input
     @location(0) position: vec3<f32>,
     @location(1) normal: vec3<f32>,
 ) -> VertexOutput {

@@ -19,6 +19,11 @@ img_size: gpu.Extent3D,
 
 pub const App = @This();
 
+pub const mach_core_options = core.ComptimeOptions{
+    .use_wgpu = false,
+    .use_dgpu = true,
+};
+
 // Constants from the blur.wgsl shader
 const tile_dimension: u32 = 128;
 const batch: [2]u32 = .{ 4, 4 };
@@ -163,7 +168,7 @@ pub fn init(app: *App) !void {
         .layout = blur_bind_group_layout0,
         .entries = &.{
             gpu.BindGroup.Entry.sampler(0, sampler),
-            gpu.BindGroup.Entry.buffer(1, blur_params_buffer, 0, 8),
+            gpu.BindGroup.Entry.buffer(1, blur_params_buffer, 0, 8, 8),
         },
     }));
 
@@ -172,7 +177,7 @@ pub fn init(app: *App) !void {
         .entries = &.{
             gpu.BindGroup.Entry.textureView(1, cube_texture_view),
             gpu.BindGroup.Entry.textureView(2, texture0_view),
-            gpu.BindGroup.Entry.buffer(3, flip[0], 0, 4),
+            gpu.BindGroup.Entry.buffer(3, flip[0], 0, 4, 4),
         },
     }));
 
@@ -181,7 +186,7 @@ pub fn init(app: *App) !void {
         .entries = &.{
             gpu.BindGroup.Entry.textureView(1, texture0_view),
             gpu.BindGroup.Entry.textureView(2, texture1_view),
-            gpu.BindGroup.Entry.buffer(3, flip[1], 0, 4),
+            gpu.BindGroup.Entry.buffer(3, flip[1], 0, 4, 4),
         },
     }));
 
@@ -190,7 +195,7 @@ pub fn init(app: *App) !void {
         .entries = &.{
             gpu.BindGroup.Entry.textureView(1, texture1_view),
             gpu.BindGroup.Entry.textureView(2, texture0_view),
-            gpu.BindGroup.Entry.buffer(3, flip[0], 0, 4),
+            gpu.BindGroup.Entry.buffer(3, flip[0], 0, 4, 4),
         },
     }));
 
