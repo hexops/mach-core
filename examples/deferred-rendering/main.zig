@@ -207,11 +207,13 @@ pub fn deinit(app: *App) void {
 
     app.gbuffer.texture_2d_float16.release();
     app.gbuffer.texture_albedo.release();
+    app.gbuffer.texture_depth.release();
 
     app.scene_uniform_bind_group_layout.release();
     app.surface_size_uniform_bind_group_layout.release();
     app.gbuffer_textures_bind_group_layout.release();
 
+    app.surface_size_uniform_buffer.release();
     app.model_uniform_buffer.release();
     app.camera_uniform_buffer.release();
     app.vertex_buffer.release();
@@ -231,12 +233,13 @@ pub fn update(app: *App) !bool {
 
                 // TODO: we use destroy() here instead of release() because our reference counting
                 // is wrong somewhere else.
-                app.gbuffer.texture_2d_float16.destroy();
-                app.gbuffer.texture_albedo.destroy();
-                app.gbuffer.texture_depth.destroy();
+                app.gbuffer.texture_2d_float16.release();
+                app.gbuffer.texture_albedo.release();
+                app.gbuffer.texture_depth.release();
                 app.gbuffer.texture_views[0].release();
                 app.gbuffer.texture_views[1].release();
                 app.gbuffer.texture_views[2].release();
+                app.gbuffer_textures_bind_group.release();
 
                 app.prepareGBufferTextureRenderTargets();
                 app.setupRenderPasses();
@@ -794,13 +797,15 @@ fn prepareUniformBuffers(app: *App) void {
                 .size = camera_uniform_buffer_size,
             },
         };
+        const bind_group_layout = app.write_gbuffers_pipeline.getBindGroupLayout(0);
         app.scene_uniform_bind_group = core.device.createBindGroup(
             &gpu.BindGroup.Descriptor.init(.{
                 .label = "scene_uniform_bind_group",
-                .layout = app.write_gbuffers_pipeline.getBindGroupLayout(0),
+                .layout = bind_group_layout,
                 .entries = &bind_group_entries,
             }),
         );
+        bind_group_layout.release();
     }
     {
         // Surface size uniform buffer
@@ -969,12 +974,14 @@ fn prepareLights(app: *App) void {
                 .size = app.lights.extent_buffer_size,
             },
         };
+        const bind_group_layout = app.light_update_compute_pipeline.getBindGroupLayout(0);
         app.lights.buffer_compute_bind_group = core.device.createBindGroup(
             &gpu.BindGroup.Descriptor.init(.{
-                .layout = app.light_update_compute_pipeline.getBindGroupLayout(0),
+                .layout = bind_group_layout,
                 .entries = &bind_group_entries,
             }),
         );
+        bind_group_layout.release();
     }
 }
 

@@ -15,6 +15,10 @@ pub fn build(b: *std.Build) !void {
         .target = target,
         .optimize = optimize,
     });
+    const mach_dusk_dep = b.dependency("mach_dusk", .{
+        .target = target,
+        .optimize = optimize,
+    });
     const gamemode_dep = b.dependency("mach_gamemode", .{
         .target = target,
         .optimize = optimize,
@@ -28,6 +32,7 @@ pub fn build(b: *std.Build) !void {
         .dependencies = &.{
             .{ .name = "mach-gpu", .module = mach_gpu_dep.module("mach-gpu") },
             .{ .name = "mach-glfw", .module = mach_glfw_dep.module("mach-glfw") },
+            .{ .name = "mach-dusk", .module = mach_dusk_dep.module("mach-dusk") },
             .{ .name = "mach-gamemode", .module = gamemode_dep.module("mach-gamemode") },
             .{ .name = "mach-sysjs", .module = sysjs_dep.module("mach-sysjs") },
         },
@@ -136,6 +141,7 @@ pub const App = struct {
                     .root_source_file = .{ .path = options.custom_entrypoint orelse sdkPath("/src/platform/wasm/main.zig") },
                     .target = options.target,
                     .optimize = options.optimize,
+                    .main_mod_path = if (options.custom_entrypoint == null) .{ .path = sdkPath("/src") } else null,
                 });
                 lib.rdynamic = true;
 
@@ -146,6 +152,7 @@ pub const App = struct {
                     .root_source_file = .{ .path = options.custom_entrypoint orelse sdkPath("/src/platform/native/main.zig") },
                     .target = options.target,
                     .optimize = options.optimize,
+                    .main_mod_path = if (options.custom_entrypoint == null) .{ .path = sdkPath("/src") } else null,
                 });
                 // TODO(core): figure out why we need to disable LTO: https://github.com/hexops/mach/issues/597
                 exe.want_lto = false;
@@ -202,7 +209,7 @@ pub const App = struct {
     }
 };
 
-fn link(core_builder: *std.Build, step: *std.build.CompileStep) void {
+pub fn link(core_builder: *std.Build, step: *std.build.CompileStep) void {
     @import("mach_glfw").link(core_builder.dependency("mach_glfw", .{
         .target = step.target,
         .optimize = step.optimize,

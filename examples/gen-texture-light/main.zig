@@ -57,6 +57,9 @@ pub fn deinit(app: *App) void {
     defer _ = gpa.deinit();
     defer core.deinit();
 
+    app.cube.deinit();
+    app.camera.deinit();
+    app.light.deinit();
     app.depth.release();
 }
 
@@ -164,7 +167,7 @@ pub fn update(app: *App) !bool {
     // brick cubes
     pass.setPipeline(app.cube.pipeline);
     pass.setBindGroup(0, app.camera.bind_group, &.{});
-    pass.setBindGroup(1, app.cube.texture.bind_group, &.{});
+    pass.setBindGroup(1, app.cube.texture.bind_group.?, &.{});
     pass.setBindGroup(2, app.light.bind_group, &.{});
     pass.setVertexBuffer(0, app.cube.mesh.buffer, 0, app.cube.mesh.size);
     pass.setVertexBuffer(1, app.cube.instance.buffer, 0, app.cube.instance.size);
@@ -250,17 +253,24 @@ const Camera = struct {
             .size = @sizeOf(@TypeOf(uniform)),
         };
 
+        const layout = Self.bindGroupLayout(device);
         const bind_group = device.createBindGroup(&gpu.BindGroup.Descriptor.init(.{
-            .layout = Self.bindGroupLayout(device),
+            .layout = layout,
             .entries = &.{
                 gpu.BindGroup.Entry.buffer(0, buffer.buffer, 0, buffer.size),
             },
         }));
+        layout.release();
 
         self.buffer = buffer;
         self.bind_group = bind_group;
 
         return self;
+    }
+
+    fn deinit(self: *Self) void {
+        self.bind_group.release();
+        self.buffer.release();
     }
 
     fn update(self: *Self, queue: *gpu.Queue) void {
@@ -290,9 +300,15 @@ const Camera = struct {
 };
 
 const Buffer = struct {
+    const Self = @This();
+
     buffer: *gpu.Buffer,
     size: usize,
     len: u32 = 0,
+
+    fn release(self: *Self) void {
+        self.buffer.release();
+    }
 };
 
 const Cube = struct {
@@ -350,16 +366,29 @@ const Cube = struct {
         };
     }
 
+    fn deinit(self: *Self) void {
+        self.pipeline.release();
+        self.mesh.release();
+        self.instance.release();
+        self.texture.release();
+    }
+
     fn pipeline() *gpu.RenderPipeline {
         const device = core.device;
 
+        const camera_layout = Camera.bindGroupLayout(device);
+        const texture_layout = Texture.bindGroupLayout(device);
+        const light_layout = Light.bindGroupLayout(device);
         const layout_descriptor = gpu.PipelineLayout.Descriptor.init(.{
             .bind_group_layouts = &.{
-                Camera.bindGroupLayout(device),
-                Texture.bindGroupLayout(device),
-                Light.bindGroupLayout(device),
+                camera_layout,
+                texture_layout,
+                light_layout,
             },
         });
+        defer camera_layout.release();
+        defer texture_layout.release();
+        defer light_layout.release();
 
         const layout = device.createPipelineLayout(&layout_descriptor);
         defer layout.release();
@@ -581,7 +610,7 @@ const Texture = struct {
     texture: *gpu.Texture,
     view: *gpu.TextureView,
     sampler: *gpu.Sampler,
-    bind_group: *gpu.BindGroup,
+    bind_group: ?*gpu.BindGroup,
 
     const DEPTH_FORMAT = .depth32_float;
     const FORMAT = .rgba8_unorm;
@@ -590,6 +619,7 @@ const Texture = struct {
         self.texture.release();
         self.view.release();
         self.sampler.release();
+        if (self.bind_group) |bind_group| bind_group.release();
     }
 
     fn fromData(device: *gpu.Device, width: u32, height: u32, comptime T: type, data: []const T) Self {
@@ -641,6 +671,7 @@ const Texture = struct {
                 gpu.BindGroup.Entry.sampler(1, sampler),
             },
         }));
+        bind_group_layout.release();
 
         return Self{
             .view = view,
@@ -680,7 +711,7 @@ const Texture = struct {
             .texture = texture,
             .view = view,
             .sampler = sampler,
-            .bind_group = undefined, // not used
+            .bind_group = null, // not used
         };
     }
 
@@ -721,12 +752,14 @@ const Light = struct {
             .size = @sizeOf(@TypeOf(uniform)),
         };
 
+        const layout = Self.bindGroupLayout(device);
         const bind_group = device.createBindGroup(&gpu.BindGroup.Descriptor.init(.{
-            .layout = Self.bindGroupLayout(device),
+            .layout = layout,
             .entries = &.{
                 gpu.BindGroup.Entry.buffer(0, buffer.buffer, 0, buffer.size),
             },
         }));
+        layout.release();
 
         return Self{
             .buffer = buffer,
@@ -734,6 +767,12 @@ const Light = struct {
             .bind_group = bind_group,
             .pipeline = Self.pipeline(),
         };
+    }
+
+    fn deinit(self: *Self) void {
+        self.buffer.release();
+        self.bind_group.release();
+        self.pipeline.release();
     }
 
     fn update(self: *Self, queue: *gpu.Queue, delta: f32) void {
@@ -759,12 +798,16 @@ const Light = struct {
     fn pipeline() *gpu.RenderPipeline {
         const device = core.device;
 
+        const camera_layout = Camera.bindGroupLayout(device);
+        const light_layout = Light.bindGroupLayout(device);
         const layout_descriptor = gpu.PipelineLayout.Descriptor.init(.{
             .bind_group_layouts = &.{
-                Camera.bindGroupLayout(device),
-                Light.bindGroupLayout(device),
+                camera_layout,
+                light_layout,
             },
         });
+        defer camera_layout.release();
+        defer light_layout.release();
 
         const layout = device.createPipelineLayout(&layout_descriptor);
         defer layout.release();

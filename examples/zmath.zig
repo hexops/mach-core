@@ -15,7 +15,7 @@ pub const Mat = [4]@Vector(4, f32);
 pub const Quat = @Vector(4, f32);
 
 pub inline fn abs(v: anytype) @TypeOf(v) {
-    return @fabs(v);
+    return @abs(v);
 }
 
 inline fn dot3(v0: Vec, v1: Vec) Vec {
@@ -930,7 +930,7 @@ fn sincos32(v: f32) [2]f32 {
 
 fn modAngle32(in_angle: f32) f32 {
     const angle = in_angle + math.pi;
-    var temp: f32 = @fabs(angle);
+    var temp: f32 = @abs(angle);
     temp = temp - (2.0 * math.pi * @as(f32, @floatFromInt(@as(i32, @intFromFloat(temp / math.pi)))));
     temp = temp - math.pi;
     if (angle < 0.0) {

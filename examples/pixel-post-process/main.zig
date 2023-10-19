@@ -197,10 +197,13 @@ pub fn update(app: *App) !bool {
 }
 
 fn cleanup(app: *App) void {
+    app.pipeline.release();
+    app.normal_pipeline.release();
     app.vertex_buffer.release();
     app.uniform_buffer.release();
     app.bind_group.release();
 
+    app.post_pipeline.release();
     app.post_vertex_buffer.release();
     app.post_uniform_buffer.release();
     app.post_bind_group.release();
@@ -220,6 +223,7 @@ fn createRenderTextures(app: *App) !void {
     });
     const draw_texture = core.device.createTexture(&draw_texture_desc);
     app.draw_texture_view = draw_texture.createView(null);
+    draw_texture.release();
 
     const depth_texture_desc = gpu.Texture.Descriptor.init(.{
         .size = .{ .width = size.width / pixel_size, .height = size.height / pixel_size },
@@ -228,6 +232,7 @@ fn createRenderTextures(app: *App) !void {
     });
     const depth_texture = core.device.createTexture(&depth_texture_desc);
     app.depth_texture_view = depth_texture.createView(null);
+    depth_texture.release();
 
     const normal_texture_desc = gpu.Texture.Descriptor.init(.{
         .size = .{ .width = size.width / pixel_size, .height = size.height / pixel_size },
@@ -236,6 +241,7 @@ fn createRenderTextures(app: *App) !void {
     });
     const normal_texture = core.device.createTexture(&normal_texture_desc);
     app.normal_texture_view = normal_texture.createView(null);
+    normal_texture.release();
 }
 
 fn createDrawPipeline(app: *App) void {
@@ -430,6 +436,9 @@ fn createPostPipeline(app: *App) void {
             },
         }),
     );
+    draw_sampler.release();
+    depth_sampler.release();
+    normal_sampler.release();
 
     const pipeline_descriptor = gpu.RenderPipeline.Descriptor{
         .fragment = &fragment,

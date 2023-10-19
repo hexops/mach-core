@@ -1,8 +1,8 @@
 const std = @import("std");
-const gpu = @import("mach-gpu");
 const js = @import("js.zig");
 const Timer = @import("Timer.zig");
 const mach_core = @import("../../main.zig");
+const gpu = mach_core.gpu;
 const Options = @import("../../main.zig").Options;
 const Event = @import("../../main.zig").Event;
 const KeyEvent = @import("../../main.zig").KeyEvent;
@@ -253,7 +253,7 @@ pub fn init(
         .joysticks = std.mem.zeroes([JoystickData.max_joysticks]JoystickData),
     };
 
-    // TODO(wasm): webgpu support
+    // TODO(wasm): wgpu support
     mach_core.adapter = undefined;
     mach_core.device = undefined;
     mach_core.queue = undefined;

@@ -183,17 +183,24 @@ pub fn init(app: *App) !void {
         .mapped_at_creation = .false,
     });
 
+    const texture_view = texture.createView(&gpu.TextureView.Descriptor{});
+    texture.release();
+
+    const bind_group_layout = pipeline.getBindGroupLayout(0);
     const bind_group = core.device.createBindGroup(
         &gpu.BindGroup.Descriptor.init(.{
-            .layout = pipeline.getBindGroupLayout(0),
+            .layout = bind_group_layout,
             .entries = &.{
                 gpu.BindGroup.Entry.buffer(0, uniform_buffer, 0, @sizeOf(UniformBufferObject)),
                 gpu.BindGroup.Entry.sampler(1, sampler),
-                gpu.BindGroup.Entry.textureView(2, texture.createView(&gpu.TextureView.Descriptor{})),
+                gpu.BindGroup.Entry.textureView(2, texture_view),
                 gpu.BindGroup.Entry.buffer(3, sprites_buffer, 0, @sizeOf(Sprite) * app.sprites.items.len),
             },
         }),
     );
+    texture_view.release();
+    sampler.release();
+    bind_group_layout.release();
 
     app.title_timer = try core.Timer.start();
     app.timer = try core.Timer.start();
@@ -210,6 +217,7 @@ pub fn deinit(app: *App) void {
     defer _ = gpa.deinit();
     defer core.deinit();
 
+    app.pipeline.release();
     app.sprites.deinit();
     app.sprites_frames.deinit();
     app.uniform_buffer.release();

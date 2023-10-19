@@ -204,6 +204,7 @@ pub fn init(app: *App) !void {
 
         // Encode the copy command, we do this for every image in the texture.
         encoder.copyBufferToTexture(&copy_buff, &copy_tex, &img_size);
+        staging_buff[i].release();
     }
     // Now that the commands to copy our buffer data to the texture is filled,
     // push the encoded commands over to the queue and execute to get the
@@ -214,16 +215,23 @@ pub fn init(app: *App) !void {
     command.release();
 
     // The textureView in the bind group needs dimension defined as "dimension_cube".
+    const cube_texture_view = cube_texture.createView(&gpu.TextureView.Descriptor{ .dimension = .dimension_cube });
+    cube_texture.release();
+
+    const bind_group_layout = pipeline.getBindGroupLayout(0);
     const bind_group = core.device.createBindGroup(
         &gpu.BindGroup.Descriptor.init(.{
-            .layout = pipeline.getBindGroupLayout(0),
+            .layout = bind_group_layout,
             .entries = &.{
                 gpu.BindGroup.Entry.buffer(0, uniform_buffer, 0, @sizeOf(UniformBufferObject)),
                 gpu.BindGroup.Entry.sampler(1, sampler),
-                gpu.BindGroup.Entry.textureView(2, cube_texture.createView(&gpu.TextureView.Descriptor{ .dimension = .dimension_cube })),
+                gpu.BindGroup.Entry.textureView(2, cube_texture_view),
             },
         }),
     );
+    sampler.release();
+    cube_texture_view.release();
+    bind_group_layout.release();
 
     const depth_texture = core.device.createTexture(&gpu.Texture.Descriptor{
         .size = gpu.Extent3D{
@@ -258,6 +266,7 @@ pub fn deinit(app: *App) void {
     defer _ = gpa.deinit();
     defer core.deinit();
 
+    app.pipeline.release();
     app.vertex_buffer.release();
     app.uniform_buffer.release();
     app.bind_group.release();

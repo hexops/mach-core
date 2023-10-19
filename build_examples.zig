@@ -48,6 +48,7 @@ pub fn build(
         name: []const u8,
         deps: []const Dependency = &.{},
         std_platform_only: bool = false,
+        dusk: bool = false,
     }{
         .{ .name = "wasm-test" },
         .{ .name = "triangle" },
@@ -74,8 +75,30 @@ pub fn build(
         },
         .{ .name = "textured-cube", .deps = &.{ .zigimg, .assets } },
         .{ .name = "sprite2d", .deps = &.{ .zigimg, .assets } },
+        .{ .name = "image", .deps = &.{ .zigimg, .assets } },
         .{ .name = "image-blur", .deps = &.{ .zigimg, .assets } },
         .{ .name = "cubemap", .deps = &.{ .zigimg, .assets } },
+
+        // Dusk
+        .{ .name = "boids", .dusk = true },
+        .{ .name = "clear-color", .dusk = true },
+        .{ .name = "cubemap", .deps = &.{ .zigimg, .assets }, .dusk = true },
+        .{ .name = "deferred-rendering", .deps = &.{ .model3d, .assets }, .std_platform_only = true, .dusk = true },
+        .{ .name = "fractal-cube", .dusk = true },
+        .{ .name = "gen-texture-light", .dusk = true },
+        .{ .name = "image-blur", .deps = &.{ .zigimg, .assets }, .dusk = true },
+        .{ .name = "instanced-cube", .dusk = true },
+        .{ .name = "map-async", .dusk = true },
+        .{ .name = "pbr-basic", .deps = &.{ .model3d, .assets }, .std_platform_only = true, .dusk = true },
+        .{ .name = "pixel-post-process", .dusk = true },
+        .{ .name = "procedural-primitives", .dusk = true },
+        .{ .name = "rotating-cube", .dusk = true },
+        .{ .name = "sprite2d", .deps = &.{ .zigimg, .assets }, .dusk = true },
+        .{ .name = "image", .deps = &.{ .zigimg, .assets }, .dusk = true },
+        .{ .name = "textured-cube", .deps = &.{ .zigimg, .assets }, .dusk = true },
+        .{ .name = "triangle", .dusk = true },
+        .{ .name = "triangle-msaa", .dusk = true },
+        .{ .name = "two-cubes", .dusk = true },
     }) |example| {
         // FIXME: this is workaround for a problem that some examples
         // (having the std_platform_only=true field) as well as zigimg
@@ -93,16 +116,23 @@ pub fn build(
             .module = b.createModule(.{ .source_file = .{ .path = "examples/zmath.zig" } }),
         });
         for (example.deps) |d| try deps.append(d.moduleDependency(b, target, optimize));
+        const cmd_name = if (example.dusk) "dusk-" ++ example.name else example.name;
         const app = try core.App.init(
             b,
             b,
             .{
-                .name = example.name,
-                .src = "examples/" ++ example.name ++ "/main.zig",
+                .name = cmd_name,
+                .src = if (example.dusk)
+                    "examples/dusk/" ++ example.name ++ "/main.zig"
+                else
+                    "examples/" ++ example.name ++ "/main.zig",
                 .target = target,
                 .optimize = optimize,
                 .deps = deps.items,
-                .watch_paths = &.{"examples/" ++ example.name},
+                .watch_paths = if (example.dusk)
+                    &.{"examples/dusk/" ++ example.name}
+                else
+                    &.{"examples/" ++ example.name},
                 .mach_core_mod = mach_core_mod,
             },
         );
@@ -115,11 +145,20 @@ pub fn build(
             else => {},
         };
 
-        const install_step = b.step(example.name, "Install " ++ example.name);
+        if (example.dusk) {
+            const mach_dusk_dep = b.dependency("mach_dusk", .{
+                .target = target,
+                .optimize = optimize,
+            });
+            app.compile.linkLibrary(mach_dusk_dep.artifact("mach-dusk"));
+            @import("mach_dusk").link(mach_dusk_dep.builder, app.compile);
+        }
+
+        const install_step = b.step(cmd_name, "Install " ++ cmd_name);
         install_step.dependOn(&app.install.step);
         b.getInstallStep().dependOn(install_step);
 
-        const run_step = b.step("run-" ++ example.name, "Run " ++ example.name);
+        const run_step = b.step("run-" ++ cmd_name, "Run " ++ cmd_name);
         run_step.dependOn(&app.run.step);
     }
 }
@@ -141,7 +180,7 @@ fn ensureDependencies(allocator: std.mem.Allocator) !void {
     try optional_dependency.ensureGitRepoCloned(
         allocator,
         "https://github.com/slimsag/zigimg",
-        "814064a8935dceee99adb11f2b17871b84f75a2b",
+        "9b455a1d74cd5d6c4c6ec1d853a91cfafb143984",
         sdkPath("/examples/libs/zigimg"),
     );
 }

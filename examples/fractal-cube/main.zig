@@ -188,6 +188,7 @@ pub fn deinit(app: *App) void {
     defer _ = gpa.deinit();
     defer core.deinit();
 
+    app.pipeline.release();
     app.bgl.release();
     app.vertex_buffer.release();
     app.uniform_buffer.release();

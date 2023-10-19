@@ -84,6 +84,8 @@ pub fn init(allocator: std.mem.Allocator, timer: core.Timer) !void {
         defer cone_primitive.index_data.deinit();
     }
     var bind_group_layout = createBindGroupLayout();
+    defer bind_group_layout.release();
+
     createBindBuffer(bind_group_layout);
 
     createDepthTexture();
@@ -214,6 +216,7 @@ fn createPipeline(shader_module: *gpu.ShaderModule, bind_group_layout: *gpu.Bind
         .bind_group_layouts = &bind_group_layouts,
     });
     const pipeline_layout = core.device.createPipelineLayout(&pipeline_layout_descriptor);
+    defer pipeline_layout.release();
 
     const pipeline_descriptor = gpu.RenderPipeline.Descriptor{
         .label = "Main Pipeline",
@@ -309,12 +312,14 @@ pub fn update() void {
 
 pub fn deinit() void {
     var i: u4 = 0;
-    while (i < 4) : (i += 1) {
+    while (i < 7) : (i += 1) {
         primitives_data[i].vertex_buffer.release();
         primitives_data[i].index_buffer.release();
     }
 
     bind_group.release();
+    uniform_buffer.release();
     depth_texture.release();
     depth_texture_view.release();
+    pipeline.release();
 }

@@ -1,8 +1,8 @@
 const builtin = @import("builtin");
 const std = @import("std");
-const gpu = @import("mach-gpu");
 const glfw = @import("mach-glfw");
 const mach_core = @import("../../main.zig");
+const gpu = mach_core.gpu;
 const util = @import("util.zig");
 const Options = @import("../../main.zig").Options;
 const Event = @import("../../main.zig").Event;
@@ -141,7 +141,8 @@ pub fn init(
     input: *Frequency,
     options: Options,
 ) !void {
-    if (!@import("builtin").is_test) _ = gpu.Export(@import("root").GPUInterface);
+    if (!@import("builtin").is_test and mach_core.options.use_wgpu) _ = mach_core.wgpu.Export(@import("root").GPUInterface);
+    if (!@import("builtin").is_test and mach_core.options.use_dgpu) _ = mach_core.dgpu.Export(@import("root").DGPUInterface);
 
     const backend_type = try util.detectBackendType(allocator);
 
@@ -245,6 +246,14 @@ pub fn init(
 
     // Create a device with default limits/features.
     const gpu_device = response.adapter.?.createDevice(&.{
+        .next_in_chain = .{
+            .dawn_toggles_descriptor = &gpu.dawn.TogglesDescriptor.init(.{
+                .enabled_toggles = &[_][*:0]const u8{
+                    "allow_unsafe_apis",
+                },
+            }),
+        },
+
         .required_features_count = if (options.required_features) |v| @as(u32, @intCast(v.len)) else 0,
         .required_features = if (options.required_features) |v| @as(?[*]const gpu.FeatureName, v.ptr) else null,
         .required_limits = if (options.required_limits) |limits| @as(?*const gpu.RequiredLimits, &gpu.RequiredLimits{
@@ -550,8 +559,8 @@ pub fn deinit(self: *Core) void {
 
     self.gpu_device.setDeviceLostCallback(null, null);
 
-    self.surface.release();
     self.swap_chain.release();
+    self.surface.release();
     mach_core.queue.release();
     self.gpu_device.release();
     self.gpu_adapter.release();
@@ -587,8 +596,8 @@ pub fn appUpdateThread(self: *Core, app: anytype) void {
             {
                 self.swap_chain_mu.lock();
                 defer self.swap_chain_mu.unlock();
-
                 if (self.swap_chain_desc.width != framebuffer_size.width or self.swap_chain_desc.height != framebuffer_size.height) {
+                  mach_core.swap_chain.release();
                     self.swap_chain_desc.width = framebuffer_size.width;
                     self.swap_chain_desc.height = framebuffer_size.height;
                     self.swap_chain = self.gpu_device.createSwapChain(self.surface, &self.swap_chain_desc);

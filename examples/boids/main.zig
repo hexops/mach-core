@@ -37,11 +37,13 @@ pub fn init(app: *App) !void {
         "sprite.wgsl",
         @embedFile("sprite.wgsl"),
     );
+    defer sprite_shader_module.release();
 
     const update_sprite_shader_module = core.device.createShaderModuleWGSL(
         "updateSprites.wgsl",
         @embedFile("updateSprites.wgsl"),
     );
+    defer update_sprite_shader_module.release();
 
     const instanced_particles_attributes = [_]gpu.VertexAttribute{
         .{
@@ -153,8 +155,11 @@ pub fn init(app: *App) !void {
 
     i = 0;
     while (i < 2) : (i += 1) {
+        const layout = compute_pipeline.getBindGroupLayout(0);
+        defer layout.release();
+
         particle_bind_groups[i] = core.device.createBindGroup(&gpu.BindGroup.Descriptor.init(.{
-            .layout = compute_pipeline.getBindGroupLayout(0),
+            .layout = layout,
             .entries = &.{
                 gpu.BindGroup.Entry.buffer(0, sim_param_buffer, 0, sim_params.len * @sizeOf(f32)),
                 gpu.BindGroup.Entry.buffer(1, particle_buffers[i], 0, initial_particle_data.len * @sizeOf(f32)),
@@ -177,9 +182,15 @@ pub fn init(app: *App) !void {
 }
 
 pub fn deinit(app: *App) void {
-    _ = app;
     defer _ = gpa.deinit();
     defer core.deinit();
+
+    app.compute_pipeline.release();
+    app.render_pipeline.release();
+    app.sprite_vertex_buffer.release();
+    for (app.particle_buffers) |particle_buffer| particle_buffer.release();
+    for (app.particle_bind_groups) |particle_bind_group| particle_bind_group.release();
+    app.sim_param_buffer.release();
 }
 
 pub fn update(app: *App) !bool {

@@ -9,9 +9,14 @@ const App = @import("app").App;
 
 const std = @import("std");
 const core = @import("mach-core");
-const gpu = core.gpu;
 
-pub const GPUInterface = if (@hasDecl(App, "GPUInterface")) App.GPUInterface else gpu.dawn.Interface;
+pub usingnamespace if (!@hasDecl(App, "GPUInterface")) struct {
+    pub const GPUInterface = core.wgpu.dawn.Interface;
+} else struct {};
+
+pub usingnamespace if (!@hasDecl(App, "DGPUInterface")) extern struct {
+    pub const DGPUInterface = core.dusk.Impl;
+} else struct {};
 
 pub fn main() !void {
     // Run from the directory where the executable is located so relative assets can be found.
@@ -19,12 +24,13 @@ pub fn main() !void {
     const path = std.fs.selfExeDirPath(buffer[0..]) catch ".";
     std.os.chdir(path) catch {};
 
-    // Initialize GPU implementation
-    gpu.Impl.init();
-
     var gpa = std.heap.GeneralPurposeAllocator(.{}){};
     defer _ = gpa.deinit();
     core.allocator = gpa.allocator();
+
+    // Initialize GPU implementation
+    if (comptime core.options.use_wgpu) try core.wgpu.Impl.init(core.allocator, .{});
+    if (comptime core.options.use_dgpu) try core.dusk.Impl.init(core.allocator, .{});
 
     var app: App = undefined;
     try app.init();

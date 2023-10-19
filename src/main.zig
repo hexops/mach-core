@@ -1,7 +1,7 @@
 const std = @import("std");
 const builtin = @import("builtin");
 
-pub const gpu = @import("mach-gpu");
+pub const dusk = @import("mach-dusk");
 pub const sysjs = @import("mach-sysjs");
 pub const Timer = @import("Timer.zig");
 const platform_util = if (builtin.cpu.arch == .wasm32) {} else @import("platform/native/util.zig");
@@ -12,6 +12,32 @@ const platform = @import("platform.zig");
 fn ErrorSet(comptime F: type) type {
     return @typeInfo(@typeInfo(F).Fn.return_type.?).ErrorUnion.error_set;
 }
+
+/// Comptime options that you can configure in your main file by writing e.g.:
+///
+/// ```
+/// pub const mach_core_options = core.ComptimeOptions{
+///     .use_wgpu = true,
+///     .use_dgpu = true,
+/// };
+/// ```
+pub const ComptimeOptions = struct {
+    /// Whether to use
+    use_wgpu: bool = true,
+
+    /// Whether or not to use the experimental Dusk graphics API.
+    use_dgpu: bool = false,
+};
+
+pub const options = if (@hasDecl(@import("root"), "mach_core_options"))
+    @import("root").mach_core_options
+else
+    ComptimeOptions{};
+
+pub const wgpu = @import("mach-gpu");
+pub const dgpu = dusk.dgpu;
+
+pub const gpu = if (options.use_dgpu) dgpu else wgpu;
 
 pub fn AppInterface(comptime app_entry: anytype) void {
     if (!@hasDecl(app_entry, "App")) {
@@ -111,9 +137,9 @@ pub const Options = struct {
     required_limits: ?gpu.Limits = null,
 };
 
-pub fn init(options: Options) !void {
+pub fn init(options_in: Options) !void {
     // Copy window title into owned buffer.
-    var opt = options;
+    var opt = options_in;
     if (opt.title.len < title.len) {
         std.mem.copy(u8, title[0..], opt.title);
         title[opt.title.len] = 0;
