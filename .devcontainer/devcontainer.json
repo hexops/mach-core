@@ -1,0 +1,19 @@
+{
+  "name": "Default Linux Universal",
+  "build": {
+    "dockerfile": "Dockerfile"
+  },
+  "customizations": {
+    "vscode": {
+      "extensions": [
+        "ziglang.vscode-zig",
+        "vadimcn.vscode-lldb",
+        "zxh404.vscode-proto3",
+        "slevesque.shader"
+      ]
+    }
+  },
+  "containerEnv": {
+    "SHELL": "/usr/bin/zsh"
+  }
+}

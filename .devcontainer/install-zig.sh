@@ -1,0 +1,50 @@
+#!/usr/bin/env bash
+
+ZIG_VERSION="${VERSION:-"0.12.0-dev.389+61b70778b"}"
+
+set -e
+
+if [ "$(id -u)" -ne 0 ]; then
+	echo -e 'Script must be run as root. Use sudo, su, or add "USER root" to your Dockerfile before running this script.'
+	exit 1
+fi
+
+# Clean up
+rm -rf /var/lib/apt/lists/*
+
+ARCH="$(uname -m)"
+
+# Checks if packages are installed and installs them if not
+check_packages() {
+	if ! dpkg -s "$@" >/dev/null 2>&1; then
+		if [ "$(find /var/lib/apt/lists/* | wc -l)" = "0" ]; then
+			echo "Running apt-get update..."
+			apt-get update -y
+		fi
+		apt-get -y install --no-install-recommends "$@"
+	fi
+}
+
+check_packages ca-certificates xz-utils
+
+# remove existing instalations
+rm -rf /usr/local/lib/zig
+# make sure /usr/local/lib/zig exists
+mkdir -p /usr/local/lib/zig
+# download binary, untar and ln into /usr/local/bin
+wget -c https://ziglang.org/builds/zig-linux-$(arch)-$ZIG_VERSION.tar.xz -O - | tar -xJ --strip-components=1 -C /usr/local/lib/zig
+# make binary executable
+chmod +x /usr/local/lib/zig/zig
+# create symbolic link
+rm /usr/local/bin/zig || true
+ln -s /usr/local/lib/zig/zig /usr/local/bin/zig
+
+# install language server
+wget -c https://zig.pm/zls/downloads/$(arch)-linux/bin/zls -O /usr/local/bin/zls
+# make binary executable
+chmod +x /usr/local/bin/zls
+
+# Clean up
+rm -rf /var/lib/apt/lists/*
+
+echo "Done!"

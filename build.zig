@@ -160,7 +160,6 @@ pub const App = struct {
             }
         };
 
-        if (options.custom_entrypoint == null) compile.main_pkg_path = .{ .path = sdkPath("/src") };
         compile.addModule("mach-core", mach_core_mod);
         compile.addModule("app", app_module);
 
