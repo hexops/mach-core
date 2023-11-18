@@ -57,6 +57,8 @@ comptime {
 
     assertHasDecl(@This().Core, "outOfMemory");
 
+    assertHasDecl(@This().Core, "nativeWindowCocoa");
+
     // Timer
     assertHasDecl(@This().Timer, "start");
     assertHasDecl(@This().Timer, "read");
