@@ -455,7 +455,7 @@ pub inline fn inputRate() u32 {
 /// Returns the underlying native NSWindow pointer
 ///
 /// May only be called on macOS.
-pub fn nativeWindowCocoa() ?*anyopaque {
+pub fn nativeWindowCocoa() *anyopaque {
     return internal.nativeWindowCocoa();
 }
 
