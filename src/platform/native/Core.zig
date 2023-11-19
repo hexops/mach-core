@@ -1039,6 +1039,12 @@ pub inline fn wakeMainThread(self: *Core) void {
     glfw.postEmptyEvent();
 }
 
+// May be called from any thread.
+pub fn nativeWindowCocoa(self: *Core) *anyopaque {
+    const glfw_native = glfw.Native(comptime util.detectGLFWOptions());
+    return glfw_native.getCocoaWindow(self.window).?;
+}
+
 fn toMachButton(button: glfw.mouse_button.MouseButton) MouseButton {
     return switch (button) {
         .left => .left,

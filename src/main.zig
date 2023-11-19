@@ -117,8 +117,6 @@ pub var descriptor: gpu.SwapChain.Descriptor = undefined;
 pub var delta_time: f32 = 0;
 pub var delta_time_ns: u64 = 0;
 
-var core: platform.Core = undefined;
-
 var frame: Frequency = undefined;
 var input: Frequency = undefined;
 var internal: platform.Core = undefined;
@@ -452,6 +450,13 @@ pub inline fn frameRate() u32 {
 /// This is updated once per second.
 pub inline fn inputRate() u32 {
     return input.rate;
+}
+
+/// Returns the underlying native NSWindow pointer
+///
+/// May only be called on macOS.
+pub fn nativeWindowCocoa() *anyopaque {
+    return internal.nativeWindowCocoa();
 }
 
 pub const Size = struct {
