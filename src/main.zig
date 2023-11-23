@@ -80,6 +80,7 @@ pub fn AppInterface(comptime app_entry: anytype) void {
     }
 }
 
+
 /// wasm32: custom std.log implementation which logs to the browser console.
 /// other: std.log.defaultLog
 pub const defaultLog = platform.Core.defaultLog;
@@ -457,6 +458,13 @@ pub inline fn inputRate() u32 {
 /// May only be called on macOS.
 pub fn nativeWindowCocoa() *anyopaque {
     return internal.nativeWindowCocoa();
+}
+
+/// Returns the underlying native Windows' HWND pointer
+///
+/// May only be called on Windows.
+pub fn nativeWindowWin32() std.os.windows.HWND {
+    return internal.nativeWindowWin32();
 }
 
 pub const Size = struct {
