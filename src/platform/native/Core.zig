@@ -1045,6 +1045,12 @@ pub fn nativeWindowCocoa(self: *Core) *anyopaque {
     return glfw_native.getCocoaWindow(self.window).?;
 }
 
+// May be called from any thread.
+pub fn nativeWindowWin32(self: *Core) std.os.windows.HWND {
+    const glfw_native = glfw.Native(comptime util.detectGLFWOptions());
+    return glfw_native.getWin32Window(self.window);
+}
+
 fn toMachButton(button: glfw.mouse_button.MouseButton) MouseButton {
     return switch (button) {
         .left => .left,
