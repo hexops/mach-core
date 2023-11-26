@@ -14,8 +14,8 @@ pub usingnamespace if (!@hasDecl(App, "GPUInterface")) struct {
     pub const GPUInterface = core.wgpu.dawn.Interface;
 } else struct {};
 
-pub usingnamespace if (!@hasDecl(App, "DGPUInterface")) extern struct {
-    pub const DGPUInterface = core.dusk.Impl;
+pub usingnamespace if (!@hasDecl(App, "SYSGPUInterface")) extern struct {
+    pub const SYSGPUInterface = core.sysgpu.Impl;
 } else struct {};
 
 pub fn main() !void {
@@ -30,7 +30,7 @@ pub fn main() !void {
 
     // Initialize GPU implementation
     if (comptime core.options.use_wgpu) try core.wgpu.Impl.init(core.allocator, .{});
-    if (comptime core.options.use_dgpu) try core.dusk.Impl.init(core.allocator, .{});
+    if (comptime core.options.use_sysgpu) try core.sysgpu.Impl.init(core.allocator, .{});
 
     var app: App = undefined;
     try app.init();
