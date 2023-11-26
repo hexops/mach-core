@@ -32,9 +32,9 @@
             .url = "https://pkg.machengine.org/mach-gamemode/a020ce1fedb5154491beda630c32ba75114c7fb3.tar.gz",
             .hash = "122033bae174097c3236afaf934f56c35abfa7b68238abacc4a7df9c0ff43c29ed2e",
         },
-        .mach_dusk = .{
-            .url = "https://pkg.machengine.org/mach-dusk/ee8abd31daefa617832c590d61c1e1d665a5e55a.tar.gz",
-            .hash = "1220d0bf732d8291b8629ce7e115efb6adef84dcc1218317ee0a89a6f1663153f2a9",
+        .mach_sysgpu = .{
+            .url = "https://pkg.machengine.org/mach-sysgpu/e5682c4d05ab8f50defdf821be431eb7ead75111.tar.gz",
+            .hash = "1220e011b9bb9e642b0a0434f7a30617cc12e2c8ea05af50d889f079ec531dc04512",
         },
         .mach_gpu = .{
             .url = "https://pkg.machengine.org/mach-gpu/fcd1c3d54dface0968d554795cf39cc644d55278.tar.gz",

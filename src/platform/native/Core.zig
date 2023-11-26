@@ -137,7 +137,7 @@ pub fn init(
     options: Options,
 ) !void {
     if (!@import("builtin").is_test and mach_core.options.use_wgpu) _ = mach_core.wgpu.Export(@import("root").GPUInterface);
-    if (!@import("builtin").is_test and mach_core.options.use_dgpu) _ = mach_core.dgpu.Export(@import("root").DGPUInterface);
+    if (!@import("builtin").is_test and mach_core.options.use_sysgpu) _ = mach_core.sysgpu.sysgpu.Export(@import("root").SYSGPUInterface);
 
     const backend_type = try util.detectBackendType(allocator);
 

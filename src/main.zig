@@ -1,7 +1,7 @@
 const std = @import("std");
 const builtin = @import("builtin");
 
-pub const dusk = @import("mach-dusk");
+pub const sysgpu = @import("mach-sysgpu");
 pub const sysjs = @import("mach-sysjs");
 pub const Timer = @import("Timer.zig");
 const platform_util = if (builtin.cpu.arch == .wasm32) {} else @import("platform/native/util.zig");
@@ -18,15 +18,15 @@ fn ErrorSet(comptime F: type) type {
 /// ```
 /// pub const mach_core_options = core.ComptimeOptions{
 ///     .use_wgpu = true,
-///     .use_dgpu = true,
+///     .use_sysgpu = true,
 /// };
 /// ```
 pub const ComptimeOptions = struct {
     /// Whether to use
     use_wgpu: bool = true,
 
-    /// Whether or not to use the experimental Dusk graphics API.
-    use_dgpu: bool = false,
+    /// Whether or not to use the experimental sysgpu graphics API.
+    use_sysgpu: bool = false,
 };
 
 pub const options = if (@hasDecl(@import("root"), "mach_core_options"))
@@ -35,9 +35,8 @@ else
     ComptimeOptions{};
 
 pub const wgpu = @import("mach-gpu");
-pub const dgpu = dusk.dgpu;
 
-pub const gpu = if (options.use_dgpu) dgpu else wgpu;
+pub const gpu = if (options.use_sysgpu) sysgpu.sysgpu else wgpu;
 
 pub fn AppInterface(comptime app_entry: anytype) void {
     if (!@hasDecl(app_entry, "App")) {

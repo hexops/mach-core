@@ -15,7 +15,7 @@ pub fn build(b: *std.Build) !void {
         .target = target,
         .optimize = optimize,
     });
-    const mach_dusk_dep = b.dependency("mach_dusk", .{
+    const sysgpu_dep = b.dependency("mach_sysgpu", .{
         .target = target,
         .optimize = optimize,
     });
@@ -32,7 +32,7 @@ pub fn build(b: *std.Build) !void {
         .dependencies = &.{
             .{ .name = "mach-gpu", .module = mach_gpu_dep.module("mach-gpu") },
             .{ .name = "mach-glfw", .module = mach_glfw_dep.module("mach-glfw") },
-            .{ .name = "mach-dusk", .module = mach_dusk_dep.module("mach-dusk") },
+            .{ .name = "mach-sysgpu", .module = sysgpu_dep.module("mach-sysgpu") },
             .{ .name = "mach-gamemode", .module = gamemode_dep.module("mach-gamemode") },
             .{ .name = "mach-sysjs", .module = sysjs_dep.module("mach-sysjs") },
         },

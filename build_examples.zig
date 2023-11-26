@@ -1,5 +1,6 @@
 const std = @import("std");
 const core = @import("build.zig");
+const sysgpu = @import("mach_sysgpu");
 
 pub fn build(
     b: *std.Build,
@@ -48,7 +49,7 @@ pub fn build(
         name: []const u8,
         deps: []const Dependency = &.{},
         std_platform_only: bool = false,
-        dusk: bool = false,
+        sysgpu: bool = false,
     }{
         .{ .name = "wasm-test" },
         .{ .name = "triangle" },
@@ -79,26 +80,26 @@ pub fn build(
         .{ .name = "image-blur", .deps = &.{ .zigimg, .assets } },
         .{ .name = "cubemap", .deps = &.{ .zigimg, .assets } },
 
-        // Dusk
-        .{ .name = "boids", .dusk = true },
-        .{ .name = "clear-color", .dusk = true },
-        .{ .name = "cubemap", .deps = &.{ .zigimg, .assets }, .dusk = true },
-        .{ .name = "deferred-rendering", .deps = &.{ .model3d, .assets }, .std_platform_only = true, .dusk = true },
-        .{ .name = "fractal-cube", .dusk = true },
-        .{ .name = "gen-texture-light", .dusk = true },
-        .{ .name = "image-blur", .deps = &.{ .zigimg, .assets }, .dusk = true },
-        .{ .name = "instanced-cube", .dusk = true },
-        .{ .name = "map-async", .dusk = true },
-        .{ .name = "pbr-basic", .deps = &.{ .model3d, .assets }, .std_platform_only = true, .dusk = true },
-        .{ .name = "pixel-post-process", .dusk = true },
-        .{ .name = "procedural-primitives", .dusk = true },
-        .{ .name = "rotating-cube", .dusk = true },
-        .{ .name = "sprite2d", .deps = &.{ .zigimg, .assets }, .dusk = true },
-        .{ .name = "image", .deps = &.{ .zigimg, .assets }, .dusk = true },
-        .{ .name = "textured-cube", .deps = &.{ .zigimg, .assets }, .dusk = true },
-        .{ .name = "triangle", .dusk = true },
-        .{ .name = "triangle-msaa", .dusk = true },
-        .{ .name = "two-cubes", .dusk = true },
+        // sysgpu
+        .{ .name = "boids", .sysgpu = true },
+        .{ .name = "clear-color", .sysgpu = true },
+        .{ .name = "cubemap", .deps = &.{ .zigimg, .assets }, .sysgpu = true },
+        .{ .name = "deferred-rendering", .deps = &.{ .model3d, .assets }, .std_platform_only = true, .sysgpu = true },
+        .{ .name = "fractal-cube", .sysgpu = true },
+        .{ .name = "gen-texture-light", .sysgpu = true },
+        .{ .name = "image-blur", .deps = &.{ .zigimg, .assets }, .sysgpu = true },
+        .{ .name = "instanced-cube", .sysgpu = true },
+        .{ .name = "map-async", .sysgpu = true },
+        .{ .name = "pbr-basic", .deps = &.{ .model3d, .assets }, .std_platform_only = true, .sysgpu = true },
+        .{ .name = "pixel-post-process", .sysgpu = true },
+        .{ .name = "procedural-primitives", .sysgpu = true },
+        .{ .name = "rotating-cube", .sysgpu = true },
+        .{ .name = "sprite2d", .deps = &.{ .zigimg, .assets }, .sysgpu = true },
+        .{ .name = "image", .deps = &.{ .zigimg, .assets }, .sysgpu = true },
+        .{ .name = "textured-cube", .deps = &.{ .zigimg, .assets }, .sysgpu = true },
+        .{ .name = "triangle", .sysgpu = true },
+        .{ .name = "triangle-msaa", .sysgpu = true },
+        .{ .name = "two-cubes", .sysgpu = true },
     }) |example| {
         // FIXME: this is workaround for a problem that some examples
         // (having the std_platform_only=true field) as well as zigimg
@@ -116,21 +117,21 @@ pub fn build(
             .module = b.createModule(.{ .source_file = .{ .path = "examples/zmath.zig" } }),
         });
         for (example.deps) |d| try deps.append(d.moduleDependency(b, target, optimize));
-        const cmd_name = if (example.dusk) "dusk-" ++ example.name else example.name;
+        const cmd_name = if (example.sysgpu) "sysgpu-" ++ example.name else example.name;
         const app = try core.App.init(
             b,
             b,
             .{
                 .name = cmd_name,
-                .src = if (example.dusk)
-                    "examples/dusk/" ++ example.name ++ "/main.zig"
+                .src = if (example.sysgpu)
+                    "examples/sysgpu/" ++ example.name ++ "/main.zig"
                 else
                     "examples/" ++ example.name ++ "/main.zig",
                 .target = target,
                 .optimize = optimize,
                 .deps = deps.items,
-                .watch_paths = if (example.dusk)
-                    &.{"examples/dusk/" ++ example.name}
+                .watch_paths = if (example.sysgpu)
+                    &.{"examples/sysgpu/" ++ example.name}
                 else
                     &.{"examples/" ++ example.name},
                 .mach_core_mod = mach_core_mod,
@@ -145,13 +146,13 @@ pub fn build(
             else => {},
         };
 
-        if (example.dusk) {
-            const mach_dusk_dep = b.dependency("mach_dusk", .{
+        if (example.sysgpu) {
+            const sysgpu_dep = b.dependency("mach_sysgpu", .{
                 .target = target,
                 .optimize = optimize,
             });
-            app.compile.linkLibrary(mach_dusk_dep.artifact("mach-dusk"));
-            @import("mach_dusk").link(mach_dusk_dep.builder, app.compile);
+            app.compile.linkLibrary(sysgpu_dep.artifact("mach-sysgpu"));
+            @import("mach_sysgpu").link(sysgpu_dep.builder, app.compile);
         }
 
         const install_step = b.step(cmd_name, "Install " ++ cmd_name);
