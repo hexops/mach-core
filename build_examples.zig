@@ -223,7 +223,7 @@ const optional_dependency = struct {
     }
 
     fn xGetCurrentGitRevision(allocator: std.mem.Allocator, cwd: []const u8) ![]const u8 {
-        const result = try std.ChildProcess.exec(.{ .allocator = allocator, .argv = &.{ "git", "rev-parse", "HEAD" }, .cwd = cwd });
+        const result = try std.ChildProcess.run(.{ .allocator = allocator, .argv = &.{ "git", "rev-parse", "HEAD" }, .cwd = cwd });
         allocator.free(result.stderr);
         if (result.stdout.len > 0) return result.stdout[0 .. result.stdout.len - 1]; // trim newline
         return result.stdout;
@@ -231,7 +231,7 @@ const optional_dependency = struct {
 
     fn xEnsureGit(allocator: std.mem.Allocator) void {
         const argv = &[_][]const u8{ "git", "--version" };
-        const result = std.ChildProcess.exec(.{
+        const result = std.ChildProcess.run(.{
             .allocator = allocator,
             .argv = argv,
             .cwd = ".",
