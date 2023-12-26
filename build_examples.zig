@@ -64,6 +64,7 @@ pub fn build(
         .{ .name = "gen-texture-light" },
         .{ .name = "fractal-cube" },
         .{ .name = "map-async" },
+        .{ .name = "rgb-quad" },
         .{
             .name = "pbr-basic",
             .deps = &.{ .model3d, .assets },
@@ -75,6 +76,7 @@ pub fn build(
             .std_platform_only = true,
         },
         .{ .name = "textured-cube", .deps = &.{ .zigimg, .assets } },
+        .{ .name = "textured-quad", .deps = &.{ .zigimg, .assets } },
         .{ .name = "sprite2d", .deps = &.{ .zigimg, .assets } },
         .{ .name = "image", .deps = &.{ .zigimg, .assets } },
         .{ .name = "image-blur", .deps = &.{ .zigimg, .assets } },
@@ -97,9 +99,11 @@ pub fn build(
         .{ .name = "sprite2d", .deps = &.{ .zigimg, .assets }, .sysgpu = true },
         .{ .name = "image", .deps = &.{ .zigimg, .assets }, .sysgpu = true },
         .{ .name = "textured-cube", .deps = &.{ .zigimg, .assets }, .sysgpu = true },
+        .{ .name = "textured-quad", .deps = &.{ .zigimg, .assets }, .sysgpu = true },
         .{ .name = "triangle", .sysgpu = true },
         .{ .name = "triangle-msaa", .sysgpu = true },
         .{ .name = "two-cubes", .sysgpu = true },
+        .{ .name = "rgb-quad", .sysgpu = true },
     }) |example| {
         // FIXME: this is workaround for a problem that some examples
         // (having the std_platform_only=true field) as well as zigimg
