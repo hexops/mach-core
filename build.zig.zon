@@ -32,10 +32,11 @@
             .url = "https://pkg.machengine.org/mach-gamemode/36b4d973c9d15dfc214d0b901c174c206bb5f4dc.tar.gz",
             .hash = "12203aaefcb85324476a6d3d277451ea1feaac3549641d717c631a3cffd38eecfbda",
         },
-        .mach_sysgpu = .{
-            .url = "https://pkg.machengine.org/mach-sysgpu/4f60121ce6803bde7695aefb8cb8647d05c2a714.tar.gz",
-            .hash = "1220468021e8ad528defe092cc36ad4342555d2106482781665e8672c9e3345b5d6b",
-        },
+        // TODO(sysgpu): re-enable, see https://github.com/hexops/mach/issues/1144
+        // .mach_sysgpu = .{
+        //     .url = "https://pkg.machengine.org/mach-sysgpu/4f60121ce6803bde7695aefb8cb8647d05c2a714.tar.gz",
+        //     .hash = "1220468021e8ad528defe092cc36ad4342555d2106482781665e8672c9e3345b5d6b",
+        // },
         .mach_gpu = .{
             .url = "https://pkg.machengine.org/mach-gpu/7f6792dbc5cd41da5f54b322b6d5be79d6dda2f1.tar.gz",
             .hash = "122044bcebd28b7d54fb40cbebc04ef6bab0a385952e3193bcf90b37e062ce382495",
