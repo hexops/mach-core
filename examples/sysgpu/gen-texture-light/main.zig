@@ -540,7 +540,7 @@ const Cube = struct {
 };
 
 fn asFloats(comptime arr: anytype) [arr.len]f32 {
-    comptime const len = arr.len;
+    const len = arr.len;
     comptime var out: [len]f32 = undefined;
     comptime var i = 0;
     inline while (i < len) : (i += 1) {

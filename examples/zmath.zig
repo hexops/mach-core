@@ -335,7 +335,7 @@ fn all(vb: anytype, comptime len: u32) bool {
     if (len > veclen(T)) {
         @compileError("zmath.all(): 'len' is greater than vector len of type " ++ @typeName(T));
     }
-    comptime const loop_len = if (len == 0) veclen(T) else len;
+    const loop_len = if (len == 0) veclen(T) else len;
     const ab: [veclen(T)]bool = vb;
     comptime var i: u32 = 0;
     var result = true;
@@ -350,7 +350,7 @@ fn any(vb: anytype, comptime len: u32) bool {
     if (len > veclen(T)) {
         @compileError("zmath.any(): 'len' is greater than vector len of type " ++ @typeName(T));
     }
-    comptime const loop_len = if (len == 0) veclen(T) else len;
+    const loop_len = if (len == 0) veclen(T) else len;
     const ab: [veclen(T)]bool = vb;
     comptime var i: u32 = 0;
     var result = false;
