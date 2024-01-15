@@ -11,36 +11,38 @@ pub fn build(b: *std.Build) !void {
         .target = target,
         .optimize = optimize,
     });
-    const mach_glfw_dep = b.dependency("mach_glfw", .{
-        .target = target,
-        .optimize = optimize,
-    });
     // TODO(sysgpu): re-enable, see https://github.com/hexops/mach/issues/1144
     // const sysgpu_dep = b.dependency("mach_sysgpu", .{
     //     .target = target,
     //     .optimize = optimize,
     // });
-    const gamemode_dep = b.dependency("mach_gamemode", .{
-        .target = target,
-        .optimize = optimize,
-    });
-    const sysjs_dep = b.dependency("mach_sysjs", .{
-        .target = target,
-        .optimize = optimize,
-    });
     const module = b.addModule("mach-core", .{
         .root_source_file = .{ .path = "src/main.zig" },
         .imports = &.{
             .{ .name = "mach-gpu", .module = mach_gpu_dep.module("mach-gpu") },
-            .{ .name = "mach-glfw", .module = mach_glfw_dep.module("mach-glfw") },
             // TODO(sysgpu): re-enable, see https://github.com/hexops/mach/issues/1144
             // .{ .name = "mach-sysgpu", .module = sysgpu_dep.module("mach-sysgpu") },
-            .{ .name = "mach-gamemode", .module = gamemode_dep.module("mach-gamemode") },
-            .{ .name = "mach-sysjs", .module = sysjs_dep.module("mach-sysjs") },
         },
     });
 
-    if (target.result.cpu.arch != .wasm32) {
+    if (target.result.cpu.arch == .wasm32) {
+        const sysjs_dep = b.dependency("mach_sysjs", .{
+            .target = target,
+            .optimize = optimize,
+        });
+        module.addImport("mach-sysjs", sysjs_dep.module("mach-sysjs"));
+    } else {
+        const mach_glfw_dep = b.dependency("mach_glfw", .{
+            .target = target,
+            .optimize = optimize,
+        });
+        const gamemode_dep = b.dependency("mach_gamemode", .{
+            .target = target,
+            .optimize = optimize,
+        });
+        module.addImport("mach-glfw", mach_glfw_dep.module("mach-glfw"));
+        module.addImport("mach-gamemode", gamemode_dep.module("mach-gamemode"));
+
         const main_tests = b.addTest(.{
             .name = "core-tests",
             .root_source_file = .{ .path = sdkPath("/src/main.zig") },
@@ -141,7 +143,7 @@ pub const App = struct {
                 // wasm libraries should go into zig-out/www/
                 app_builder.lib_dir = app_builder.fmt("{s}/www", .{app_builder.install_path});
 
-                const lib = app_builder.addSharedLibrary(.{
+                const lib = app_builder.addStaticLibrary(.{
                     .name = options.name,
                     .root_source_file = .{ .path = options.custom_entrypoint orelse sdkPath("/src/platform/wasm/main.zig") },
                     .target = options.target,
