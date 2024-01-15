@@ -266,7 +266,7 @@ inline fn splatInt(comptime T: type, value: u32) T {
 
 fn load(mem: []const f32, comptime T: type, comptime len: u32) T {
     var v = splat(T, 0.0);
-    comptime const loop_len = if (len == 0) veclen(T) else len;
+    const loop_len = if (len == 0) veclen(T) else len;
     comptime var i: u32 = 0;
     inline while (i < loop_len) : (i += 1) {
         v[i] = mem[i];
@@ -276,7 +276,7 @@ fn load(mem: []const f32, comptime T: type, comptime len: u32) T {
 
 fn store(mem: []f32, v: anytype, comptime len: u32) void {
     const T = @TypeOf(v);
-    comptime const loop_len = if (len == 0) veclen(T) else len;
+    const loop_len = if (len == 0) veclen(T) else len;
     comptime var i: u32 = 0;
     inline while (i < loop_len) : (i += 1) {
         mem[i] = v[i];
