@@ -11,17 +11,15 @@ pub fn build(b: *std.Build) !void {
         .target = target,
         .optimize = optimize,
     });
-    // TODO(sysgpu): re-enable, see https://github.com/hexops/mach/issues/1144
-    // const sysgpu_dep = b.dependency("mach_sysgpu", .{
-    //     .target = target,
-    //     .optimize = optimize,
-    // });
+    const sysgpu_dep = b.dependency("mach_sysgpu", .{
+        .target = target,
+        .optimize = optimize,
+    });
     const module = b.addModule("mach-core", .{
         .root_source_file = .{ .path = "src/main.zig" },
         .imports = &.{
             .{ .name = "mach-gpu", .module = mach_gpu_dep.module("mach-gpu") },
-            // TODO(sysgpu): re-enable, see https://github.com/hexops/mach/issues/1144
-            // .{ .name = "mach-sysgpu", .module = sysgpu_dep.module("mach-sysgpu") },
+            .{ .name = "mach-sysgpu", .module = sysgpu_dep.module("mach-sysgpu") },
         },
     });
 
