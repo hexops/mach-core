@@ -15,10 +15,11 @@ pub fn build(b: *std.Build) !void {
         .target = target,
         .optimize = optimize,
     });
-    const sysgpu_dep = b.dependency("mach_sysgpu", .{
-        .target = target,
-        .optimize = optimize,
-    });
+    // TODO(sysgpu): re-enable, see https://github.com/hexops/mach/issues/1144
+    // const sysgpu_dep = b.dependency("mach_sysgpu", .{
+    //     .target = target,
+    //     .optimize = optimize,
+    // });
     const gamemode_dep = b.dependency("mach_gamemode", .{
         .target = target,
         .optimize = optimize,
@@ -32,7 +33,8 @@ pub fn build(b: *std.Build) !void {
         .imports = &.{
             .{ .name = "mach-gpu", .module = mach_gpu_dep.module("mach-gpu") },
             .{ .name = "mach-glfw", .module = mach_glfw_dep.module("mach-glfw") },
-            .{ .name = "mach-sysgpu", .module = sysgpu_dep.module("mach-sysgpu") },
+            // TODO(sysgpu): re-enable, see https://github.com/hexops/mach/issues/1144
+            // .{ .name = "mach-sysgpu", .module = sysgpu_dep.module("mach-sysgpu") },
             .{ .name = "mach-gamemode", .module = gamemode_dep.module("mach-gamemode") },
             .{ .name = "mach-sysjs", .module = sysjs_dep.module("mach-sysjs") },
         },
