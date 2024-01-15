@@ -100,7 +100,7 @@ pub fn init(app: *App) !void {
         .size = @sizeOf(Vertex) * vertices.len,
         .mapped_at_creation = .true,
     });
-    var vertex_mapped = vertex_buffer.getMappedRange(Vertex, 0, vertices.len);
+    const vertex_mapped = vertex_buffer.getMappedRange(Vertex, 0, vertices.len);
     std.mem.copy(Vertex, vertex_mapped.?, vertices[0..]);
     vertex_buffer.unmap();
 
@@ -180,14 +180,14 @@ pub fn init(app: *App) !void {
         switch (images[i].pixels) {
             .rgba32 => |pixels| {
                 // Map a section of the staging buffer
-                var staging_map = staging_buff[i].getMappedRange(u32, 0, @as(u64, @intCast(images[i].width)) * @as(u64, @intCast(images[i].height)));
+                const staging_map = staging_buff[i].getMappedRange(u32, 0, @as(u64, @intCast(images[i].width)) * @as(u64, @intCast(images[i].height)));
                 // Copy the image data into the mapped buffer
                 std.mem.copy(u32, staging_map.?, @as([]u32, @ptrCast(@alignCast(pixels))));
                 // And release the mapping
                 staging_buff[i].unmap();
             },
             .rgb24 => |pixels| {
-                var staging_map = staging_buff[i].getMappedRange(u32, 0, @as(u64, @intCast(images[i].width)) * @as(u64, @intCast(images[i].height)));
+                const staging_map = staging_buff[i].getMappedRange(u32, 0, @as(u64, @intCast(images[i].width)) * @as(u64, @intCast(images[i].height)));
                 // In this case, we have to convert the data to rgba32 first
                 const data = try rgb24ToRgba32(allocator, pixels);
                 defer data.deinit(allocator);

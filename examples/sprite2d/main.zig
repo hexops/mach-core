@@ -72,7 +72,7 @@ pub fn init(app: *App) !void {
     const sprites_file = try std.fs.cwd().openFile("../../examples/sprite2d/sprites.json", .{ .mode = .read_only });
     defer sprites_file.close();
     const file_size = (try sprites_file.stat()).size;
-    var buffer = try allocator.alloc(u8, file_size);
+    const buffer = try allocator.alloc(u8, file_size);
     defer allocator.free(buffer);
     try sprites_file.reader().readNoEof(buffer);
     const root = try std.json.parseFromSlice(JSONData, allocator, buffer, .{});
@@ -140,7 +140,7 @@ pub fn init(app: *App) !void {
         .size = @sizeOf(Sprite) * app.sprites.items.len,
         .mapped_at_creation = .true,
     });
-    var sprites_mapped = sprites_buffer.getMappedRange(Sprite, 0, app.sprites.items.len);
+    const sprites_mapped = sprites_buffer.getMappedRange(Sprite, 0, app.sprites.items.len);
     std.mem.copy(Sprite, sprites_mapped.?, app.sprites.items[0..]);
     sprites_buffer.unmap();
 

@@ -18,7 +18,7 @@ pub fn init(app: *App) !void {
         .max_uniform_buffer_binding_size = 16 * 1 * @sizeOf(f32),
     } });
 
-    var allocator = gpa.allocator();
+    const allocator = gpa.allocator();
     const timer = try core.Timer.start();
     try renderer.init(allocator, timer);
     app.* = .{ .title_timer = try core.Timer.start() };

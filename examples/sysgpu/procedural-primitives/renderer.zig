@@ -174,7 +174,7 @@ fn createPipeline(shader_module: *gpu.ShaderModule, bind_group_layout: *gpu.Bind
         .attributes = &vertex_attributes,
     });
 
-    var vertex_pipeline_state = gpu.VertexState.init(.{ .module = shader_module, .entry_point = "vertex_main", .buffers = &.{vertex_buffer_layout} });
+    const vertex_pipeline_state = gpu.VertexState.init(.{ .module = shader_module, .entry_point = "vertex_main", .buffers = &.{vertex_buffer_layout} });
 
     const primitive_pipeline_state = gpu.PrimitiveState{
         .topology = .triangle_list,

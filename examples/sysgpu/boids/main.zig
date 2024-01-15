@@ -118,7 +118,7 @@ pub fn init(app: *App) !void {
         .mapped_at_creation = .true,
         .size = vert_buffer_data.len * @sizeOf(f32),
     });
-    var vertex_mapped = sprite_vertex_buffer.getMappedRange(f32, 0, vert_buffer_data.len);
+    const vertex_mapped = sprite_vertex_buffer.getMappedRange(f32, 0, vert_buffer_data.len);
     @memcpy(vertex_mapped.?, vert_buffer_data[0..]);
     sprite_vertex_buffer.unmap();
 
@@ -153,7 +153,7 @@ pub fn init(app: *App) !void {
             },
             .size = initial_particle_data.len * @sizeOf(f32),
         });
-        var mapped = particle_buffers[i].getMappedRange(f32, 0, initial_particle_data.len);
+        const mapped = particle_buffers[i].getMappedRange(f32, 0, initial_particle_data.len);
         @memcpy(mapped.?, initial_particle_data[0..]);
         particle_buffers[i].unmap();
     }

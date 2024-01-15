@@ -51,7 +51,7 @@ pub inline fn tick(f: *Frequency) void {
     f.internal.last_time = current_time;
 
     if (f.target != 0) {
-        var limited_count = if (f.internal.count > f.target) f.target else f.internal.count + 1;
+        const limited_count = if (f.internal.count > f.target) f.target else f.internal.count + 1;
         const target_time_per_tick: u64 = (std.time.ns_per_s / f.target);
         const target_time = target_time_per_tick * limited_count;
         if (current_time > target_time) {

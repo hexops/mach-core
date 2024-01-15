@@ -266,7 +266,7 @@ inline fn splatInt(comptime T: type, value: u32) T {
 
 fn load(mem: []const f32, comptime T: type, comptime len: u32) T {
     var v = splat(T, 0.0);
-    comptime var loop_len = if (len == 0) veclen(T) else len;
+    comptime const loop_len = if (len == 0) veclen(T) else len;
     comptime var i: u32 = 0;
     inline while (i < loop_len) : (i += 1) {
         v[i] = mem[i];
@@ -276,7 +276,7 @@ fn load(mem: []const f32, comptime T: type, comptime len: u32) T {
 
 fn store(mem: []f32, v: anytype, comptime len: u32) void {
     const T = @TypeOf(v);
-    comptime var loop_len = if (len == 0) veclen(T) else len;
+    comptime const loop_len = if (len == 0) veclen(T) else len;
     comptime var i: u32 = 0;
     inline while (i < loop_len) : (i += 1) {
         mem[i] = v[i];
@@ -335,7 +335,7 @@ fn all(vb: anytype, comptime len: u32) bool {
     if (len > veclen(T)) {
         @compileError("zmath.all(): 'len' is greater than vector len of type " ++ @typeName(T));
     }
-    comptime var loop_len = if (len == 0) veclen(T) else len;
+    comptime const loop_len = if (len == 0) veclen(T) else len;
     const ab: [veclen(T)]bool = vb;
     comptime var i: u32 = 0;
     var result = true;
@@ -350,7 +350,7 @@ fn any(vb: anytype, comptime len: u32) bool {
     if (len > veclen(T)) {
         @compileError("zmath.any(): 'len' is greater than vector len of type " ++ @typeName(T));
     }
-    comptime var loop_len = if (len == 0) veclen(T) else len;
+    comptime const loop_len = if (len == 0) veclen(T) else len;
     const ab: [veclen(T)]bool = vb;
     comptime var i: u32 = 0;
     var result = false;
@@ -649,7 +649,7 @@ fn sincos(v: anytype) [2]@TypeOf(v) {
 
 inline fn dot2(v0: Vec, v1: Vec) F32x4 {
     var xmm0 = v0 * v1; // | x0*x1 | y0*y1 | -- | -- |
-    var xmm1 = swizzle(xmm0, .y, .x, .x, .x); // | y0*y1 | -- | -- | -- |
+    const xmm1 = swizzle(xmm0, .y, .x, .x, .x); // | y0*y1 | -- | -- | -- |
     xmm0 = f32x4(xmm0[0] + xmm1[0], xmm0[1], xmm0[2], xmm0[3]); // | x0*x1 + y0*y1 | -- | -- | -- |
     return swizzle(xmm0, .x, .x, .x, .x);
 }
@@ -688,10 +688,10 @@ inline fn normalize4(v: Vec) Vec {
 }
 
 fn vecMulMat(v: Vec, m: Mat) Vec {
-    var vx = @shuffle(f32, v, undefined, [4]i32{ 0, 0, 0, 0 });
-    var vy = @shuffle(f32, v, undefined, [4]i32{ 1, 1, 1, 1 });
-    var vz = @shuffle(f32, v, undefined, [4]i32{ 2, 2, 2, 2 });
-    var vw = @shuffle(f32, v, undefined, [4]i32{ 3, 3, 3, 3 });
+    const vx = @shuffle(f32, v, undefined, [4]i32{ 0, 0, 0, 0 });
+    const vy = @shuffle(f32, v, undefined, [4]i32{ 1, 1, 1, 1 });
+    const vz = @shuffle(f32, v, undefined, [4]i32{ 2, 2, 2, 2 });
+    const vw = @shuffle(f32, v, undefined, [4]i32{ 3, 3, 3, 3 });
     return vx * m[0] + vy * m[1] + vz * m[2] + vw * m[3];
 }
 fn matMulVec(m: Mat, v: Vec) Vec {
@@ -850,7 +850,7 @@ fn inverseDet(m: Mat, out_det: ?*F32x4) Mat {
 }
 
 fn quatFromNormAxisAngle(axis: Vec, angle: f32) Quat {
-    var n = f32x4(axis[0], axis[1], axis[2], 1.0);
+    const n = f32x4(axis[0], axis[1], axis[2], 1.0);
     const sc = sincos(0.5 * angle);
     return n * f32x4(sc[0], sc[0], sc[0], sc[1]);
 }
