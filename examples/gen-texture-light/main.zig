@@ -865,7 +865,7 @@ inline fn initBuffer(device: *gpu.Device, usage: gpu.Buffer.UsageFlags, data: an
     });
 
     const mapped = buffer.getMappedRange(T, 0, data.len);
-    std.mem.copy(T, mapped.?, data);
+    @memcpy(mapped.?, data);
     buffer.unmap();
     return buffer;
 }

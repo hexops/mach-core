@@ -137,7 +137,7 @@ pub fn init(options_in: Options) !void {
     // Copy window title into owned buffer.
     var opt = options_in;
     if (opt.title.len < title.len) {
-        std.mem.copy(u8, title[0..], opt.title);
+        @memcpy(title[0..], opt.title);
         title[opt.title.len] = 0;
         opt.title = title[0..opt.title.len :0];
     }

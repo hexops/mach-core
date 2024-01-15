@@ -107,7 +107,7 @@ pub fn init(app: *App) !void {
         .mapped_at_creation = .true,
     });
     const vertex_mapped = vertex_buffer.getMappedRange(Vertex, 0, vertices.len);
-    std.mem.copy(Vertex, vertex_mapped.?, vertices[0..]);
+    @memcpy(vertex_mapped.?, vertices[0..]);
     vertex_buffer.unmap();
 
     const uniform_buffer = core.device.createBuffer(&.{

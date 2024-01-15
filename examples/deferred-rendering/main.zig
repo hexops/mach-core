@@ -386,7 +386,7 @@ fn loadMeshFromModel3d(app: *App, allocator: std.mem.Allocator, model_data: [:0]
             .mapped_at_creation = .true,
         });
         var mapping = app.vertex_buffer.getMappedRange(Vertex, 0, vertex_buffer.len).?;
-        std.mem.copy(Vertex, mapping[0..vertex_buffer.len], vertex_buffer);
+        @memcpy(mapping[0..vertex_buffer.len], vertex_buffer);
         app.vertex_buffer.unmap();
     }
     {
@@ -397,7 +397,7 @@ fn loadMeshFromModel3d(app: *App, allocator: std.mem.Allocator, model_data: [:0]
             .mapped_at_creation = .true,
         });
         var mapping = app.index_buffer.getMappedRange(u16, 0, index_buffer.len).?;
-        std.mem.copy(u16, mapping[0..index_buffer.len], index_buffer);
+        @memcpy(mapping[0..index_buffer.len], index_buffer);
         app.index_buffer.unmap();
     }
 }
@@ -917,8 +917,8 @@ fn prepareLights(app: *App) void {
         .size = app.lights.extent_buffer_size,
     });
     var light_extent_data = [1]f32{0.0} ** 8;
-    std.mem.copy(f32, light_extent_data[0..3], &light_extent_min);
-    std.mem.copy(f32, light_extent_data[4..7], &light_extent_max);
+    @memcpy(light_extent_data[0..3], &light_extent_min);
+    @memcpy(light_extent_data[4..7], &light_extent_max);
     const queue = core.queue;
     queue.writeBuffer(
         app.lights.extent_buffer,
