@@ -1,7 +1,6 @@
 const std = @import("std");
 const core = @import("build.zig");
-// TODO(sysgpu): re-enable, see https://github.com/hexops/mach/issues/1144
-// const sysgpu = @import("mach_sysgpu");
+const sysgpu = @import("mach_sysgpu");
 
 pub fn build(
     b: *std.Build,
@@ -83,28 +82,28 @@ pub fn build(
         .{ .name = "image-blur", .deps = &.{ .zigimg, .assets } },
         .{ .name = "cubemap", .deps = &.{ .zigimg, .assets } },
 
-        // // sysgpu
-        // .{ .name = "boids", .sysgpu = true },
-        // .{ .name = "clear-color", .sysgpu = true },
-        // .{ .name = "cubemap", .deps = &.{ .zigimg, .assets }, .sysgpu = true },
-        // .{ .name = "deferred-rendering", .deps = &.{ .model3d, .assets }, .std_platform_only = true, .sysgpu = true },
-        // .{ .name = "fractal-cube", .sysgpu = true },
-        // .{ .name = "gen-texture-light", .sysgpu = true },
-        // .{ .name = "image-blur", .deps = &.{ .zigimg, .assets }, .sysgpu = true },
-        // .{ .name = "instanced-cube", .sysgpu = true },
-        // .{ .name = "map-async", .sysgpu = true },
-        // .{ .name = "pbr-basic", .deps = &.{ .model3d, .assets }, .std_platform_only = true, .sysgpu = true },
-        // .{ .name = "pixel-post-process", .sysgpu = true },
-        // .{ .name = "procedural-primitives", .sysgpu = true },
-        // .{ .name = "rotating-cube", .sysgpu = true },
-        // .{ .name = "sprite2d", .deps = &.{ .zigimg, .assets }, .sysgpu = true },
-        // .{ .name = "image", .deps = &.{ .zigimg, .assets }, .sysgpu = true },
-        // .{ .name = "textured-cube", .deps = &.{ .zigimg, .assets }, .sysgpu = true },
-        // .{ .name = "textured-quad", .deps = &.{ .zigimg, .assets }, .sysgpu = true },
-        // .{ .name = "triangle", .sysgpu = true },
-        // .{ .name = "triangle-msaa", .sysgpu = true },
-        // .{ .name = "two-cubes", .sysgpu = true },
-        // .{ .name = "rgb-quad", .sysgpu = true },
+        // sysgpu
+        .{ .name = "boids", .sysgpu = true },
+        .{ .name = "clear-color", .sysgpu = true },
+        .{ .name = "cubemap", .deps = &.{ .zigimg, .assets }, .sysgpu = true },
+        .{ .name = "deferred-rendering", .deps = &.{ .model3d, .assets }, .std_platform_only = true, .sysgpu = true },
+        .{ .name = "fractal-cube", .sysgpu = true },
+        .{ .name = "gen-texture-light", .sysgpu = true },
+        .{ .name = "image-blur", .deps = &.{ .zigimg, .assets }, .sysgpu = true },
+        .{ .name = "instanced-cube", .sysgpu = true },
+        .{ .name = "map-async", .sysgpu = true },
+        .{ .name = "pbr-basic", .deps = &.{ .model3d, .assets }, .std_platform_only = true, .sysgpu = true },
+        .{ .name = "pixel-post-process", .sysgpu = true },
+        .{ .name = "procedural-primitives", .sysgpu = true },
+        .{ .name = "rotating-cube", .sysgpu = true },
+        .{ .name = "sprite2d", .deps = &.{ .zigimg, .assets }, .sysgpu = true },
+        .{ .name = "image", .deps = &.{ .zigimg, .assets }, .sysgpu = true },
+        .{ .name = "textured-cube", .deps = &.{ .zigimg, .assets }, .sysgpu = true },
+        .{ .name = "textured-quad", .deps = &.{ .zigimg, .assets }, .sysgpu = true },
+        .{ .name = "triangle", .sysgpu = true },
+        .{ .name = "triangle-msaa", .sysgpu = true },
+        .{ .name = "two-cubes", .sysgpu = true },
+        .{ .name = "rgb-quad", .sysgpu = true },
     }) |example| {
         // FIXME: this is workaround for a problem that some examples
         // (having the std_platform_only=true field) as well as zigimg
@@ -153,15 +152,14 @@ pub fn build(
             else => {},
         };
 
-        // TODO(sysgpu): re-enable, see https://github.com/hexops/mach/issues/1144
-        // if (example.sysgpu) {
-        //     const sysgpu_dep = b.dependency("mach_sysgpu", .{
-        //         .target = target,
-        //         .optimize = optimize,
-        //     });
-        //     app.compile.linkLibrary(sysgpu_dep.artifact("mach-sysgpu"));
-        //     @import("mach_sysgpu").addPaths(app.compile);
-        // }
+        if (example.sysgpu) {
+            const sysgpu_dep = b.dependency("mach_sysgpu", .{
+                .target = target,
+                .optimize = optimize,
+            });
+            app.compile.linkLibrary(sysgpu_dep.artifact("mach-sysgpu"));
+            @import("mach_sysgpu").addPaths(app.compile);
+        }
 
         const install_step = b.step(cmd_name, "Install " ++ cmd_name);
         install_step.dependOn(&app.install.step);
