@@ -59,16 +59,13 @@ pub fn build(b: *std.Build) !void {
         const test_step = b.step("test", "run tests");
         test_step.dependOn(&b.addRunArtifact(main_tests).step);
 
-        // TODO: autodoc segfaults the build if we have this enabled
-        // https://github.com/hexops/mach/issues/1145
-        //
-        // const install_docs = b.addInstallDirectory(.{
-        //     .source_dir = main_tests.getEmittedDocs(),
-        //     .install_dir = .prefix, // default build output prefix, ./zig-out
-        //     .install_subdir = "docs",
-        // });
-        // const docs_step = b.step("docs", "Generate API docs");
-        // docs_step.dependOn(&install_docs.step);
+        const install_docs = b.addInstallDirectory(.{
+            .source_dir = main_tests.getEmittedDocs(),
+            .install_dir = .prefix, // default build output prefix, ./zig-out
+            .install_subdir = "docs",
+        });
+        const docs_step = b.step("docs", "Generate API docs");
+        docs_step.dependOn(&install_docs.step);
     }
 
     try @import("build_examples.zig").build(b, optimize, target, module);
