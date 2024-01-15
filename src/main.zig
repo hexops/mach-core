@@ -79,7 +79,6 @@ pub fn AppInterface(comptime app_entry: anytype) void {
     }
 }
 
-
 /// wasm32: custom std.log implementation which logs to the browser console.
 /// other: std.log.defaultLog
 pub const defaultLog = platform.Core.defaultLog;

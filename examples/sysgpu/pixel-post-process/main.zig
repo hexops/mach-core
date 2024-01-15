@@ -298,7 +298,7 @@ fn createDrawPipeline(app: *App) void {
         .size = @sizeOf(Vertex) * vertices.len,
         .mapped_at_creation = .true,
     });
-    var vertex_mapped = vertex_buffer.getMappedRange(Vertex, 0, vertices.len);
+    const vertex_mapped = vertex_buffer.getMappedRange(Vertex, 0, vertices.len);
     std.mem.copy(Vertex, vertex_mapped.?, vertices[0..]);
     vertex_buffer.unmap();
 
@@ -415,7 +415,7 @@ fn createPostPipeline(app: *App) void {
         .size = @sizeOf(Quad) * quad.len,
         .mapped_at_creation = .true,
     });
-    var vertex_mapped = vertex_buffer.getMappedRange(Quad, 0, quad.len);
+    const vertex_mapped = vertex_buffer.getMappedRange(Quad, 0, quad.len);
     std.mem.copy(Quad, vertex_mapped.?, quad[0..]);
     vertex_buffer.unmap();
 

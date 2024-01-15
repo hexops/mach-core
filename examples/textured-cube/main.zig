@@ -91,7 +91,7 @@ pub fn init(app: *App) !void {
         .size = @sizeOf(Vertex) * vertices.len,
         .mapped_at_creation = .true,
     });
-    var vertex_mapped = vertex_buffer.getMappedRange(Vertex, 0, vertices.len);
+    const vertex_mapped = vertex_buffer.getMappedRange(Vertex, 0, vertices.len);
     std.mem.copy(Vertex, vertex_mapped.?, vertices[0..]);
     vertex_buffer.unmap();
 

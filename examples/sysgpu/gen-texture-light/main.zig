@@ -540,7 +540,7 @@ const Cube = struct {
 };
 
 fn asFloats(comptime arr: anytype) [arr.len]f32 {
-    comptime var len = arr.len;
+    comptime const len = arr.len;
     comptime var out: [len]f32 = undefined;
     comptime var i = 0;
     inline while (i < len) : (i += 1) {
@@ -869,7 +869,7 @@ inline fn initBuffer(device: *gpu.Device, usage: gpu.Buffer.UsageFlags, data: an
         .mapped_at_creation = .true,
     });
 
-    var mapped = buffer.getMappedRange(T, 0, data.len);
+    const mapped = buffer.getMappedRange(T, 0, data.len);
     std.mem.copy(T, mapped.?, data);
     buffer.unmap();
     return buffer;

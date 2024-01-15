@@ -835,7 +835,7 @@ fn loadModels(allocator: std.mem.Allocator, app: *App) !void {
             while (x < 3) : (x += 1) {
                 const vertex_index = face.vertex[x];
                 const normal_index = face.normal[x];
-                var vertex = Vertex{
+                const vertex = Vertex{
                     .position = .{
                         vertices[vertex_index].x * scale,
                         vertices[vertex_index].y * scale,

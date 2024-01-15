@@ -190,7 +190,7 @@ pub fn msgSend(obj: anytype, sel_name: [:0]const u8, args: anytype, comptime Ret
     };
 
     // NOTE: func is a var because making it const causes a compile error which I believe is a compiler bug
-    var func = @as(FnType, @ptrCast(&objc.objc_msgSend));
+    const func = @as(FnType, @ptrCast(&objc.objc_msgSend));
     const sel = objc.sel_getUid(@as([*c]const u8, @ptrCast(sel_name)));
 
     return @call(.auto, func, .{ obj, sel } ++ args);
