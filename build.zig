@@ -28,8 +28,8 @@ pub fn build(b: *std.Build) !void {
         .optimize = optimize,
     });
     const module = b.addModule("mach-core", .{
-        .source_file = .{ .path = "src/main.zig" },
-        .dependencies = &.{
+        .root_source_file = .{ .path = "src/main.zig" },
+        .imports = &.{
             .{ .name = "mach-gpu", .module = mach_gpu_dep.module("mach-gpu") },
             .{ .name = "mach-glfw", .module = mach_glfw_dep.module("mach-glfw") },
             .{ .name = "mach-sysgpu", .module = sysgpu_dep.module("mach-sysgpu") },
@@ -38,16 +38,16 @@ pub fn build(b: *std.Build) !void {
         },
     });
 
-    if (target.getCpuArch() != .wasm32) {
+    if (target.result.cpu.arch != .wasm32) {
         const main_tests = b.addTest(.{
             .name = "core-tests",
             .root_source_file = .{ .path = sdkPath("/src/main.zig") },
             .target = target,
             .optimize = optimize,
         });
-        var iter = module.dependencies.iterator();
+        var iter = module.import_table.iterator();
         while (iter.next()) |e| {
-            main_tests.addModule(e.key_ptr.*, e.value_ptr.*);
+            main_tests.root_module.addImport(e.key_ptr.*, e.value_ptr.*);
         }
         link(b, main_tests);
         b.installArtifact(main_tests);
@@ -78,9 +78,9 @@ fn sdkPath(comptime suffix: []const u8) []const u8 {
 pub const App = struct {
     b: *std.Build,
     name: []const u8,
-    compile: *std.build.Step.Compile,
-    install: *std.build.Step.InstallArtifact,
-    run: *std.build.Step.Run,
+    compile: *std.Build.Step.Compile,
+    install: *std.Build.Step.InstallArtifact,
+    run: *std.Build.Step.Run,
     platform: Platform,
     res_dirs: ?[]const []const u8,
     watch_paths: ?[]const []const u8,
@@ -101,34 +101,34 @@ pub const App = struct {
         options: struct {
             name: []const u8,
             src: []const u8,
-            target: std.zig.CrossTarget,
+            target: std.Build.ResolvedTarget,
             optimize: std.builtin.OptimizeMode,
             custom_entrypoint: ?[]const u8 = null,
-            deps: ?[]const std.build.ModuleDependency = null,
+            deps: ?[]const std.Build.Module.Import = null,
             res_dirs: ?[]const []const u8 = null,
             watch_paths: ?[]const []const u8 = null,
             mach_core_mod: ?*std.Build.Module = null,
         },
     ) !App {
-        const target = (try std.zig.system.NativeTargetInfo.detect(options.target)).target;
+        const target = options.target.result;
         const platform = Platform.fromTarget(target);
 
-        var dependencies = std.ArrayList(std.build.ModuleDependency).init(app_builder.allocator);
+        var imports = std.ArrayList(std.Build.Module.Import).init(app_builder.allocator);
 
         const mach_core_mod = options.mach_core_mod orelse app_builder.dependency("mach_core", .{
             .target = options.target,
             .optimize = options.optimize,
         }).module("mach-core");
-        try dependencies.append(.{
+        try imports.append(.{
             .name = "mach-core",
             .module = mach_core_mod,
         });
 
-        if (options.deps) |app_deps| try dependencies.appendSlice(app_deps);
+        if (options.deps) |app_deps| try imports.appendSlice(app_deps);
 
         const app_module = app_builder.createModule(.{
-            .source_file = .{ .path = options.src },
-            .dependencies = try dependencies.toOwnedSlice(),
+            .root_source_file = .{ .path = options.src },
+            .imports = try imports.toOwnedSlice(),
         });
 
         const compile = blk: {
@@ -141,7 +141,6 @@ pub const App = struct {
                     .root_source_file = .{ .path = options.custom_entrypoint orelse sdkPath("/src/platform/wasm/main.zig") },
                     .target = options.target,
                     .optimize = options.optimize,
-                    .main_mod_path = if (options.custom_entrypoint == null) .{ .path = sdkPath("/src") } else null,
                 });
                 lib.rdynamic = true;
 
@@ -152,7 +151,6 @@ pub const App = struct {
                     .root_source_file = .{ .path = options.custom_entrypoint orelse sdkPath("/src/platform/native/main.zig") },
                     .target = options.target,
                     .optimize = options.optimize,
-                    .main_mod_path = if (options.custom_entrypoint == null) .{ .path = sdkPath("/src") } else null,
                 });
                 // TODO(core): figure out why we need to disable LTO: https://github.com/hexops/mach/issues/597
                 exe.want_lto = false;
@@ -160,8 +158,8 @@ pub const App = struct {
             }
         };
 
-        compile.addModule("mach-core", mach_core_mod);
-        compile.addModule("app", app_module);
+        compile.root_module.addImport("mach-core", mach_core_mod);
+        compile.root_module.addImport("app", app_module);
 
         // Installation step
         app_builder.installArtifact(compile);
@@ -181,7 +179,7 @@ pub const App = struct {
             inline for (.{ sdkPath("/src/platform/wasm/mach.js"), @import("mach_sysjs").getJSPath() }) |js| {
                 const install_js = app_builder.addInstallFileWithDir(
                     .{ .path = js },
-                    std.build.InstallDir{ .custom = "www" },
+                    std.Build.InstallDir{ .custom = "www" },
                     std.fs.path.basename(js),
                 );
                 install.step.dependOn(&install_js.step);
@@ -208,14 +206,10 @@ pub const App = struct {
     }
 };
 
-pub fn link(core_builder: *std.Build, step: *std.build.CompileStep) void {
-    @import("mach_glfw").link(core_builder.dependency("mach_glfw", .{
-        .target = step.target,
-        .optimize = step.optimize,
-    }).builder, step);
+pub fn link(core_builder: *std.Build, step: *std.Build.Step.Compile) void {
     gpu.link(core_builder.dependency("mach_gpu", .{
-        .target = step.target,
-        .optimize = step.optimize,
+        .target = step.root_module.resolved_target orelse core_builder.host,
+        .optimize = step.root_module.optimize.?,
     }).builder, step, .{}) catch unreachable;
 }
 

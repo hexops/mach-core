@@ -5,8 +5,8 @@ const sysgpu = @import("mach_sysgpu");
 pub fn build(
     b: *std.Build,
     optimize: std.builtin.OptimizeMode,
-    target: std.zig.CrossTarget,
-    mach_core_mod: *std.build.Module,
+    target: std.Build.ResolvedTarget,
+    mach_core_mod: *std.Build.Module,
 ) !void {
     try ensureDependencies(b.allocator);
 
@@ -15,22 +15,22 @@ pub fn build(
         model3d,
         assets,
 
-        pub fn moduleDependency(
+        pub fn dependency(
             dep: @This(),
             b2: *std.Build,
-            target2: std.zig.CrossTarget,
+            target2: std.Build.ResolvedTarget,
             optimize2: std.builtin.OptimizeMode,
-        ) std.Build.ModuleDependency {
+        ) std.Build.Module.Import {
             const path = switch (dep) {
                 .zigimg => "examples/libs/zigimg/zigimg.zig",
-                .assets => return std.Build.ModuleDependency{
+                .assets => return std.Build.Module.Import{
                     .name = "assets",
                     .module = b2.dependency("mach_core_example_assets", .{
                         .target = target2,
                         .optimize = optimize2,
                     }).module("mach-core-example-assets"),
                 },
-                .model3d => return std.Build.ModuleDependency{
+                .model3d => return std.Build.Module.Import{
                     .name = "model3d",
                     .module = b2.dependency("mach_model3d", .{
                         .target = target2,
@@ -38,9 +38,9 @@ pub fn build(
                     }).module("mach-model3d"),
                 },
             };
-            return std.Build.ModuleDependency{
+            return std.Build.Module.Import{
                 .name = @tagName(dep),
-                .module = b2.createModule(.{ .source_file = .{ .path = path } }),
+                .module = b2.createModule(.{ .root_source_file = .{ .path = path } }),
             };
         }
     };
@@ -112,15 +112,17 @@ pub fn build(
         // as soon as any such examples is found. This does means that any
         // example which works on wasm should be placed before those who dont.
         if (example.std_platform_only)
-            if (target.getCpuArch() == .wasm32)
+            if (target.result.cpu.arch == .wasm32)
                 break;
 
-        var deps = std.ArrayList(std.Build.ModuleDependency).init(b.allocator);
-        try deps.append(std.Build.ModuleDependency{
+        var deps = std.ArrayList(std.Build.Module.Import).init(b.allocator);
+        try deps.append(std.Build.Module.Import{
             .name = "zmath",
-            .module = b.createModule(.{ .source_file = .{ .path = "examples/zmath.zig" } }),
+            .module = b.createModule(.{
+                .root_source_file = .{ .path = "examples/zmath.zig" },
+            }),
         });
-        for (example.deps) |d| try deps.append(d.moduleDependency(b, target, optimize));
+        for (example.deps) |d| try deps.append(d.dependency(b, target, optimize));
         const cmd_name = if (example.sysgpu) "sysgpu-" ++ example.name else example.name;
         const app = try core.App.init(
             b,
@@ -156,7 +158,7 @@ pub fn build(
                 .optimize = optimize,
             });
             app.compile.linkLibrary(sysgpu_dep.artifact("mach-sysgpu"));
-            @import("mach_sysgpu").link(sysgpu_dep.builder, app.compile);
+            @import("mach_sysgpu").addPaths(app.compile);
         }
 
         const install_step = b.step(cmd_name, "Install " ++ cmd_name);
@@ -185,7 +187,7 @@ fn ensureDependencies(allocator: std.mem.Allocator) !void {
     try optional_dependency.ensureGitRepoCloned(
         allocator,
         "https://github.com/slimsag/zigimg",
-        "9b455a1d74cd5d6c4c6ec1d853a91cfafb143984",
+        "ad6ad042662856f55a4d67499f1c4606c9951031",
         sdkPath("/examples/libs/zigimg"),
     );
 }
