@@ -101,7 +101,7 @@ pub fn init(app: *App) !void {
         .mapped_at_creation = .true,
     });
     const vertex_mapped = vertex_buffer.getMappedRange(Vertex, 0, vertices.len);
-    std.mem.copy(Vertex, vertex_mapped.?, vertices[0..]);
+    @memcpy(vertex_mapped.?, vertices[0..]);
     vertex_buffer.unmap();
 
     const uniform_buffer = core.device.createBuffer(&.{
@@ -182,7 +182,7 @@ pub fn init(app: *App) !void {
                 // Map a section of the staging buffer
                 const staging_map = staging_buff[i].getMappedRange(u32, 0, @as(u64, @intCast(images[i].width)) * @as(u64, @intCast(images[i].height)));
                 // Copy the image data into the mapped buffer
-                std.mem.copy(u32, staging_map.?, @as([]u32, @ptrCast(@alignCast(pixels))));
+                @memcpy(staging_map.?, @as([]u32, @ptrCast(@alignCast(pixels))));
                 // And release the mapping
                 staging_buff[i].unmap();
             },
@@ -191,7 +191,7 @@ pub fn init(app: *App) !void {
                 // In this case, we have to convert the data to rgba32 first
                 const data = try rgb24ToRgba32(allocator, pixels);
                 defer data.deinit(allocator);
-                std.mem.copy(u32, staging_map.?, @as([]u32, @ptrCast(@alignCast(data.rgba32))));
+                @memcpy(staging_map.?, @as([]u32, @ptrCast(@alignCast(data.rgba32))));
                 staging_buff[i].unmap();
             },
             else => @panic("unsupported image color format"),

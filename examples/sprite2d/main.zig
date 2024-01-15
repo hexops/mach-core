@@ -141,7 +141,7 @@ pub fn init(app: *App) !void {
         .mapped_at_creation = .true,
     });
     const sprites_mapped = sprites_buffer.getMappedRange(Sprite, 0, app.sprites.items.len);
-    std.mem.copy(Sprite, sprites_mapped.?, app.sprites.items[0..]);
+    @memcpy(sprites_mapped.?, app.sprites.items[0..]);
     sprites_buffer.unmap();
 
     // Create a sampler with linear filtering for smooth interpolation.

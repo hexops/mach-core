@@ -294,7 +294,7 @@ fn createDrawPipeline(app: *App) void {
         .mapped_at_creation = .true,
     });
     const vertex_mapped = vertex_buffer.getMappedRange(Vertex, 0, vertices.len);
-    std.mem.copy(Vertex, vertex_mapped.?, vertices[0..]);
+    @memcpy(vertex_mapped.?, vertices[0..]);
     vertex_buffer.unmap();
 
     const uniform_buffer = core.device.createBuffer(&.{
@@ -411,7 +411,7 @@ fn createPostPipeline(app: *App) void {
         .mapped_at_creation = .true,
     });
     const vertex_mapped = vertex_buffer.getMappedRange(Quad, 0, quad.len);
-    std.mem.copy(Quad, vertex_mapped.?, quad[0..]);
+    @memcpy(vertex_mapped.?, quad[0..]);
     vertex_buffer.unmap();
 
     const draw_sampler = core.device.createSampler(null);
