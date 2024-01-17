@@ -29,8 +29,7 @@ pub fn main() !void {
     core.allocator = gpa.allocator();
 
     // Initialize GPU implementation
-    if (comptime core.options.use_wgpu) try core.wgpu.Impl.init(core.allocator, .{});
-    if (comptime core.options.use_sysgpu) try core.sysgpu.Impl.init(core.allocator, .{});
+    try core.gpu.Impl.init(core.allocator, .{});
 
     var app: App = undefined;
     try app.init();
