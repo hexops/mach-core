@@ -111,7 +111,7 @@ pub fn createCirclePrimitive(allocator: std.mem.Allocator, vertices: u32, radius
     vertex_data.appendAssumeCapacity(VertexData{ .position = F32x3{ 0, 0, 0.0 }, .normal = F32x3{ 0, 0, 0.0 } });
 
     var x: u32 = 0;
-    var angle = 2 * PI / @as(f32, @floatFromInt(vertices));
+    const angle = 2 * PI / @as(f32, @floatFromInt(vertices));
     while (x < vertices) : (x += 1) {
         const x_f = @as(f32, @floatFromInt(x));
         const pos_x = radius * zmath.cos(angle * x_f);
@@ -203,7 +203,7 @@ pub fn createCylinderPrimitive(allocator: std.mem.Allocator, radius: f32, height
     const angle = 2.0 * PI / @as(f32, @floatFromInt(num_sides));
 
     for (1..num_sides + 1) |i| {
-        var float_i = @as(f32, @floatFromInt(i));
+        const float_i = @as(f32, @floatFromInt(i));
 
         const x: f32 = radius * zmath.sin(angle * float_i);
         const y: f32 = radius * zmath.cos(angle * float_i);
@@ -230,18 +230,18 @@ pub fn createCylinderPrimitive(allocator: std.mem.Allocator, radius: f32, height
     {
         var i: u32 = 0;
         while (i < alloc_amt_idx) : (i += 3) {
-            var indexA: u32 = index_data.items[i];
-            var indexB: u32 = index_data.items[i + 1];
-            var indexC: u32 = index_data.items[i + 2];
+            const indexA: u32 = index_data.items[i];
+            const indexB: u32 = index_data.items[i + 1];
+            const indexC: u32 = index_data.items[i + 2];
 
-            var vert1: F32x4 = F32x4{ vertex_data.get(indexA).position[0], vertex_data.get(indexA).position[1], vertex_data.get(indexA).position[2], 1.0 };
-            var vert2: F32x4 = F32x4{ vertex_data.get(indexB).position[0], vertex_data.get(indexB).position[1], vertex_data.get(indexB).position[2], 1.0 };
-            var vert3: F32x4 = F32x4{ vertex_data.get(indexC).position[0], vertex_data.get(indexC).position[1], vertex_data.get(indexC).position[2], 1.0 };
+            const vert1: F32x4 = F32x4{ vertex_data.get(indexA).position[0], vertex_data.get(indexA).position[1], vertex_data.get(indexA).position[2], 1.0 };
+            const vert2: F32x4 = F32x4{ vertex_data.get(indexB).position[0], vertex_data.get(indexB).position[1], vertex_data.get(indexB).position[2], 1.0 };
+            const vert3: F32x4 = F32x4{ vertex_data.get(indexC).position[0], vertex_data.get(indexC).position[1], vertex_data.get(indexC).position[2], 1.0 };
 
-            var edgeAB: F32x4 = vert2 - vert1;
-            var edgeAC: F32x4 = vert3 - vert1;
+            const edgeAB: F32x4 = vert2 - vert1;
+            const edgeAC: F32x4 = vert3 - vert1;
 
-            var cross = zmath.cross3(edgeAB, edgeAC);
+            const cross = zmath.cross3(edgeAB, edgeAC);
 
             vertex_data.items(.normal)[indexA][0] += cross[0];
             vertex_data.items(.normal)[indexA][1] += cross[1];
@@ -279,7 +279,7 @@ pub fn createConePrimitive(allocator: std.mem.Allocator, radius: f32, height: f3
     const angle = 2.0 * PI / @as(f32, @floatFromInt(num_sides));
 
     for (1..num_sides + 1) |i| {
-        var float_i = @as(f32, @floatFromInt(i));
+        const float_i = @as(f32, @floatFromInt(i));
 
         const x: f32 = radius * zmath.sin(angle * float_i);
         const y: f32 = radius * zmath.cos(angle * float_i);
@@ -303,18 +303,18 @@ pub fn createConePrimitive(allocator: std.mem.Allocator, radius: f32, height: f3
     {
         var i: u32 = 0;
         while (i < alloc_amt_idx) : (i += 3) {
-            var indexA: u32 = index_data.items[i];
-            var indexB: u32 = index_data.items[i + 1];
-            var indexC: u32 = index_data.items[i + 2];
+            const indexA: u32 = index_data.items[i];
+            const indexB: u32 = index_data.items[i + 1];
+            const indexC: u32 = index_data.items[i + 2];
 
-            var vert1: F32x4 = F32x4{ vertex_data.get(indexA).position[0], vertex_data.get(indexA).position[1], vertex_data.get(indexA).position[2], 1.0 };
-            var vert2: F32x4 = F32x4{ vertex_data.get(indexB).position[0], vertex_data.get(indexB).position[1], vertex_data.get(indexB).position[2], 1.0 };
-            var vert3: F32x4 = F32x4{ vertex_data.get(indexC).position[0], vertex_data.get(indexC).position[1], vertex_data.get(indexC).position[2], 1.0 };
+            const vert1: F32x4 = F32x4{ vertex_data.get(indexA).position[0], vertex_data.get(indexA).position[1], vertex_data.get(indexA).position[2], 1.0 };
+            const vert2: F32x4 = F32x4{ vertex_data.get(indexB).position[0], vertex_data.get(indexB).position[1], vertex_data.get(indexB).position[2], 1.0 };
+            const vert3: F32x4 = F32x4{ vertex_data.get(indexC).position[0], vertex_data.get(indexC).position[1], vertex_data.get(indexC).position[2], 1.0 };
 
-            var edgeAB: F32x4 = vert2 - vert1;
-            var edgeAC: F32x4 = vert3 - vert1;
+            const edgeAB: F32x4 = vert2 - vert1;
+            const edgeAC: F32x4 = vert3 - vert1;
 
-            var cross = zmath.cross3(edgeAB, edgeAC);
+            const cross = zmath.cross3(edgeAB, edgeAC);
 
             vertex_data.items(.normal)[indexA][0] += cross[0];
             vertex_data.items(.normal)[indexA][1] += cross[1];
