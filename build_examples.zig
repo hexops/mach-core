@@ -152,15 +152,6 @@ pub fn build(
             else => {},
         };
 
-        if (example.sysgpu) {
-            const sysgpu_dep = b.dependency("mach_sysgpu", .{
-                .target = target,
-                .optimize = optimize,
-            });
-            app.compile.linkLibrary(sysgpu_dep.artifact("mach-sysgpu"));
-            @import("mach_sysgpu").addPaths(app.compile);
-        }
-
         const install_step = b.step(cmd_name, "Install " ++ cmd_name);
         install_step.dependOn(&app.install.step);
         b.getInstallStep().dependOn(install_step);
