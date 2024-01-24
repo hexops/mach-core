@@ -121,7 +121,44 @@ pub fn update(app: *App) !bool {
     while (iter.next()) |event| {
         switch (event) {
             .key_press => |ev| {
+                std.debug.print("key press {}\n", .{ev.key});
                 if (ev.key == .space) return true;
+            },
+            .key_release => |ev| {
+                std.debug.print("key release {}\n", .{ev.key});
+                core.setCursorShape(switch (ev.key) {
+                    .a => .arrow,
+                    .n => .not_allowed,
+                    else => .ibeam,
+                });
+                switch (ev.key) {
+                    .f => core.setDisplayMode(.fullscreen),
+                    .w => core.setDisplayMode(.windowed),
+                    .b => core.setDisplayMode(.borderless),
+                    else => {},
+                }
+            },
+            .char_input => |ci| {
+                std.debug.print("char {u}\n", .{ci.codepoint});
+            },
+            .mouse_press => |ev| {
+                std.debug.print("mouse press {} - {}\n", .{ ev.button, ev.pos });
+                if (ev.button == .left) {
+                    core.setCursorMode(.hidden);
+                } else if (ev.button == .right) {
+                    core.setCursorMode(.disabled);
+                } else if (ev.button == .middle) {
+                    core.setCursorMode(.normal);
+                }
+            },
+            .mouse_release => |ev| {
+                std.debug.print("mouse release {} - {}\n", .{ ev.button, ev.pos });
+            },
+            .mouse_scroll => |ev| {
+                std.debug.print("mouse scroll {}\n", .{ev.yoffset});
+            },
+            .framebuffer_resize => {
+                std.debug.print("resize\n", .{});
             },
             .close => return true,
             else => {},

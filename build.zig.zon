@@ -45,5 +45,9 @@
             .url = "https://pkg.machengine.org/mach-glfw/d686078fcf2f4d8d94532ae28ba45e4b38aab31c.tar.gz",
             .hash = "1220e0d40d19f6b61d6b1290401504e8052aeb980395a500ffb2bc351f749b42ec47",
         },
+        .x11_headers = .{
+            .url = "https://pkg.machengine.org/x11-headers/39d69153febf15537a33b425c57a3831e4a0ab2a.tar.gz",
+            .hash = "1220e83ec1e5addab76d30aad3adbbb02ee44fef30d90425c898670e48b495e42027",
+        },
     },
 }

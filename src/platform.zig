@@ -1,9 +1,13 @@
 const builtin = @import("builtin");
 
-const platform = if (builtin.cpu.arch == .wasm32)
-    @import("platform/wasm.zig")
-else
-    @import("platform/native.zig");
+const use_glfw = false;
+const platform = switch (builtin.target.os.tag) {
+    .linux => if (use_glfw) @import("platform/glfw.zig") else @import("platform/x11.zig"),
+    else => if (builtin.target.cpu.arch == .wasm32)
+        @import("platform/wasm.zig")
+    else
+        @import("platform/glfw.zig"),
+};
 
 pub const Core = platform.Core;
 pub const Timer = platform.Timer;

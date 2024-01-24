@@ -3,7 +3,7 @@ const std = @import("std");
 const glfw = @import("mach-glfw");
 const mach_core = @import("../../main.zig");
 const gpu = mach_core.gpu;
-const util = @import("util.zig");
+const objc = @import("objc.zig");
 const Options = @import("../../main.zig").Options;
 const Event = @import("../../main.zig").Event;
 const KeyEvent = @import("../../main.zig").KeyEvent;
@@ -83,7 +83,6 @@ current_title: [:0]const u8,
 current_title_changed: bool = false,
 current_display_mode: DisplayMode = .windowed,
 current_vsync_mode: VSyncMode = .triple,
-current_monitor_index: ?usize = null,
 last_display_mode: DisplayMode = .windowed,
 last_vsync_mode: VSyncMode = .triple,
 current_border: bool,
@@ -139,7 +138,7 @@ pub fn init(
     if (!@import("builtin").is_test and mach_core.options.use_wgpu) _ = mach_core.wgpu.Export(@import("root").GPUInterface);
     if (!@import("builtin").is_test and mach_core.options.use_sysgpu) _ = mach_core.sysgpu.sysgpu.Export(@import("root").SYSGPUInterface);
 
-    const backend_type = try util.detectBackendType(allocator);
+    const backend_type = try detectBackendType(allocator);
 
     glfw.setErrorCallback(errorCallback);
     if (!glfw.init(.{})) {
@@ -152,7 +151,7 @@ pub fn init(
     }
 
     // Create the test window and discover adapters using it (esp. for OpenGL)
-    var hints = util.glfwWindowHintsForBackend(backend_type);
+    var hints = glfwWindowHintsForBackend(backend_type);
     hints.cocoa_retina_framebuffer = true;
     if (options.headless) {
         hints.visible = false; // Hiding window before creation otherwise you get the window showing up for a little bit then hiding.
@@ -203,14 +202,14 @@ pub fn init(
         log.err("failed to create GPU instance", .{});
         std.process.exit(1);
     };
-    const surface = try util.createSurfaceForWindow(instance, window, comptime util.detectGLFWOptions());
+    const surface = try createSurfaceForWindow(instance, window, comptime detectGLFWOptions());
 
-    var response: util.RequestAdapterResponse = undefined;
+    var response: RequestAdapterResponse = undefined;
     instance.requestAdapter(&gpu.RequestAdapterOptions{
         .compatible_surface = surface,
         .power_preference = options.power_preference,
         .force_fallback_adapter = .false,
-    }, &response, util.requestAdapterCallback);
+    }, &response, requestAdapterCallback);
     if (response.status != .success) {
         log.err("failed to create GPU adapter: {?s}", .{response.message});
         log.info("-> maybe try MACH_GPU_BACKEND=opengl ?", .{});
@@ -252,7 +251,7 @@ pub fn init(
         log.err("failed to create GPU device\n", .{});
         std.process.exit(1);
     };
-    gpu_device.setUncapturedErrorCallback({}, util.printUnhandledErrorCallback);
+    gpu_device.setUncapturedErrorCallback({}, printUnhandledErrorCallback);
 
     const framebuffer_size = window.getFramebufferSize();
     const swap_chain_desc = gpu.SwapChain.Descriptor{
@@ -616,7 +615,6 @@ pub fn update(self: *Core, app: anytype) !bool {
 
         // Display mode changes
         if (self.current_display_mode != self.last_display_mode) {
-            const monitor_index = self.current_monitor_index;
             const current_border = self.current_border;
             switch (self.current_display_mode) {
                 .windowed => {
@@ -637,21 +635,11 @@ pub fn update(self: *Core, app: anytype) !bool {
                         self.last_windowed_pos = self.window.getPos();
                     }
 
-                    const monitor = blk: {
-                        if (monitor_index) |i| {
-                            const monitor_list = glfw.Monitor.getAll(self.allocator) catch {
-                                self.oom.set();
-                                break :blk null;
-                            };
-                            defer self.allocator.free(monitor_list);
-                            break :blk monitor_list[i];
-                        }
-                        break :blk glfw.Monitor.getPrimary();
-                    };
-                    if (monitor) |m| {
-                        const video_mode = m.getVideoMode();
-                        if (video_mode) |v| {
-                            self.window.setMonitor(m, 0, 0, v.getWidth(), v.getHeight(), null);
+                    if (glfw.Monitor.getPrimary()) |monitor| {
+                        if (monitor.getVideoMode()) |video_mode| {
+                            self.window.setAttrib(.decorated, false);
+                            self.window.setAttrib(.floating, true);
+                            self.window.setMonitor(null, 0, 0, video_mode.getWidth(), video_mode.getHeight(), null);
                         }
                     }
                 },
@@ -661,23 +649,14 @@ pub fn update(self: *Core, app: anytype) !bool {
                         self.last_windowed_pos = self.window.getPos();
                     }
 
-                    const monitor = blk: {
-                        if (monitor_index) |i| {
-                            const monitor_list = glfw.Monitor.getAll(self.allocator) catch {
-                                self.oom.set();
-                                break :blk null;
-                            };
-                            defer self.allocator.free(monitor_list);
-                            break :blk monitor_list[i];
-                        }
-                        break :blk glfw.Monitor.getPrimary();
-                    };
-                    if (monitor) |m| {
-                        const video_mode = m.getVideoMode();
-                        if (video_mode) |v| {
+                    self.window.setAttrib(.decorated, false);
+                    self.window.setAttrib(.floating, true);
+
+                    if (glfw.Monitor.getPrimary()) |monitor| {
+                        if (monitor.getVideoMode()) |video_mode| {
                             self.window.setAttrib(.decorated, false);
                             self.window.setAttrib(.floating, true);
-                            self.window.setMonitor(null, 0, 0, v.getWidth(), v.getHeight(), null);
+                            self.window.setMonitor(null, 0, 0, video_mode.getWidth(), video_mode.getHeight(), null);
                         }
                     }
                 },
@@ -698,7 +677,7 @@ pub fn update(self: *Core, app: anytype) !bool {
         }
 
         // Size changes
-        if (self.current_size.width != self.last_size.width or self.current_size.height != self.last_size.height) {
+        if (!self.current_size.eql(self.last_size)) {
             self.last_size = self.current_size;
             self.window.setSize(.{
                 .width = self.current_size.width,
@@ -797,11 +776,10 @@ pub fn setTitle(self: *Core, title: [:0]const u8) void {
 }
 
 // May be called from any thread.
-pub fn setDisplayMode(self: *Core, mode: DisplayMode, monitor_index: ?usize) void {
+pub fn setDisplayMode(self: *Core, mode: DisplayMode) void {
     self.state_mu.lock();
     defer self.state_mu.unlock();
     self.current_display_mode = mode;
-    self.current_monitor_index = monitor_index;
     if (self.current_display_mode != self.last_display_mode) {
         self.state_update.set();
         self.wakeMainThread();
@@ -1041,13 +1019,13 @@ pub inline fn wakeMainThread(self: *Core) void {
 
 // May be called from any thread.
 pub fn nativeWindowCocoa(self: *Core) *anyopaque {
-    const glfw_native = glfw.Native(comptime util.detectGLFWOptions());
+    const glfw_native = glfw.Native(comptime detectGLFWOptions());
     return glfw_native.getCocoaWindow(self.window).?;
 }
 
 // May be called from any thread.
 pub fn nativeWindowWin32(self: *Core) std.os.windows.HWND {
-    const glfw_native = glfw.Native(comptime util.detectGLFWOptions());
+    const glfw_native = glfw.Native(comptime detectGLFWOptions());
     return glfw_native.getWin32Window(self.window);
 }
 
@@ -1217,20 +1195,139 @@ fn errorCallback(error_code: glfw.ErrorCode, description: [:0]const u8) void {
     log.err("glfw: {}: {s}\n", .{ error_code, description });
 }
 
-fn getEnvVarOwned(allocator: std.mem.Allocator, key: []const u8) error{ OutOfMemory, InvalidUtf8 }!?[]u8 {
-    return std.process.getEnvVarOwned(allocator, key) catch |err| switch (err) {
-        error.EnvironmentVariableNotFound => @as(?[]u8, null),
-        else => |e| e,
+fn glfwWindowHintsForBackend(backend: gpu.BackendType) glfw.Window.Hints {
+    return switch (backend) {
+        .opengl => .{
+            // Ask for OpenGL 4.4 which is what the GL backend requires for compute shaders and
+            // texture views.
+            .context_version_major = 4,
+            .context_version_minor = 4,
+            .opengl_forward_compat = true,
+            .opengl_profile = .opengl_core_profile,
+        },
+        .opengles => .{
+            .context_version_major = 3,
+            .context_version_minor = 1,
+            .client_api = .opengl_es_api,
+            .context_creation_api = .egl_context_api,
+        },
+        else => .{
+            // Without this GLFW will initialize a GL context on the window, which prevents using
+            // the window with other APIs (by crashing in weird ways).
+            .client_api = .no_api,
+        },
     };
+}
+
+fn detectGLFWOptions() glfw.BackendOptions {
+    if (builtin.target.isDarwin()) return .{ .cocoa = true };
+    return switch (builtin.target.os.tag) {
+        .windows => .{ .win32 = true },
+        .linux => .{ .x11 = true, .wayland = true },
+        else => .{},
+    };
+}
+
+fn createSurfaceForWindow(
+    instance: *gpu.Instance,
+    window: glfw.Window,
+    comptime glfw_options: glfw.BackendOptions,
+) !*gpu.Surface {
+    const glfw_native = glfw.Native(glfw_options);
+    const extension = if (glfw_options.win32) gpu.Surface.Descriptor.NextInChain{
+        .from_windows_hwnd = &.{
+            .hinstance = std.os.windows.kernel32.GetModuleHandleW(null).?,
+            .hwnd = glfw_native.getWin32Window(window),
+        },
+    } else if (glfw_options.x11 or glfw_options.wayland) blk: {
+        break :blk switch (glfw.getPlatform()) {
+            .wayland => gpu.Surface.Descriptor.NextInChain{
+                .from_wayland_surface = &.{
+                    .display = glfw_native.getWaylandDisplay(),
+                    .surface = glfw_native.getWaylandWindow(window),
+                },
+            },
+            .x11 => gpu.Surface.Descriptor.NextInChain{
+                .from_xlib_window = &.{
+                    .display = glfw_native.getX11Display(),
+                    .window = glfw_native.getX11Window(window),
+                },
+            },
+            else => unreachable,
+        };
+    } else if (glfw_options.cocoa) blk: {
+        const pool = try objc.AutoReleasePool.init();
+        defer objc.AutoReleasePool.release(pool);
+
+        const ns_window = glfw_native.getCocoaWindow(window);
+        const ns_view = objc.msgSend(ns_window, "contentView", .{}, *anyopaque); // [nsWindow contentView]
+
+        // Create a CAMetalLayer that covers the whole window that will be passed to CreateSurface.
+        objc.msgSend(ns_view, "setWantsLayer:", .{true}, void); // [view setWantsLayer:YES]
+        const layer = objc.msgSend(objc.objc_getClass("CAMetalLayer"), "layer", .{}, ?*anyopaque); // [CAMetalLayer layer]
+        if (layer == null) @panic("failed to create Metal layer");
+        objc.msgSend(ns_view, "setLayer:", .{layer.?}, void); // [view setLayer:layer]
+
+        // Use retina if the window was created with retina support.
+        const scale_factor = objc.msgSend(ns_window, "backingScaleFactor", .{}, f64); // [ns_window backingScaleFactor]
+        objc.msgSend(layer.?, "setContentsScale:", .{scale_factor}, void); // [layer setContentsScale:scale_factor]
+
+        break :blk gpu.Surface.Descriptor.NextInChain{ .from_metal_layer = &.{ .layer = layer.? } };
+    } else unreachable;
+
+    return instance.createSurface(&gpu.Surface.Descriptor{
+        .next_in_chain = extension,
+    });
+}
+
+inline fn printUnhandledErrorCallback(_: void, ty: gpu.ErrorType, message: [*:0]const u8) void {
+    switch (ty) {
+        .validation => std.log.err("gpu: validation error: {s}\n", .{message}),
+        .out_of_memory => std.log.err("gpu: out of memory: {s}\n", .{message}),
+        .device_lost => std.log.err("gpu: device lost: {s}\n", .{message}),
+        .unknown => std.log.err("gpu: unknown error: {s}\n", .{message}),
+        else => unreachable,
+    }
+    std.os.exit(1);
+}
+
+fn detectBackendType(allocator: std.mem.Allocator) !gpu.BackendType {
+    const backend = std.process.getEnvVarOwned(
+        allocator,
+        "MACH_GPU_BACKEND",
+    ) catch |err| switch (err) {
+        error.EnvironmentVariableNotFound => {
+            if (builtin.target.isDarwin()) return .metal;
+            if (builtin.target.os.tag == .windows) return .d3d12;
+            return .vulkan;
+        },
+        else => return err,
+    };
+    defer allocator.free(backend);
+
+    if (std.ascii.eqlIgnoreCase(backend, "null")) return .null;
+    if (std.ascii.eqlIgnoreCase(backend, "d3d11")) return .d3d11;
+    if (std.ascii.eqlIgnoreCase(backend, "d3d12")) return .d3d12;
+    if (std.ascii.eqlIgnoreCase(backend, "metal")) return .metal;
+    if (std.ascii.eqlIgnoreCase(backend, "vulkan")) return .vulkan;
+    if (std.ascii.eqlIgnoreCase(backend, "opengl")) return .opengl;
+    if (std.ascii.eqlIgnoreCase(backend, "opengles")) return .opengles;
+
+    @panic("unknown MACH_GPU_BACKEND type");
 }
 
 /// Check if gamemode should be activated
 fn wantGamemode(allocator: std.mem.Allocator) error{ OutOfMemory, InvalidUtf8 }!bool {
-    if (try getEnvVarOwned(allocator, "MACH_USE_GAMEMODE")) |env| {
-        defer allocator.free(env);
-        return !(std.ascii.eqlIgnoreCase(env, "off") or std.ascii.eqlIgnoreCase(env, "false"));
-    }
-    return true;
+    const use_gamemode = std.process.getEnvVarOwned(
+        allocator,
+        "MACH_USE_GAMEMODE",
+    ) catch |err| switch (err) {
+        error.EnvironmentVariableNotFound => return true,
+        else => |e| return e,
+    };
+    defer allocator.free(use_gamemode);
+
+    return !(std.ascii.eqlIgnoreCase(use_gamemode, "off") or std.ascii.eqlIgnoreCase(use_gamemode, "false"));
 }
 
 fn initLinuxGamemode() bool {
@@ -1244,4 +1341,23 @@ fn initLinuxGamemode() bool {
 fn deinitLinuxGamemode() void {
     const gamemode = @import("mach-gamemode");
     gamemode.stop();
+}
+
+const RequestAdapterResponse = struct {
+    status: gpu.RequestAdapterStatus,
+    adapter: ?*gpu.Adapter,
+    message: ?[*:0]const u8,
+};
+
+inline fn requestAdapterCallback(
+    context: *RequestAdapterResponse,
+    status: gpu.RequestAdapterStatus,
+    adapter: ?*gpu.Adapter,
+    message: ?[*:0]const u8,
+) void {
+    context.* = RequestAdapterResponse{
+        .status = status,
+        .adapter = adapter,
+        .message = message,
+    };
 }

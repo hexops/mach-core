@@ -4,7 +4,6 @@ const builtin = @import("builtin");
 pub const sysgpu = @import("mach-sysgpu");
 pub const sysjs = @import("mach-sysjs");
 pub const Timer = @import("Timer.zig");
-const platform_util = if (builtin.cpu.arch == .wasm32) {} else @import("platform/native/util.zig");
 const Frequency = @import("Frequency.zig");
 const platform = @import("platform.zig");
 
@@ -196,8 +195,8 @@ pub inline fn printTitle(fmt: []const u8, args: anytype) !void {
 }
 
 /// Set the window mode
-pub inline fn setDisplayMode(mode: DisplayMode, monitor: ?usize) void {
-    return internal.setDisplayMode(mode, monitor);
+pub inline fn setDisplayMode(mode: DisplayMode) void {
+    return internal.setDisplayMode(mode);
 }
 
 /// Returns the window mode
@@ -739,7 +738,6 @@ pub const Joystick = enum(u8) {
 
 test {
     @import("std").testing.refAllDecls(Timer);
-    @import("std").testing.refAllDeclsRecursive(platform_util);
     @import("std").testing.refAllDecls(Frequency);
     @import("std").testing.refAllDecls(platform);
 
