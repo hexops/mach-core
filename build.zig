@@ -53,7 +53,7 @@ pub fn build(b: *std.Build) !void {
         while (iter.next()) |e| {
             main_tests.root_module.addImport(e.key_ptr.*, e.value_ptr.*);
         }
-        link(b, main_tests);
+        link(b, main_tests, &main_tests.root_module);
         b.installArtifact(main_tests);
 
         const test_step = b.step("test", "run tests");
@@ -195,7 +195,7 @@ pub const App = struct {
 
         // Link dependencies
         if (platform != .web) {
-            link(core_builder, compile);
+            link(core_builder, compile, &compile.root_module);
         }
 
         const run = app_builder.addRunArtifact(compile);
@@ -213,11 +213,11 @@ pub const App = struct {
     }
 };
 
-pub fn link(core_builder: *std.Build, step: *std.Build.Step.Compile) void {
+pub fn link(core_builder: *std.Build, step: *std.Build.Step.Compile, mod: *std.Build.Module) void {
     gpu.link(core_builder.dependency("mach_gpu", .{
         .target = step.root_module.resolved_target orelse core_builder.host,
         .optimize = step.root_module.optimize.?,
-    }).builder, step, .{}) catch unreachable;
+    }).builder, step, mod, .{}) catch unreachable;
 }
 
 comptime {
