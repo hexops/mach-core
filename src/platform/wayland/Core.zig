@@ -88,6 +88,7 @@ const LibWaylandClient = struct {
     wl_touch_interface: *@TypeOf(c.wl_touch_interface),
 
     pub extern const xdg_wm_base_interface: @TypeOf(c.xdg_wm_base_interface);
+    pub extern const zxdg_decoration_manager_v1_interface: @TypeOf(c.zxdg_decoration_manager_v1_interface);
 
     pub fn load() !LibWaylandClient {
         var lib: LibWaylandClient = undefined;
@@ -131,7 +132,7 @@ const Interfaces = struct {
     // wl_seat: *c.wl_seat,
     wl_data_device_manager: *c.wl_data_device_manager,
     xdg_wm_base: *c.xdg_wm_base,
-    // zxdg_decoration_manager_v1: *c.zxdg_decoration_manager_v1,
+    zxdg_decoration_manager_v1: *c.zxdg_decoration_manager_v1,
     // wp_viewporter: *c.wp_viewporter,
     // zwp_relative_pointer_manager_v1: *c.zwp_relative_pointer_manager_v1,
     // zwp_pointer_constraints_v1: *c.zwp_pointer_constraints_v1,
@@ -197,6 +198,14 @@ fn registryHandleGlobal(user_data_ptr: ?*anyopaque, registry: ?*c.struct_wl_regi
 
         //TODO: handle return value
         _ = c.xdg_wm_base_add_listener(user_data.interfaces.xdg_wm_base, &.{ .ping = &wmBaseHandlePing }, user_data);
+    } else if (std.mem.eql(u8, "zxdg_decoration_manager_v1", interface)) {
+        user_data.interfaces.zxdg_decoration_manager_v1 = @ptrCast(c.wl_registry_bind(
+            registry,
+            name,
+            &LibWaylandClient.zxdg_decoration_manager_v1_interface,
+            @min(3, version),
+        ) orelse @panic("uh idk how to proceed"));
+        log.debug("Bound zxdg_decoration_manager_v1 :)", .{});
     }
 }
 
@@ -249,6 +258,7 @@ surface: *c.struct_wl_surface,
 xdg_surface: *c.xdg_surface,
 toplevel: *c.xdg_toplevel,
 tag: [*]c_char,
+decoration: *c.zxdg_toplevel_decoration_v1,
 
 // Called on the main thread
 pub fn init(
@@ -301,6 +311,21 @@ pub fn init(
     }, null);
 
     c.xdg_toplevel_set_title(toplevel, options.title);
+
+    const decoration = c.zxdg_decoration_manager_v1_get_toplevel_decoration(
+        registry_handler_user_data.interfaces.zxdg_decoration_manager_v1,
+        toplevel,
+    ) orelse return error.UnableToGetToplevelDecoration;
+    log.debug("Got xdg toplevel decoration {*}", .{decoration});
+
+    c.zxdg_toplevel_decoration_v1_set_mode(
+        decoration,
+        c.ZXDG_TOPLEVEL_DECORATION_V1_MODE_SERVER_SIDE,
+    );
+
+    c.wl_surface_commit(wl_surface);
+    //TODO: handle return value
+    _ = libwaylandclient.wl_display_roundtrip(display);
 
     const instance = gpu.createInstance(null) orelse {
         log.err("failed to create GPU instance", .{});
@@ -389,6 +414,7 @@ pub fn init(
         .tag = tag,
         .xdg_surface = xdg_surface,
         .toplevel = toplevel,
+        .decoration = decoration,
     };
 }
 
