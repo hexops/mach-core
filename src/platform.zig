@@ -1,8 +1,9 @@
 const builtin = @import("builtin");
 
 const use_glfw = false;
+const use_x11 = false;
 const platform = switch (builtin.target.os.tag) {
-    .linux => if (use_glfw) @import("platform/glfw.zig") else @import("platform/x11.zig"),
+    .linux => if (use_glfw) @import("platform/glfw.zig") else if (use_x11) @import("platform/x11.zig") else @import("platform/wayland.zig"),
     else => if (builtin.target.cpu.arch == .wasm32)
         @import("platform/wasm.zig")
     else

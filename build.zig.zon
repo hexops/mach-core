@@ -49,5 +49,9 @@
             .url = "https://pkg.machengine.org/x11-headers/39d69153febf15537a33b425c57a3831e4a0ab2a.tar.gz",
             .hash = "1220e83ec1e5addab76d30aad3adbbb02ee44fef30d90425c898670e48b495e42027",
         },
+        .wayland_headers = .{
+            .url = "https://pkg.machengine.org/wayland-headers/7be286aec43c92bf3a88dad33fe63ce05c65aa28.tar.gz",
+            .hash = "1220228ca2235b82b3cf5d58995e34ac862afd18f1390c09b69a03f2a5ec06ff7701",
+        },
     },
 }

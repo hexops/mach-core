@@ -35,9 +35,12 @@ pub fn build(b: *std.Build) !void {
         const mach_glfw_dep = b.dependency("mach_glfw", .{ .target = target, .optimize = optimize });
         const gamemode_dep = b.dependency("mach_gamemode", .{ .target = target, .optimize = optimize });
         const x11_headers = b.dependency("x11_headers", .{ .target = target, .optimize = optimize });
+        const wayland_headers = b.dependency("wayland_headers", .{ .target = target, .optimize = optimize });
         module.addImport("mach-glfw", mach_glfw_dep.module("mach-glfw"));
         module.addImport("mach-gamemode", gamemode_dep.module("mach-gamemode"));
         module.linkLibrary(x11_headers.artifact("x11-headers"));
+        module.linkLibrary(wayland_headers.artifact("wayland-headers"));
+        module.addCSourceFile(.{ .file = .{ .path = "src/platform/wayland/wayland.c" } });
 
         const main_tests = b.addTest(.{
             .name = "core-tests",
