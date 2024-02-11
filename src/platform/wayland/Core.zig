@@ -63,6 +63,9 @@ const LibWaylandClient = struct {
     wl_proxy_marshal_flags: *const @TypeOf(c.wl_proxy_marshal_flags),
     wl_proxy_set_tag: *const @TypeOf(c.wl_proxy_set_tag),
     wl_display_roundtrip: *const @TypeOf(c.wl_display_roundtrip),
+    wl_display_dispatch: *const @TypeOf(c.wl_display_dispatch),
+    wl_display_flush: *const @TypeOf(c.wl_display_flush),
+    wl_display_get_fd: *const @TypeOf(c.wl_display_get_fd),
 
     //Interfaces
     wl_compositor_interface: *@TypeOf(c.wl_compositor_interface),
@@ -118,21 +121,16 @@ pub const EventIterator = struct {
     }
 };
 
-const RegistryHandlerUserData = struct {
-    interfaces: Interfaces,
-    libwaylandclient: LibWaylandClient,
-};
-
 const Interfaces = struct {
-    wl_compositor: *c.wl_compositor,
-    wl_subcompositor: *c.wl_subcompositor,
-    wl_shm: *c.wl_shm,
-    wl_output: *c.wl_output,
+    wl_compositor: ?*c.wl_compositor = null,
+    wl_subcompositor: ?*c.wl_subcompositor = null,
+    wl_shm: ?*c.wl_shm = null,
+    wl_output: ?*c.wl_output = null,
     // TODO
     // wl_seat: *c.wl_seat,
-    wl_data_device_manager: *c.wl_data_device_manager,
-    xdg_wm_base: *c.xdg_wm_base,
-    zxdg_decoration_manager_v1: *c.zxdg_decoration_manager_v1,
+    wl_data_device_manager: ?*c.wl_data_device_manager = null,
+    xdg_wm_base: ?*c.xdg_wm_base = null,
+    zxdg_decoration_manager_v1: ?*c.zxdg_decoration_manager_v1 = null,
     // wp_viewporter: *c.wp_viewporter,
     // zwp_relative_pointer_manager_v1: *c.zwp_relative_pointer_manager_v1,
     // zwp_pointer_constraints_v1: *c.zwp_pointer_constraints_v1,
@@ -141,7 +139,7 @@ const Interfaces = struct {
 };
 
 fn registryHandleGlobal(user_data_ptr: ?*anyopaque, registry: ?*c.struct_wl_registry, name: u32, interface_ptr: [*:0]const u8, version: u32) callconv(.C) void {
-    const user_data: *RegistryHandlerUserData = @ptrCast(@alignCast(user_data_ptr));
+    const user_data: *Core = @ptrCast(@alignCast(user_data_ptr));
     const interface = std.mem.span(interface_ptr);
 
     log.debug("Got interface: {s}", .{interface});
@@ -150,7 +148,7 @@ fn registryHandleGlobal(user_data_ptr: ?*anyopaque, registry: ?*c.struct_wl_regi
         user_data.interfaces.wl_compositor = @ptrCast(c.wl_registry_bind(
             registry,
             name,
-            user_data.libwaylandclient.wl_compositor_interface,
+            libwaylandclient.wl_compositor_interface,
             @min(3, version),
         ) orelse @panic("uh idk how to proceed"));
         log.debug("Bound wl_compositor :)", .{});
@@ -158,7 +156,7 @@ fn registryHandleGlobal(user_data_ptr: ?*anyopaque, registry: ?*c.struct_wl_regi
         user_data.interfaces.wl_subcompositor = @ptrCast(c.wl_registry_bind(
             registry,
             name,
-            user_data.libwaylandclient.wl_subcompositor_interface,
+            libwaylandclient.wl_subcompositor_interface,
             @min(3, version),
         ) orelse @panic("uh idk how to proceed"));
         log.debug("Bound wl_subcompositor :)", .{});
@@ -166,7 +164,7 @@ fn registryHandleGlobal(user_data_ptr: ?*anyopaque, registry: ?*c.struct_wl_regi
         user_data.interfaces.wl_shm = @ptrCast(c.wl_registry_bind(
             registry,
             name,
-            user_data.libwaylandclient.wl_shm_interface,
+            libwaylandclient.wl_shm_interface,
             @min(3, version),
         ) orelse @panic("uh idk how to proceed"));
         log.debug("Bound wl_shm :)", .{});
@@ -174,7 +172,7 @@ fn registryHandleGlobal(user_data_ptr: ?*anyopaque, registry: ?*c.struct_wl_regi
         user_data.interfaces.wl_output = @ptrCast(c.wl_registry_bind(
             registry,
             name,
-            user_data.libwaylandclient.wl_output_interface,
+            libwaylandclient.wl_output_interface,
             @min(3, version),
         ) orelse @panic("uh idk how to proceed"));
         log.debug("Bound wl_output :)", .{});
@@ -210,7 +208,7 @@ fn registryHandleGlobal(user_data_ptr: ?*anyopaque, registry: ?*c.struct_wl_regi
 }
 
 fn wmBaseHandlePing(user_data_ptr: ?*anyopaque, wm_base: ?*c.struct_xdg_wm_base, serial: u32) callconv(.C) void {
-    const user_data: *RegistryHandlerUserData = @ptrCast(@alignCast(user_data_ptr));
+    const user_data: *Core = @ptrCast(@alignCast(user_data_ptr));
     _ = user_data;
 
     log.debug("Got wm base {*} with serial {d}", .{ wm_base, serial });
@@ -228,10 +226,16 @@ const registry_listener = c.wl_registry_listener{
     .global_remove = &registryHandleGlobalRemove,
 };
 
-fn xdgSurfaceHandleConfigure(user_data: ?*anyopaque, xdg_surface: ?*c.struct_xdg_surface, serial: u32) callconv(.C) void {
-    _ = user_data;
+fn xdgSurfaceHandleConfigure(user_data_ptr: ?*anyopaque, xdg_surface: ?*c.struct_xdg_surface, serial: u32) callconv(.C) void {
+    const core: *Core = @ptrCast(@alignCast(user_data_ptr.?));
 
     c.xdg_surface_ack_configure(xdg_surface, serial);
+    if (core.configured) {
+        c.wl_surface_commit(core.surface);
+    } else {
+        log.debug("xdg surface configured", .{});
+        core.configured = true;
+    }
 }
 
 fn xdgToplevelHandleClose(user_data: ?*anyopaque, toplevel: ?*c.struct_xdg_toplevel) callconv(.C) void {
@@ -249,8 +253,6 @@ fn xdgToplevelHandleConfigure(user_data: ?*anyopaque, toplevel: ?*c.struct_xdg_t
 
 pub const Core = @This();
 
-libwaylandclient: LibWaylandClient,
-
 display: *c.struct_wl_display,
 registry: *c.struct_wl_registry,
 interfaces: Interfaces,
@@ -259,6 +261,15 @@ xdg_surface: *c.xdg_surface,
 toplevel: *c.xdg_toplevel,
 tag: [*]c_char,
 decoration: *c.zxdg_toplevel_decoration_v1,
+configured: bool,
+
+app_update_thread_started: bool = false,
+
+gpu_device: *gpu.Device,
+
+// Event queue; written from main thread; read from any
+events_mu: std.Thread.RwLock = .{},
+events: EventQueue,
 
 // Called on the main thread
 pub fn init(
@@ -268,41 +279,48 @@ pub fn init(
     input: *Frequency,
     options: Options,
 ) !void {
+    //Init `configured` so that its defined
+    core.configured = false;
+    core.interfaces = .{};
+
     libwaylandclient = try LibWaylandClient.load();
-    _ = allocator;
     _ = frame;
     _ = input;
 
-    const display = libwaylandclient.wl_display_connect(null) orelse return error.FailedToConnectToWaylandDisplay;
+    core.display = libwaylandclient.wl_display_connect(null) orelse return error.FailedToConnectToWaylandDisplay;
 
-    var registry_handler_user_data: RegistryHandlerUserData = .{
-        .interfaces = undefined,
-        .libwaylandclient = libwaylandclient,
-    };
-
-    const registry = c.wl_display_get_registry(display) orelse return error.FailedToGetDisplayRegistry;
-    _ = c.wl_registry_add_listener(registry, &registry_listener, &registry_handler_user_data); // TODO: handle error return value here
+    const registry = c.wl_display_get_registry(core.display) orelse return error.FailedToGetDisplayRegistry;
+    // TODO: handle error return value here
+    _ = c.wl_registry_add_listener(registry, &registry_listener, core);
 
     //Round trip to get all the registry objects
-    _ = libwaylandclient.wl_display_roundtrip(display);
+    _ = libwaylandclient.wl_display_roundtrip(core.display);
 
     //Round trip to get all initial output events
-    _ = libwaylandclient.wl_display_roundtrip(display);
+    _ = libwaylandclient.wl_display_roundtrip(core.display);
 
-    const wl_surface = c.wl_compositor_create_surface(registry_handler_user_data.interfaces.wl_compositor) orelse return error.UnableToCreateSurface;
-    log.debug("Got surface {*}", .{wl_surface});
+    core.surface = c.wl_compositor_create_surface(core.interfaces.wl_compositor) orelse return error.UnableToCreateSurface;
+    log.debug("Got surface {*}", .{core.surface});
 
     var tag: [*:0]c_char = undefined;
-    libwaylandclient.wl_proxy_set_tag(@ptrCast(wl_surface), @ptrCast(&tag));
+    libwaylandclient.wl_proxy_set_tag(@ptrCast(core.surface), @ptrCast(&tag));
 
-    const xdg_surface = c.xdg_wm_base_get_xdg_surface(registry_handler_user_data.interfaces.xdg_wm_base, wl_surface) orelse return error.UnableToCreateXdgSurface;
+    {
+        const region = c.wl_compositor_create_region(core.interfaces.wl_compositor) orelse return error.CouldntCreateWaylandRegtion;
+
+        c.wl_region_add(region, 0, 0, @intCast(options.size.width), @intCast(options.size.height));
+        c.wl_surface_set_opaque_region(core.surface, region);
+        c.wl_region_destroy(region);
+    }
+
+    const xdg_surface = c.xdg_wm_base_get_xdg_surface(core.interfaces.xdg_wm_base, core.surface) orelse return error.UnableToCreateXdgSurface;
     log.debug("Got xdg surface {*}", .{xdg_surface});
-
-    //TODO: handle this return value
-    _ = c.xdg_surface_add_listener(xdg_surface, &.{ .configure = &xdgSurfaceHandleConfigure }, null);
 
     const toplevel = c.xdg_surface_get_toplevel(xdg_surface) orelse return error.UnableToGetXdgTopLevel;
     log.debug("Got xdg toplevel {*}", .{toplevel});
+
+    //TODO: handle this return value
+    _ = c.xdg_surface_add_listener(xdg_surface, &.{ .configure = &xdgSurfaceHandleConfigure }, core);
 
     //TODO: handle this return value
     _ = c.xdg_toplevel_add_listener(toplevel, &.{
@@ -310,10 +328,17 @@ pub fn init(
         .close = &xdgToplevelHandleClose,
     }, null);
 
+    //Commit changes to surface
+    c.wl_surface_commit(core.surface);
+
+    while (libwaylandclient.wl_display_dispatch(core.display) != -1 and !core.configured) {
+        // This space intentionally left blank
+    }
+
     c.xdg_toplevel_set_title(toplevel, options.title);
 
     const decoration = c.zxdg_decoration_manager_v1_get_toplevel_decoration(
-        registry_handler_user_data.interfaces.zxdg_decoration_manager_v1,
+        core.interfaces.zxdg_decoration_manager_v1,
         toplevel,
     ) orelse return error.UnableToGetToplevelDecoration;
     log.debug("Got xdg toplevel decoration {*}", .{decoration});
@@ -323,9 +348,10 @@ pub fn init(
         c.ZXDG_TOPLEVEL_DECORATION_V1_MODE_SERVER_SIDE,
     );
 
-    c.wl_surface_commit(wl_surface);
+    //Commit changes to surface
+    c.wl_surface_commit(core.surface);
     //TODO: handle return value
-    _ = libwaylandclient.wl_display_roundtrip(display);
+    _ = libwaylandclient.wl_display_roundtrip(core.display);
 
     const instance = gpu.createInstance(null) orelse {
         log.err("failed to create GPU instance", .{});
@@ -334,8 +360,8 @@ pub fn init(
     const surface = instance.createSurface(&gpu.Surface.Descriptor{
         .next_in_chain = .{
             .from_wayland_surface = &.{
-                .display = display,
-                .surface = undefined,
+                .display = core.display,
+                .surface = core.surface,
             },
         },
     });
@@ -393,8 +419,8 @@ pub fn init(
         .label = "main swap chain",
         .usage = .{ .render_attachment = true },
         .format = .bgra8_unorm,
-        .width = undefined,
-        .height = undefined,
+        .width = options.size.width,
+        .height = options.size.height,
         .present_mode = .mailbox,
     };
     const swap_chain = gpu_device.createSwapChain(surface, &swap_chain_desc);
@@ -405,16 +431,20 @@ pub fn init(
     mach_core.swap_chain = swap_chain;
     mach_core.descriptor = swap_chain_desc;
 
+    log.debug("DONE", .{});
+
     core.* = .{
-        .libwaylandclient = libwaylandclient,
-        .display = display,
+        .display = core.display,
         .registry = registry,
-        .interfaces = registry_handler_user_data.interfaces,
-        .surface = wl_surface,
+        .interfaces = core.interfaces,
+        .surface = core.surface,
         .tag = tag,
         .xdg_surface = xdg_surface,
         .toplevel = toplevel,
         .decoration = decoration,
+        .configured = core.configured,
+        .gpu_device = gpu_device,
+        .events = EventQueue.init(allocator),
     };
 }
 
@@ -423,153 +453,239 @@ pub fn deinit(self: *Core) void {
 }
 
 // Called on the main thread
-pub fn update(_: *Core, _: anytype) !bool {
-    @panic("TODO: implement update for X11");
+pub fn update(self: *Core, app: anytype) !bool {
+    // log.info("update", .{});
+    if (!self.app_update_thread_started) {
+        self.app_update_thread_started = true;
+        const thread = try std.Thread.spawn(.{}, appUpdateThread, .{ self, app });
+        thread.detach();
+    }
+
+    while (libwaylandclient.wl_display_flush(self.display) == -1) {
+        // if (std.os.errno() == std.os.E.AGAIN) {
+        // log.err("flush error", .{});
+        // return true;
+        // }
+
+        var pollfd = [_]std.os.pollfd{
+            std.os.pollfd{
+                .fd = libwaylandclient.wl_display_get_fd(self.display),
+                .events = std.os.POLL.OUT,
+                .revents = 0,
+            },
+        };
+
+        while (try std.os.poll(&pollfd, -1) != 0) {
+            // if (std.os.errno() == std.os.E.INTR or std.os.errno() == std.os.E.AGAIN) {
+            // log.err("poll error", .{});
+            // return true;
+            // }
+        }
+    }
+
+    if (@hasDecl(std.meta.Child(@TypeOf(app)), "updateMainThread")) {
+        if (app.updateMainThread() catch unreachable) {
+            // self.done.set();
+            return true;
+        }
+    }
+
+    return false;
 }
 
 // Secondary app-update thread
-pub fn appUpdateThread(_: *Core, _: anytype) void {
-    @panic("TODO: implement appUpdateThread for X11");
+pub fn appUpdateThread(self: *Core, app: anytype) void {
+    // @panic("TODO: implement appUpdateThread for Wayland");
+
+    // self.frame.start() catch unreachable;
+    while (true) {
+        // if (self.swap_chain_update.isSet()) blk: {
+        //     self.swap_chain_update.reset();
+
+        //     if (self.current_vsync_mode != self.last_vsync_mode) {
+        //         self.last_vsync_mode = self.current_vsync_mode;
+        //         switch (self.current_vsync_mode) {
+        //             .triple => self.frame.target = 2 * self.refresh_rate,
+        //             else => self.frame.target = 0,
+        //         }
+        //     }
+
+        //     if (self.current_size.width == 0 or self.current_size.height == 0) break :blk;
+
+        //     self.swap_chain_mu.lock();
+        //     defer self.swap_chain_mu.unlock();
+        //     mach_core.swap_chain.release();
+        //     self.swap_chain_desc.width = self.current_size.width;
+        //     self.swap_chain_desc.height = self.current_size.height;
+        //     self.swap_chain = self.gpu_device.createSwapChain(self.surface, &self.swap_chain_desc);
+
+        //     mach_core.swap_chain = self.swap_chain;
+        //     mach_core.descriptor = self.swap_chain_desc;
+
+        //     self.pushEvent(.{
+        //         .framebuffer_resize = .{
+        //             .width = self.current_size.width,
+        //             .height = self.current_size.height,
+        //         },
+        //     });
+        // }
+
+        if (app.update() catch unreachable) {
+            // self.done.set();
+
+            // Wake the main thread from any event handling, so there is not e.g. a one second delay
+            // in exiting the application.
+            // self.wakeMainThread();
+            @panic("TODO");
+            // return;
+        }
+        self.gpu_device.tick();
+        self.gpu_device.machWaitForCommandsToBeScheduled();
+
+        // self.frame.tick();
+        // if (self.frame.delay_ns != 0) std.time.sleep(self.frame.delay_ns);
+    }
 }
 
 // May be called from any thread.
-pub inline fn pollEvents(_: *Core) EventIterator {
-    @panic("TODO: implement pollEvents for X11");
+pub inline fn pollEvents(self: *Core) EventIterator {
+    // @panic("TODO: implement pollEvents for Wayland");
+    return EventIterator{ .events_mu = &self.events_mu, .queue = &self.events };
 }
 
 // May be called from any thread.
 pub fn setTitle(_: *Core, _: [:0]const u8) void {
-    @panic("TODO: implement setTitle for X11");
+    @panic("TODO: implement setTitle for Wayland");
 }
 
 // May be called from any thread.
 pub fn setDisplayMode(_: *Core, _: DisplayMode) void {
-    @panic("TODO: implement setDisplayMode for X11");
+    @panic("TODO: implement setDisplayMode for Wayland");
 }
 
 // May be called from any thread.
 pub fn displayMode(_: *Core) DisplayMode {
-    @panic("TODO: implement displayMode for X11");
+    @panic("TODO: implement displayMode for Wayland");
 }
 
 // May be called from any thread.
 pub fn setBorder(_: *Core, _: bool) void {
-    @panic("TODO: implement setBorder for X11");
+    @panic("TODO: implement setBorder for Wayland");
 }
 
 // May be called from any thread.
 pub fn border(_: *Core) bool {
-    @panic("TODO: implement border for X11");
+    @panic("TODO: implement border for Wayland");
 }
 
 // May be called from any thread.
 pub fn setHeadless(_: *Core, _: bool) void {
-    @panic("TODO: implement setHeadless for X11");
+    @panic("TODO: implement setHeadless for Wayland");
 }
 
 // May be called from any thread.
 pub fn headless(_: *Core) bool {
-    @panic("TODO: implement headless for X11");
+    @panic("TODO: implement headless for Wayland");
 }
 
 // May be called from any thread.
 pub fn setVSync(_: *Core, _: VSyncMode) void {
-    @panic("TODO: implement setVSync for X11");
+    @panic("TODO: implement setVSync for Wayland");
 }
 
 // May be called from any thread.
 pub fn vsync(_: *Core) VSyncMode {
-    @panic("TODO: implement vsync for X11");
+    @panic("TODO: implement vsync for Wayland");
 }
 
 // May be called from any thread.
 pub fn setSize(_: *Core, _: Size) void {
-    @panic("TODO: implement setSize for X11");
+    @panic("TODO: implement setSize for Wayland");
 }
 
 // May be called from any thread.
 pub fn size(_: *Core) Size {
-    @panic("TODO: implement size for X11");
+    @panic("TODO: implement size for Wayland");
 }
 
 // May be called from any thread.
 pub fn setSizeLimit(_: *Core, _: SizeLimit) void {
-    @panic("TODO: implement setSizeLimit for X11");
+    @panic("TODO: implement setSizeLimit for Wayland");
 }
 
 // May be called from any thread.
 pub fn sizeLimit(_: *Core) SizeLimit {
-    @panic("TODO: implement sizeLimit for X11");
+    @panic("TODO: implement sizeLimit for Wayland");
 }
 
 // May be called from any thread.
 pub fn setCursorMode(_: *Core, _: CursorMode) void {
-    @panic("TODO: implement setCursorMode for X11");
+    @panic("TODO: implement setCursorMode for Wayland");
 }
 
 // May be called from any thread.
 pub fn cursorMode(_: *Core) CursorMode {
-    @panic("TODO: implement cursorMode for X11");
+    @panic("TODO: implement cursorMode for Wayland");
 }
 
 // May be called from any thread.
 pub fn setCursorShape(_: *Core, _: CursorShape) void {
-    @panic("TODO: implement setCursorShape for X11");
+    @panic("TODO: implement setCursorShape for Wayland");
 }
 
 // May be called from any thread.
 pub fn cursorShape(_: *Core) CursorShape {
-    @panic("TODO: implement cursorShape for X11");
+    @panic("TODO: implement cursorShape for Wayland");
 }
 
 // May be called from any thread.
 pub fn joystickPresent(_: *Core, _: Joystick) bool {
-    @panic("TODO: implement joystickPresent for X11");
+    @panic("TODO: implement joystickPresent for Wayland");
 }
 
 // May be called from any thread.
 pub fn joystickName(_: *Core, _: Joystick) ?[:0]const u8 {
-    @panic("TODO: implement joystickName for X11");
+    @panic("TODO: implement joystickName for Wayland");
 }
 
 // May be called from any thread.
 pub fn joystickButtons(_: *Core, _: Joystick) ?[]const bool {
-    @panic("TODO: implement joystickButtons for X11");
+    @panic("TODO: implement joystickButtons for Wayland");
 }
 
 // May be called from any thread.
 pub fn joystickAxes(_: *Core, _: Joystick) ?[]const f32 {
-    @panic("TODO: implement joystickAxes for X11");
+    @panic("TODO: implement joystickAxes for Wayland");
 }
 
 // May be called from any thread.
 pub fn keyPressed(_: *Core, _: Key) bool {
-    @panic("TODO: implement keyPressed for X11");
+    @panic("TODO: implement keyPressed for Wayland");
 }
 
 // May be called from any thread.
 pub fn keyReleased(_: *Core, _: Key) bool {
-    @panic("TODO: implement keyReleased for X11");
+    @panic("TODO: implement keyReleased for Wayland");
 }
 
 // May be called from any thread.
 pub fn mousePressed(_: *Core, _: MouseButton) bool {
-    @panic("TODO: implement mousePressed for X11");
+    @panic("TODO: implement mousePressed for Wayland");
 }
 
 // May be called from any thread.
 pub fn mouseReleased(_: *Core, _: MouseButton) bool {
-    @panic("TODO: implement mouseReleased for X11");
+    @panic("TODO: implement mouseReleased for Wayland");
 }
 
 // May be called from any thread.
 pub fn mousePosition(_: *Core) mach_core.Position {
-    @panic("TODO: implement mousePosition for X11");
+    @panic("TODO: implement mousePosition for Wayland");
 }
 
 // May be called from any thread.
 pub inline fn outOfMemory(_: *Core) bool {
-    @panic("TODO: implement outOfMemory for X11");
+    @panic("TODO: implement outOfMemory for Wayland");
 }
 
 // TODO(important): expose device loss to users, this can happen especially in the web and on mobile
