@@ -143,13 +143,16 @@ pub fn update(app: *App) !bool {
             },
             .mouse_press => |ev| {
                 std.debug.print("mouse press {} - {}\n", .{ ev.button, ev.pos });
-                if (ev.button == .left) {
-                    core.setCursorMode(.hidden);
-                } else if (ev.button == .right) {
-                    core.setCursorMode(.disabled);
-                } else if (ev.button == .middle) {
-                    core.setCursorMode(.normal);
-                }
+                // if (ev.button == .left) {
+                //     core.setCursorMode(.hidden);
+                // } else if (ev.button == .right) {
+                //     core.setCursorMode(.disabled);
+                // } else if (ev.button == .middle) {
+                //     core.setCursorMode(.normal);
+                // }
+            },
+            .mouse_motion => |ev| {
+                std.debug.print("mouse motion {d}x{d}\n", .{ ev.pos.x, ev.pos.y });
             },
             .mouse_release => |ev| {
                 std.debug.print("mouse release {} - {}\n", .{ ev.button, ev.pos });

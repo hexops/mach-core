@@ -306,8 +306,6 @@ fn seatHandleCapabilities(user_data_ptr: ?*anyopaque, seat: ?*c.struct_wl_seat, 
             .leave = &handlePointerLeave,
             .motion = &handlePointerMotion,
         }, user_data_ptr);
-
-        log.debug("added curser listener", .{});
     }
 
     // Delete keyboard if its no longer in the seat
@@ -328,15 +326,12 @@ fn seatHandleCapabilities(user_data_ptr: ?*anyopaque, seat: ?*c.struct_wl_seat, 
 
 fn handlePointerEnter(user_data_ptr: ?*anyopaque, pointer: ?*c.struct_wl_pointer, serial: u32, surface: ?*c.struct_wl_surface, fixed_x: c.wl_fixed_t, fixed_y: c.wl_fixed_t) callconv(.C) void {
     const user_data: *Core = @ptrCast(@alignCast(user_data_ptr));
+    _ = fixed_x; // autofix
+    _ = fixed_y; // autofix
     _ = user_data; // autofix
     _ = pointer; // autofix
     _ = serial; // autofix
     _ = surface; // autofix
-
-    const x = c.wl_fixed_to_double(fixed_x);
-    const y = c.wl_fixed_to_double(fixed_y);
-
-    log.debug("enter {d}x{d}", .{ x, y });
 }
 fn handlePointerLeave(user_data_ptr: ?*anyopaque, pointer: ?*c.struct_wl_pointer, serial: u32, surface: ?*c.struct_wl_surface) callconv(.C) void {
     const user_data: *Core = @ptrCast(@alignCast(user_data_ptr));
@@ -344,8 +339,6 @@ fn handlePointerLeave(user_data_ptr: ?*anyopaque, pointer: ?*c.struct_wl_pointer
     _ = pointer; // autofix
     _ = serial; // autofix
     _ = surface; // autofix
-
-    log.debug("leave", .{});
 }
 fn handlePointerMotion(user_data_ptr: ?*anyopaque, pointer: ?*c.struct_wl_pointer, serial: u32, fixed_x: c.wl_fixed_t, fixed_y: c.wl_fixed_t) callconv(.C) void {
     const user_data: *Core = @ptrCast(@alignCast(user_data_ptr));
@@ -750,6 +743,10 @@ pointer: ?*c.wl_pointer = null,
 events_mu: std.Thread.RwLock = .{},
 events: EventQueue,
 
+//timings
+frame: *Frequency,
+input: *Frequency,
+
 // changables
 state_mu: std.Thread.RwLock = .{},
 title: Changable([:0]const u8, true),
@@ -775,8 +772,6 @@ pub fn init(
 
     libwaylandclient = try LibWaylandClient.load();
     core.libxkbcommon = try LibXkbCommon.load();
-    _ = frame;
-    _ = input;
 
     core.xkb_context = core.libxkbcommon.xkb_context_new(0).?;
 
@@ -976,6 +971,8 @@ pub fn init(
             .super = false,
         },
         .input_state = .{},
+        .frame = frame,
+        .input = input,
     };
 }
 
@@ -1023,27 +1020,27 @@ pub fn update(self: *Core, app: anytype) !bool {
             c.wl_surface_commit(self.surface);
     }
 
-    while (libwaylandclient.wl_display_flush(self.display) == -1) {
-        // if (std.os.errno() == std.os.E.AGAIN) {
-        // log.err("flush error", .{});
-        // return true;
-        // }
+    // while (libwaylandclient.wl_display_flush(self.display) == -1) {
+    //     // if (std.os.errno() == std.os.E.AGAIN) {
+    //     // log.err("flush error", .{});
+    //     // return true;
+    //     // }
 
-        var pollfd = [_]std.os.pollfd{
-            std.os.pollfd{
-                .fd = libwaylandclient.wl_display_get_fd(self.display),
-                .events = std.os.POLL.OUT,
-                .revents = 0,
-            },
-        };
+    //     var pollfd = [_]std.os.pollfd{
+    //         std.os.pollfd{
+    //             .fd = libwaylandclient.wl_display_get_fd(self.display),
+    //             .events = std.os.POLL.OUT,
+    //             .revents = 0,
+    //         },
+    //     };
 
-        while (try std.os.poll(&pollfd, -1) != 0) {
-            // if (std.os.errno() == std.os.E.INTR or std.os.errno() == std.os.E.AGAIN) {
-            // log.err("poll error", .{});
-            // return true;
-            // }
-        }
-    }
+    //     while (try std.os.poll(&pollfd, -1) != 0) {
+    //         // if (std.os.errno() == std.os.E.INTR or std.os.errno() == std.os.E.AGAIN) {
+    //         // log.err("poll error", .{});
+    //         // return true;
+    //         // }
+    //     }
+    // }
 
     if (@hasDecl(std.meta.Child(@TypeOf(app)), "updateMainThread")) {
         if (app.updateMainThread() catch unreachable) {
@@ -1054,6 +1051,7 @@ pub fn update(self: *Core, app: anytype) !bool {
 
     _ = libwaylandclient.wl_display_roundtrip(self.display);
 
+    self.input.tick();
     return false;
 }
 
@@ -1061,7 +1059,7 @@ pub fn update(self: *Core, app: anytype) !bool {
 pub fn appUpdateThread(self: *Core, app: anytype) void {
     // @panic("TODO: implement appUpdateThread for Wayland");
 
-    // self.frame.start() catch unreachable;
+    self.frame.start() catch unreachable;
     while (true) {
         // if (self.swap_chain_update.isSet()) blk: {
         //     self.swap_chain_update.reset();
@@ -1106,14 +1104,13 @@ pub fn appUpdateThread(self: *Core, app: anytype) void {
         self.gpu_device.tick();
         self.gpu_device.machWaitForCommandsToBeScheduled();
 
-        // self.frame.tick();
-        // if (self.frame.delay_ns != 0) std.time.sleep(self.frame.delay_ns);
+        self.frame.tick();
+        if (self.frame.delay_ns != 0) std.time.sleep(self.frame.delay_ns);
     }
 }
 
 // May be called from any thread.
 pub inline fn pollEvents(self: *Core) EventIterator {
-    // @panic("TODO: implement pollEvents for Wayland");
     return EventIterator{ .events_mu = &self.events_mu, .queue = &self.events };
 }
 
