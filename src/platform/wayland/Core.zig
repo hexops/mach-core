@@ -24,6 +24,7 @@ const wantGamemode = @import("../common.zig").wantGamemode;
 const initLinuxGamemode = @import("../common.zig").initLinuxGamemode;
 const deinitLinuxGamemode = @import("../common.zig").deinitLinuxGamemode;
 const requestAdapterCallback = @import("../common.zig").requestAdapterCallback;
+const Unicode = @import("../x11/unicode.zig");
 
 const log = std.log.scoped(.mach);
 
@@ -75,6 +76,10 @@ const LibXkbCommon = struct {
     xkb_keymap_mod_get_index: *const @TypeOf(c.xkb_keymap_mod_get_index),
     xkb_state_update_mask: *const @TypeOf(c.xkb_state_update_mask),
     xkb_state_mod_index_is_active: *const @TypeOf(c.xkb_state_mod_index_is_active),
+    xkb_state_key_get_syms: *const @TypeOf(c.xkb_state_key_get_syms),
+    xkb_compose_state_feed: *const @TypeOf(c.xkb_compose_state_feed),
+    xkb_compose_state_get_status: *const @TypeOf(c.xkb_compose_state_get_status),
+    xkb_compose_state_get_one_sym: *const @TypeOf(c.xkb_compose_state_get_one_sym),
 
     pub fn load() !LibXkbCommon {
         var lib: LibXkbCommon = undefined;
@@ -638,6 +643,18 @@ fn keyboardHandleKey(user_data: *GlobalState, keyboard: ?*c.struct_wl_keyboard, 
             .key = key,
             .mods = user_data.modifiers,
         } });
+
+        var keysyms: ?[*]c.xkb_keysym_t = undefined;
+        //Get the keysym from the keycode (scancode + 8)
+        if (user_data.libxkbcommon.xkb_state_key_get_syms(user_data.xkb_state, scancode + 8, &keysyms) == 1) {
+            //Compose the keysym
+            const keysym: c.xkb_keysym_t = composeSymbol(user_data, keysyms.?[0]);
+
+            //Try to convert that keysym to a unicode codepoint
+            if (Unicode.unicodeFromKeySym(keysym)) |codepoint| {
+                user_data.pushEvent(Event{ .char_input = .{ .codepoint = codepoint } });
+            }
+        }
     } else {
         user_data.pushEvent(Event{ .key_release = .{
             .key = key,
@@ -684,6 +701,20 @@ fn keyboardHandleRepeatInfo(user_data: *GlobalState, keyboard: ?*c.struct_wl_key
     _ = keyboard;
     _ = rate;
     _ = delay;
+}
+
+fn composeSymbol(user_data: *GlobalState, sym: c.xkb_keysym_t) c.xkb_keysym_t {
+    if (sym == c.XKB_KEY_NoSymbol or user_data.compose_state == null)
+        return sym;
+
+    if (user_data.libxkbcommon.xkb_compose_state_feed(user_data.compose_state, sym) != c.XKB_COMPOSE_FEED_ACCEPTED)
+        return sym;
+
+    return switch (user_data.libxkbcommon.xkb_compose_state_get_status(user_data.compose_state)) {
+        c.XKB_COMPOSE_COMPOSED => user_data.libxkbcommon.xkb_compose_state_get_one_sym(user_data.compose_state),
+        c.XKB_COMPOSE_COMPOSING, c.XKB_COMPOSE_CANCELLED => c.XKB_KEY_NoSymbol,
+        else => sym,
+    };
 }
 
 fn wmBaseHandlePing(user_data: *GlobalState, wm_base: ?*c.struct_xdg_wm_base, serial: u32) callconv(.C) void {
