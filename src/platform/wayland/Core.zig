@@ -175,446 +175,6 @@ const Interfaces = struct {
     // xdg_activation_v1: *c.xdg_activation_v1,
 };
 
-fn registryHandleGlobal(user_data_ptr: ?*anyopaque, registry: ?*c.struct_wl_registry, name: u32, interface_ptr: [*:0]const u8, version: u32) callconv(.C) void {
-    const user_data: *Core = @ptrCast(@alignCast(user_data_ptr));
-    const interface = std.mem.span(interface_ptr);
-
-    log.debug("Got interface: {s}", .{interface});
-
-    if (std.mem.eql(u8, "wl_compositor", interface)) {
-        user_data.interfaces.wl_compositor = @ptrCast(c.wl_registry_bind(
-            registry,
-            name,
-            libwaylandclient.wl_compositor_interface,
-            @min(3, version),
-        ) orelse @panic("uh idk how to proceed"));
-        log.debug("Bound wl_compositor :)", .{});
-    } else if (std.mem.eql(u8, "wl_subcompositor", interface)) {
-        user_data.interfaces.wl_subcompositor = @ptrCast(c.wl_registry_bind(
-            registry,
-            name,
-            libwaylandclient.wl_subcompositor_interface,
-            @min(3, version),
-        ) orelse @panic("uh idk how to proceed"));
-        log.debug("Bound wl_subcompositor :)", .{});
-    } else if (std.mem.eql(u8, "wl_shm", interface)) {
-        user_data.interfaces.wl_shm = @ptrCast(c.wl_registry_bind(
-            registry,
-            name,
-            libwaylandclient.wl_shm_interface,
-            @min(3, version),
-        ) orelse @panic("uh idk how to proceed"));
-        log.debug("Bound wl_shm :)", .{});
-    } else if (std.mem.eql(u8, "wl_output", interface)) {
-        user_data.interfaces.wl_output = @ptrCast(c.wl_registry_bind(
-            registry,
-            name,
-            libwaylandclient.wl_output_interface,
-            @min(3, version),
-        ) orelse @panic("uh idk how to proceed"));
-        log.debug("Bound wl_output :)", .{});
-        // } else if (std.mem.eql(u8, "wl_data_device_manager", interface)) {
-        //     user_data.interfaces.wl_data_device_manager = @ptrCast(user_data.libwaylandclient.wl_registry_bind(
-        //         registry,
-        //         name,
-        //         user_data.libwaylandclient.wl_data_device_manager_interface,
-        //         @min(3, version),
-        //     ) orelse @panic("uh idk how to proceed"));
-        //     log.debug("Bound wl_data_device_manager :)", .{});
-    } else if (std.mem.eql(u8, "xdg_wm_base", interface)) {
-        user_data.interfaces.xdg_wm_base = @ptrCast(c.wl_registry_bind(
-            registry,
-            name,
-            &LibWaylandClient.xdg_wm_base_interface,
-            // &LibWaylandClient._glfw_xdg_wm_base_interface,
-            @min(3, version),
-        ) orelse @panic("uh idk how to proceed"));
-        log.debug("Bound xdg_wm_base :)", .{});
-
-        //TODO: handle return value
-        _ = c.xdg_wm_base_add_listener(user_data.interfaces.xdg_wm_base, &.{ .ping = &wmBaseHandlePing }, user_data);
-    } else if (std.mem.eql(u8, "zxdg_decoration_manager_v1", interface)) {
-        user_data.interfaces.zxdg_decoration_manager_v1 = @ptrCast(c.wl_registry_bind(
-            registry,
-            name,
-            &LibWaylandClient.zxdg_decoration_manager_v1_interface,
-            @min(3, version),
-        ) orelse @panic("uh idk how to proceed"));
-        log.debug("Bound zxdg_decoration_manager_v1 :)", .{});
-    } else if (std.mem.eql(u8, "wl_seat", interface)) {
-        user_data.interfaces.wl_seat = @ptrCast(c.wl_registry_bind(
-            registry,
-            name,
-            libwaylandclient.wl_seat_interface,
-            @min(3, version),
-        ) orelse @panic("uh idk how to proceed"));
-        log.debug("Bound wl_seat :)", .{});
-
-        //TODO: handle return value
-        _ = c.wl_seat_add_listener(user_data.interfaces.wl_seat, &.{
-            .capabilities = &seatHandleCapabilities,
-            .name = @ptrCast(&seatHandleName), //ptrCast for the `[*:0]const u8`
-        }, user_data_ptr);
-    }
-}
-
-fn seatHandleName(user_data_ptr: ?*anyopaque, seat: ?*c.struct_wl_seat, name_ptr: [*:0]const u8) callconv(.C) void {
-    const user_data: *Core = @ptrCast(@alignCast(user_data_ptr));
-    _ = user_data;
-    const name = std.mem.span(name_ptr);
-
-    log.info("seat {*} has name {s}", .{ seat, name });
-}
-
-fn seatHandleCapabilities(user_data_ptr: ?*anyopaque, seat: ?*c.struct_wl_seat, caps: c.wl_seat_capability) callconv(.C) void {
-    const user_data: *Core = @ptrCast(@alignCast(user_data_ptr));
-
-    log.info("seat {*} has caps {d}", .{ seat, caps });
-
-    if ((caps & c.WL_SEAT_CAPABILITY_KEYBOARD) != 0) {
-        user_data.keyboard = c.wl_seat_get_keyboard(seat);
-
-        //TODO: handle return value
-        _ = c.wl_keyboard_add_listener(user_data.keyboard, &.{
-            .keymap = &keyboardHandleKeymap,
-            .enter = &keyboardHandleEnter,
-            .leave = &keyboardHandleLeave,
-            .key = &keyboardHandleKey,
-            .modifiers = &keyboardHandleModifiers,
-            .repeat_info = &keyboardHandleRepeatInfo,
-        }, user_data_ptr);
-    }
-
-    if ((caps & c.WL_SEAT_CAPABILITY_TOUCH) != 0) {
-        //TODO
-    }
-
-    if ((caps & c.WL_SEAT_CAPABILITY_POINTER) != 0) {
-        user_data.pointer = c.wl_seat_get_pointer(seat);
-
-        //TODO: handle return value
-        _ = c.wl_pointer_add_listener(user_data.pointer, &.{
-            .axis = &handlePointerAxis,
-            .axis_discrete = &handlePointerAxisDiscrete,
-            .axis_relative_direction = &handlePointerAxisRelativeDirection,
-            .axis_source = &handlePointerAxisSource,
-            .axis_stop = &handlePointerAxisStop,
-            .axis_value120 = &handlePointerAxisValue120,
-            .button = &handlePointerButton,
-            .enter = &handlePointerEnter,
-            .frame = &handlePointerFrame,
-            .leave = &handlePointerLeave,
-            .motion = &handlePointerMotion,
-        }, user_data_ptr);
-    }
-
-    // Delete keyboard if its no longer in the seat
-    if (user_data.keyboard) |keyboard| {
-        if ((caps & c.WL_SEAT_CAPABILITY_KEYBOARD) == 0) {
-            c.wl_keyboard_destroy(keyboard);
-            user_data.keyboard = null;
-        }
-    }
-
-    if (user_data.pointer) |pointer| {
-        if ((caps & c.WL_SEAT_CAPABILITY_POINTER) == 0) {
-            c.wl_pointer_destroy(pointer);
-            user_data.pointer = null;
-        }
-    }
-}
-
-fn handlePointerEnter(user_data_ptr: ?*anyopaque, pointer: ?*c.struct_wl_pointer, serial: u32, surface: ?*c.struct_wl_surface, fixed_x: c.wl_fixed_t, fixed_y: c.wl_fixed_t) callconv(.C) void {
-    const user_data: *Core = @ptrCast(@alignCast(user_data_ptr));
-    _ = fixed_x; // autofix
-    _ = fixed_y; // autofix
-    _ = user_data; // autofix
-    _ = pointer; // autofix
-    _ = serial; // autofix
-    _ = surface; // autofix
-}
-fn handlePointerLeave(user_data_ptr: ?*anyopaque, pointer: ?*c.struct_wl_pointer, serial: u32, surface: ?*c.struct_wl_surface) callconv(.C) void {
-    const user_data: *Core = @ptrCast(@alignCast(user_data_ptr));
-    _ = user_data; // autofix
-    _ = pointer; // autofix
-    _ = serial; // autofix
-    _ = surface; // autofix
-}
-fn handlePointerMotion(user_data_ptr: ?*anyopaque, pointer: ?*c.struct_wl_pointer, serial: u32, fixed_x: c.wl_fixed_t, fixed_y: c.wl_fixed_t) callconv(.C) void {
-    const user_data: *Core = @ptrCast(@alignCast(user_data_ptr));
-    _ = pointer; // autofix
-    _ = serial; // autofix
-
-    const x = c.wl_fixed_to_double(fixed_x);
-    const y = c.wl_fixed_to_double(fixed_y);
-
-    user_data.pushEvent(.{ .mouse_motion = .{ .pos = .{ .x = x, .y = y } } });
-    user_data.input_state.mouse_position = .{ .x = x, .y = y };
-}
-fn handlePointerButton(user_data_ptr: ?*anyopaque, pointer: ?*c.struct_wl_pointer, serial: u32, time: u32, button: u32, state: u32) callconv(.C) void {
-    const user_data: *Core = @ptrCast(@alignCast(user_data_ptr));
-    _ = pointer; // autofix
-    _ = serial; // autofix
-    _ = time; // autofix
-
-    const mouse_button: MouseButton = @enumFromInt(button - c.BTN_LEFT);
-    const pressed = state == c.WL_POINTER_BUTTON_STATE_PRESSED;
-
-    user_data.input_state.mouse_buttons.setValue(@intFromEnum(mouse_button), pressed);
-
-    if (pressed) {
-        user_data.pushEvent(Event{ .mouse_press = .{
-            .button = mouse_button,
-            .mods = user_data.modifiers,
-            .pos = user_data.input_state.mouse_position,
-        } });
-    } else {
-        user_data.pushEvent(Event{ .mouse_release = .{
-            .button = mouse_button,
-            .mods = user_data.modifiers,
-            .pos = user_data.input_state.mouse_position,
-        } });
-    }
-}
-fn handlePointerAxis(user_data_ptr: ?*anyopaque, pointer: ?*c.struct_wl_pointer, time: u32, axis: u32, value: c.wl_fixed_t) callconv(.C) void {
-    const user_data: *Core = @ptrCast(@alignCast(user_data_ptr));
-    _ = user_data; // autofix
-    _ = pointer; // autofix
-    _ = time; // autofix
-    _ = axis; // autofix
-    _ = value; // autofix
-}
-fn handlePointerFrame(user_data_ptr: ?*anyopaque, pointer: ?*c.struct_wl_pointer) callconv(.C) void {
-    const user_data: *Core = @ptrCast(@alignCast(user_data_ptr));
-    _ = user_data; // autofix
-    _ = pointer; // autofix
-}
-fn handlePointerAxisSource(user_data_ptr: ?*anyopaque, pointer: ?*c.struct_wl_pointer, axis_source: u32) callconv(.C) void {
-    const user_data: *Core = @ptrCast(@alignCast(user_data_ptr));
-    _ = user_data; // autofix
-    _ = pointer; // autofix
-    _ = axis_source; // autofix
-}
-fn handlePointerAxisStop(user_data_ptr: ?*anyopaque, pointer: ?*c.struct_wl_pointer, time: u32, axis: u32) callconv(.C) void {
-    const user_data: *Core = @ptrCast(@alignCast(user_data_ptr));
-    _ = user_data; // autofix
-    _ = pointer; // autofix
-    _ = time; // autofix
-    _ = axis; // autofix
-}
-fn handlePointerAxisDiscrete(user_data_ptr: ?*anyopaque, pointer: ?*c.struct_wl_pointer, axis: u32, discrete: i32) callconv(.C) void {
-    const user_data: *Core = @ptrCast(@alignCast(user_data_ptr));
-    _ = user_data; // autofix
-    _ = pointer; // autofix
-    _ = axis; // autofix
-    _ = discrete; // autofix
-}
-fn handlePointerAxisValue120(user_data_ptr: ?*anyopaque, pointer: ?*c.struct_wl_pointer, axis: u32, value_120: i32) callconv(.C) void {
-    const user_data: *Core = @ptrCast(@alignCast(user_data_ptr));
-    _ = user_data; // autofix
-    _ = pointer; // autofix
-    _ = axis; // autofix
-    _ = value_120; // autofix
-}
-fn handlePointerAxisRelativeDirection(user_data_ptr: ?*anyopaque, pointer: ?*c.struct_wl_pointer, axis: u32, direction: u32) callconv(.C) void {
-    const user_data: *Core = @ptrCast(@alignCast(user_data_ptr));
-    _ = user_data; // autofix
-    _ = pointer; // autofix
-    _ = axis; // autofix
-    _ = direction; // autofix
-}
-
-fn keyboardHandleKeymap(user_data_ptr: ?*anyopaque, keyboard: ?*c.struct_wl_keyboard, format: u32, fd: i32, keymap_size: u32) callconv(.C) void {
-    const user_data: *Core = @ptrCast(@alignCast(user_data_ptr));
-
-    _ = keyboard;
-
-    if (format != c.WL_KEYBOARD_KEYMAP_FORMAT_XKB_V1) {
-        @panic("TODO");
-    }
-
-    const map_str = std.os.mmap(null, keymap_size, std.os.PROT.READ, std.os.MAP.SHARED, fd, 0) catch unreachable;
-
-    const keymap = user_data.libxkbcommon.xkb_keymap_new_from_string(
-        user_data.xkb_context,
-        @alignCast(map_str), //align cast happening here, im sure its fine? TODO: figure out if this okay
-        c.XKB_KEYMAP_FORMAT_TEXT_V1,
-        0,
-    ).?;
-    log.debug("got keymap {*}", .{keymap});
-
-    //Unmap the keymap
-    std.os.munmap(map_str);
-    //Close the fd
-    std.os.close(fd);
-
-    const state = user_data.libxkbcommon.xkb_state_new(keymap).?;
-    // defer user_data.libxkbcommon.xkb_state_unref(state);
-
-    //this chain hurts me. why must C be this way.
-    const locale = std.os.getenv("LC_ALL") orelse std.os.getenv("LC_CTYPE") orelse std.os.getenv("LANG") orelse "C";
-
-    var compose_table = user_data.libxkbcommon.xkb_compose_table_new_from_locale(
-        user_data.xkb_context,
-        locale,
-        c.XKB_COMPOSE_COMPILE_NO_FLAGS,
-    );
-
-    //If creation failed, lets try the C locale
-    if (compose_table == null)
-        compose_table = user_data.libxkbcommon.xkb_compose_table_new_from_locale(
-            user_data.xkb_context,
-            "C",
-            c.XKB_COMPOSE_COMPILE_NO_FLAGS,
-        ).?;
-
-    defer user_data.libxkbcommon.xkb_compose_table_unref(compose_table);
-
-    user_data.keymap = keymap;
-    user_data.xkb_state = state;
-    user_data.compose_state = user_data.libxkbcommon.xkb_compose_state_new(compose_table, c.XKB_COMPOSE_STATE_NO_FLAGS).?;
-
-    user_data.control_index = user_data.libxkbcommon.xkb_keymap_mod_get_index(keymap, "Control");
-    user_data.alt_index = user_data.libxkbcommon.xkb_keymap_mod_get_index(keymap, "Mod1");
-    user_data.shift_index = user_data.libxkbcommon.xkb_keymap_mod_get_index(keymap, "Shift");
-    user_data.super_index = user_data.libxkbcommon.xkb_keymap_mod_get_index(keymap, "Mod4");
-    user_data.caps_lock_index = user_data.libxkbcommon.xkb_keymap_mod_get_index(keymap, "Lock");
-    user_data.num_lock_index = user_data.libxkbcommon.xkb_keymap_mod_get_index(keymap, "Mod2");
-}
-fn keyboardHandleEnter(user_data_ptr: ?*anyopaque, keyboard: ?*c.struct_wl_keyboard, serial: u32, surface: ?*c.struct_wl_surface, keys: [*c]c.struct_wl_array) callconv(.C) void {
-    const user_data: *Core = @ptrCast(@alignCast(user_data_ptr));
-
-    _ = keyboard;
-    _ = serial;
-    _ = surface;
-    _ = keys;
-
-    user_data.pushEvent(.focus_gained);
-}
-fn keyboardHandleLeave(user_data_ptr: ?*anyopaque, keyboard: ?*c.struct_wl_keyboard, serial: u32, surface: ?*c.struct_wl_surface) callconv(.C) void {
-    const user_data: *Core = @ptrCast(@alignCast(user_data_ptr));
-
-    _ = keyboard;
-    _ = serial;
-    _ = surface;
-
-    user_data.pushEvent(.focus_lost);
-}
-fn keyboardHandleKey(user_data_ptr: ?*anyopaque, keyboard: ?*c.struct_wl_keyboard, serial: u32, time: u32, scancode: u32, state: u32) callconv(.C) void {
-    const user_data: *Core = @ptrCast(@alignCast(user_data_ptr));
-
-    _ = keyboard;
-    _ = serial;
-    _ = time;
-
-    const key = toMachKey(scancode);
-    const pressed = state == 1;
-
-    user_data.input_state.keys.setValue(@intFromEnum(key), pressed);
-
-    if (pressed) {
-        user_data.pushEvent(Event{ .key_press = .{
-            .key = key,
-            .mods = user_data.modifiers,
-        } });
-    } else {
-        user_data.pushEvent(Event{ .key_release = .{
-            .key = key,
-            .mods = user_data.modifiers,
-        } });
-    }
-}
-fn keyboardHandleModifiers(user_data_ptr: ?*anyopaque, keyboard: ?*c.struct_wl_keyboard, serial: u32, mods_depressed: u32, mods_latched: u32, mods_locked: u32, group: u32) callconv(.C) void {
-    const user_data: *Core = @ptrCast(@alignCast(user_data_ptr));
-
-    _ = keyboard;
-    _ = serial;
-
-    if (user_data.keymap == null)
-        return;
-
-    //TODO: handle this return value
-    _ = user_data.libxkbcommon.xkb_state_update_mask(
-        user_data.xkb_state.?,
-        mods_depressed,
-        mods_latched,
-        mods_locked,
-        0,
-        0,
-        group,
-    );
-
-    //Iterate over all the modifiers
-    inline for (.{
-        .{ user_data.alt_index, "alt" },
-        .{ user_data.shift_index, "shift" },
-        .{ user_data.super_index, "super" },
-        .{ user_data.control_index, "control" },
-        .{ user_data.num_lock_index, "num_lock" },
-        .{ user_data.caps_lock_index, "caps_lock" },
-    }) |key| {
-        @field(user_data.modifiers, key[1]) = user_data.libxkbcommon.xkb_state_mod_index_is_active(
-            user_data.xkb_state,
-            key[0],
-            c.XKB_STATE_MODS_EFFECTIVE,
-        ) == 1;
-    }
-}
-fn keyboardHandleRepeatInfo(user_data_ptr: ?*anyopaque, keyboard: ?*c.struct_wl_keyboard, rate: i32, delay: i32) callconv(.C) void {
-    const user_data: *Core = @ptrCast(@alignCast(user_data_ptr));
-
-    _ = user_data;
-    _ = keyboard;
-    _ = rate;
-    _ = delay;
-}
-
-fn wmBaseHandlePing(user_data_ptr: ?*anyopaque, wm_base: ?*c.struct_xdg_wm_base, serial: u32) callconv(.C) void {
-    const user_data: *Core = @ptrCast(@alignCast(user_data_ptr));
-    _ = user_data;
-
-    log.debug("Got wm base ping {*} with serial {d}", .{ wm_base, serial });
-
-    c.xdg_wm_base_pong(wm_base, serial);
-}
-
-fn registryHandleGlobalRemove(user_data: ?*anyopaque, registry: ?*c.struct_wl_registry, name: u32) callconv(.C) void {
-    _ = user_data;
-    _ = registry;
-    _ = name;
-}
-
-const registry_listener = c.wl_registry_listener{
-    // ptrcast is for the [*:0] -> [*c] conversion, silly yes
-    .global = @ptrCast(&registryHandleGlobal),
-    .global_remove = &registryHandleGlobalRemove,
-};
-
-fn xdgSurfaceHandleConfigure(user_data_ptr: ?*anyopaque, xdg_surface: ?*c.struct_xdg_surface, serial: u32) callconv(.C) void {
-    const core: *Core = @ptrCast(@alignCast(user_data_ptr.?));
-
-    c.xdg_surface_ack_configure(xdg_surface, serial);
-    if (core.configured) {
-        c.wl_surface_commit(core.surface);
-    } else {
-        log.debug("xdg surface configured", .{});
-        core.configured = true;
-    }
-}
-
-fn xdgToplevelHandleClose(user_data: ?*anyopaque, toplevel: ?*c.struct_xdg_toplevel) callconv(.C) void {
-    _ = user_data;
-    _ = toplevel;
-}
-
-fn xdgToplevelHandleConfigure(user_data: ?*anyopaque, toplevel: ?*c.struct_xdg_toplevel, width: i32, height: i32, states: [*c]c.struct_wl_array) callconv(.C) void {
-    _ = user_data;
-    _ = toplevel;
-    _ = width;
-    _ = height;
-    _ = states;
-}
-
 fn Changable(comptime T: type, comptime uses_allocator: bool) type {
     return struct {
         current: T,
@@ -694,54 +254,59 @@ fn Changable(comptime T: type, comptime uses_allocator: bool) type {
     };
 }
 
-fn pushEvent(self: *Core, event: Event) void {
-    self.events_mu.lock();
-    defer self.events_mu.unlock();
+/// Global state passed to things as the user data parameter, anything that needs to be accessed by callbacks should be in here.
+const GlobalState = struct {
+    //xkb
+    libxkbcommon: LibXkbCommon,
+    xkb_context: ?*c.xkb_context,
+    keymap: ?*c.xkb_keymap,
+    xkb_state: ?*c.xkb_state,
+    compose_state: ?*c.xkb_compose_state,
 
-    self.events.writeItem(event) catch @panic("TODO");
-}
+    control_index: c.xkb_mod_index_t,
+    alt_index: c.xkb_mod_index_t,
+    shift_index: c.xkb_mod_index_t,
+    super_index: c.xkb_mod_index_t,
+    caps_lock_index: c.xkb_mod_index_t,
+    num_lock_index: c.xkb_mod_index_t,
+
+    // Wayland objects/state
+    configured: bool,
+    interfaces: Interfaces,
+    surface: ?*c.struct_wl_surface,
+
+    // Input/Event stuff
+    keyboard: ?*c.wl_keyboard = null,
+    pointer: ?*c.wl_pointer = null,
+    events_mu: std.Thread.RwLock = .{},
+    events: EventQueue,
+
+    input_state: InputState,
+    modifiers: KeyMods,
+
+    fn pushEvent(self: *GlobalState, event: Event) void {
+        self.events_mu.lock();
+        defer self.events_mu.unlock();
+
+        self.events.writeItem(event) catch @panic("TODO");
+    }
+};
 
 pub const Core = @This();
 
 gpu_device: *gpu.Device,
 
-// xkb
-xkb_context: *c.xkb_context,
-libxkbcommon: LibXkbCommon,
-keymap: ?*c.xkb_keymap,
-xkb_state: ?*c.xkb_state,
-compose_state: ?*c.xkb_compose_state,
-
-control_index: c.xkb_mod_index_t,
-alt_index: c.xkb_mod_index_t,
-shift_index: c.xkb_mod_index_t,
-super_index: c.xkb_mod_index_t,
-caps_lock_index: c.xkb_mod_index_t,
-num_lock_index: c.xkb_mod_index_t,
-
-modifiers: KeyMods,
-
-input_state: InputState,
-
 // Wayland objects/state
 display: *c.struct_wl_display,
 registry: *c.struct_wl_registry,
-interfaces: Interfaces,
-surface: *c.struct_wl_surface,
 xdg_surface: *c.xdg_surface,
 toplevel: *c.xdg_toplevel,
 tag: [*]c_char,
 decoration: *c.zxdg_toplevel_decoration_v1,
-configured: bool,
+global_state: GlobalState,
 
 // internal tracking state
 app_update_thread_started: bool = false,
-
-// Event stuff
-keyboard: ?*c.wl_keyboard = null,
-pointer: ?*c.wl_pointer = null,
-events_mu: std.Thread.RwLock = .{},
-events: EventQueue,
 
 //timings
 frame: *Frequency,
@@ -754,6 +319,417 @@ window_size: Changable(Size, false),
 min_size: Changable(Size, false),
 max_size: Changable(Size, false),
 
+fn registryHandleGlobal(user_data: *GlobalState, registry: ?*c.struct_wl_registry, name: u32, interface_ptr: [*:0]const u8, version: u32) callconv(.C) void {
+    const interface = std.mem.span(interface_ptr);
+
+    log.debug("Got interface: {s}", .{interface});
+
+    if (std.mem.eql(u8, "wl_compositor", interface)) {
+        user_data.interfaces.wl_compositor = @ptrCast(c.wl_registry_bind(
+            registry,
+            name,
+            libwaylandclient.wl_compositor_interface,
+            @min(3, version),
+        ) orelse @panic("uh idk how to proceed"));
+        log.debug("Bound wl_compositor :)", .{});
+    } else if (std.mem.eql(u8, "wl_subcompositor", interface)) {
+        user_data.interfaces.wl_subcompositor = @ptrCast(c.wl_registry_bind(
+            registry,
+            name,
+            libwaylandclient.wl_subcompositor_interface,
+            @min(3, version),
+        ) orelse @panic("uh idk how to proceed"));
+        log.debug("Bound wl_subcompositor :)", .{});
+    } else if (std.mem.eql(u8, "wl_shm", interface)) {
+        user_data.interfaces.wl_shm = @ptrCast(c.wl_registry_bind(
+            registry,
+            name,
+            libwaylandclient.wl_shm_interface,
+            @min(3, version),
+        ) orelse @panic("uh idk how to proceed"));
+        log.debug("Bound wl_shm :)", .{});
+    } else if (std.mem.eql(u8, "wl_output", interface)) {
+        user_data.interfaces.wl_output = @ptrCast(c.wl_registry_bind(
+            registry,
+            name,
+            libwaylandclient.wl_output_interface,
+            @min(3, version),
+        ) orelse @panic("uh idk how to proceed"));
+        log.debug("Bound wl_output :)", .{});
+        // } else if (std.mem.eql(u8, "wl_data_device_manager", interface)) {
+        //     user_data.interfaces.wl_data_device_manager = @ptrCast(user_data.libwaylandclient.wl_registry_bind(
+        //         registry,
+        //         name,
+        //         user_data.libwaylandclient.wl_data_device_manager_interface,
+        //         @min(3, version),
+        //     ) orelse @panic("uh idk how to proceed"));
+        //     log.debug("Bound wl_data_device_manager :)", .{});
+    } else if (std.mem.eql(u8, "xdg_wm_base", interface)) {
+        user_data.interfaces.xdg_wm_base = @ptrCast(c.wl_registry_bind(
+            registry,
+            name,
+            &LibWaylandClient.xdg_wm_base_interface,
+            // &LibWaylandClient._glfw_xdg_wm_base_interface,
+            @min(3, version),
+        ) orelse @panic("uh idk how to proceed"));
+        log.debug("Bound xdg_wm_base :)", .{});
+
+        //TODO: handle return value
+        _ = c.xdg_wm_base_add_listener(user_data.interfaces.xdg_wm_base, &.{ .ping = @ptrCast(&wmBaseHandlePing) }, user_data);
+    } else if (std.mem.eql(u8, "zxdg_decoration_manager_v1", interface)) {
+        user_data.interfaces.zxdg_decoration_manager_v1 = @ptrCast(c.wl_registry_bind(
+            registry,
+            name,
+            &LibWaylandClient.zxdg_decoration_manager_v1_interface,
+            @min(3, version),
+        ) orelse @panic("uh idk how to proceed"));
+        log.debug("Bound zxdg_decoration_manager_v1 :)", .{});
+    } else if (std.mem.eql(u8, "wl_seat", interface)) {
+        user_data.interfaces.wl_seat = @ptrCast(c.wl_registry_bind(
+            registry,
+            name,
+            libwaylandclient.wl_seat_interface,
+            @min(3, version),
+        ) orelse @panic("uh idk how to proceed"));
+        log.debug("Bound wl_seat :)", .{});
+
+        //TODO: handle return value
+        _ = c.wl_seat_add_listener(user_data.interfaces.wl_seat, &.{
+            .capabilities = @ptrCast(&seatHandleCapabilities),
+            .name = @ptrCast(&seatHandleName), //ptrCast for the `[*:0]const u8`
+        }, user_data);
+    }
+}
+
+fn seatHandleName(user_data: *GlobalState, seat: ?*c.struct_wl_seat, name_ptr: [*:0]const u8) callconv(.C) void {
+    _ = user_data;
+    const name = std.mem.span(name_ptr);
+
+    log.info("seat {*} has name {s}", .{ seat, name });
+}
+
+fn seatHandleCapabilities(user_data: *GlobalState, seat: ?*c.struct_wl_seat, caps: c.wl_seat_capability) callconv(.C) void {
+    log.info("seat {*} has caps {d}", .{ seat, caps });
+
+    if ((caps & c.WL_SEAT_CAPABILITY_KEYBOARD) != 0) {
+        user_data.keyboard = c.wl_seat_get_keyboard(seat);
+
+        //TODO: handle return value
+        _ = c.wl_keyboard_add_listener(user_data.keyboard, &.{
+            .keymap = @ptrCast(&keyboardHandleKeymap),
+            .enter = @ptrCast(&keyboardHandleEnter),
+            .leave = @ptrCast(&keyboardHandleLeave),
+            .key = @ptrCast(&keyboardHandleKey),
+            .modifiers = @ptrCast(&keyboardHandleModifiers),
+            .repeat_info = @ptrCast(&keyboardHandleRepeatInfo),
+        }, user_data);
+    }
+
+    if ((caps & c.WL_SEAT_CAPABILITY_TOUCH) != 0) {
+        //TODO
+    }
+
+    if ((caps & c.WL_SEAT_CAPABILITY_POINTER) != 0) {
+        user_data.pointer = c.wl_seat_get_pointer(seat);
+
+        //TODO: handle return value
+        _ = c.wl_pointer_add_listener(user_data.pointer, &.{
+            .axis = @ptrCast(&handlePointerAxis),
+            .axis_discrete = @ptrCast(&handlePointerAxisDiscrete),
+            .axis_relative_direction = @ptrCast(&handlePointerAxisRelativeDirection),
+            .axis_source = @ptrCast(&handlePointerAxisSource),
+            .axis_stop = @ptrCast(&handlePointerAxisStop),
+            .axis_value120 = @ptrCast(&handlePointerAxisValue120),
+            .button = @ptrCast(&handlePointerButton),
+            .enter = @ptrCast(&handlePointerEnter),
+            .frame = @ptrCast(&handlePointerFrame),
+            .leave = @ptrCast(&handlePointerLeave),
+            .motion = @ptrCast(&handlePointerMotion),
+        }, user_data);
+    }
+
+    // Delete keyboard if its no longer in the seat
+    if (user_data.keyboard) |keyboard| {
+        if ((caps & c.WL_SEAT_CAPABILITY_KEYBOARD) == 0) {
+            c.wl_keyboard_destroy(keyboard);
+            user_data.keyboard = null;
+        }
+    }
+
+    if (user_data.pointer) |pointer| {
+        if ((caps & c.WL_SEAT_CAPABILITY_POINTER) == 0) {
+            c.wl_pointer_destroy(pointer);
+            user_data.pointer = null;
+        }
+    }
+}
+
+fn handlePointerEnter(user_data: *GlobalState, pointer: ?*c.struct_wl_pointer, serial: u32, surface: ?*c.struct_wl_surface, fixed_x: c.wl_fixed_t, fixed_y: c.wl_fixed_t) callconv(.C) void {
+    _ = fixed_x; // autofix
+    _ = fixed_y; // autofix
+    _ = user_data; // autofix
+    _ = pointer; // autofix
+    _ = serial; // autofix
+    _ = surface; // autofix
+}
+fn handlePointerLeave(user_data: *GlobalState, pointer: ?*c.struct_wl_pointer, serial: u32, surface: ?*c.struct_wl_surface) callconv(.C) void {
+    _ = user_data; // autofix
+    _ = pointer; // autofix
+    _ = serial; // autofix
+    _ = surface; // autofix
+}
+fn handlePointerMotion(user_data: *GlobalState, pointer: ?*c.struct_wl_pointer, serial: u32, fixed_x: c.wl_fixed_t, fixed_y: c.wl_fixed_t) callconv(.C) void {
+    _ = pointer; // autofix
+    _ = serial; // autofix
+
+    const x = c.wl_fixed_to_double(fixed_x);
+    const y = c.wl_fixed_to_double(fixed_y);
+
+    user_data.pushEvent(.{ .mouse_motion = .{ .pos = .{ .x = x, .y = y } } });
+    user_data.input_state.mouse_position = .{ .x = x, .y = y };
+}
+fn handlePointerButton(user_data: *GlobalState, pointer: ?*c.struct_wl_pointer, serial: u32, time: u32, button: u32, state: u32) callconv(.C) void {
+    _ = pointer; // autofix
+    _ = serial; // autofix
+    _ = time; // autofix
+
+    const mouse_button: MouseButton = @enumFromInt(button - c.BTN_LEFT);
+    const pressed = state == c.WL_POINTER_BUTTON_STATE_PRESSED;
+
+    user_data.input_state.mouse_buttons.setValue(@intFromEnum(mouse_button), pressed);
+
+    if (pressed) {
+        user_data.pushEvent(Event{ .mouse_press = .{
+            .button = mouse_button,
+            .mods = user_data.modifiers,
+            .pos = user_data.input_state.mouse_position,
+        } });
+    } else {
+        user_data.pushEvent(Event{ .mouse_release = .{
+            .button = mouse_button,
+            .mods = user_data.modifiers,
+            .pos = user_data.input_state.mouse_position,
+        } });
+    }
+}
+fn handlePointerAxis(user_data: *GlobalState, pointer: ?*c.struct_wl_pointer, time: u32, axis: u32, value: c.wl_fixed_t) callconv(.C) void {
+    _ = user_data; // autofix
+    _ = pointer; // autofix
+    _ = time; // autofix
+    _ = axis; // autofix
+    _ = value; // autofix
+}
+fn handlePointerFrame(user_data: *GlobalState, pointer: ?*c.struct_wl_pointer) callconv(.C) void {
+    _ = user_data; // autofix
+    _ = pointer; // autofix
+}
+fn handlePointerAxisSource(user_data: *GlobalState, pointer: ?*c.struct_wl_pointer, axis_source: u32) callconv(.C) void {
+    _ = user_data; // autofix
+    _ = pointer; // autofix
+    _ = axis_source; // autofix
+}
+fn handlePointerAxisStop(user_data: *GlobalState, pointer: ?*c.struct_wl_pointer, time: u32, axis: u32) callconv(.C) void {
+    _ = user_data; // autofix
+    _ = pointer; // autofix
+    _ = time; // autofix
+    _ = axis; // autofix
+}
+fn handlePointerAxisDiscrete(user_data: *GlobalState, pointer: ?*c.struct_wl_pointer, axis: u32, discrete: i32) callconv(.C) void {
+    _ = user_data; // autofix
+    _ = pointer; // autofix
+    _ = axis; // autofix
+    _ = discrete; // autofix
+}
+fn handlePointerAxisValue120(user_data: *GlobalState, pointer: ?*c.struct_wl_pointer, axis: u32, value_120: i32) callconv(.C) void {
+    _ = user_data; // autofix
+    _ = pointer; // autofix
+    _ = axis; // autofix
+    _ = value_120; // autofix
+}
+fn handlePointerAxisRelativeDirection(user_data: *GlobalState, pointer: ?*c.struct_wl_pointer, axis: u32, direction: u32) callconv(.C) void {
+    _ = user_data; // autofix
+    _ = pointer; // autofix
+    _ = axis; // autofix
+    _ = direction; // autofix
+}
+
+fn keyboardHandleKeymap(user_data: *GlobalState, keyboard: ?*c.struct_wl_keyboard, format: u32, fd: i32, keymap_size: u32) callconv(.C) void {
+    _ = keyboard;
+
+    if (format != c.WL_KEYBOARD_KEYMAP_FORMAT_XKB_V1) {
+        @panic("TODO");
+    }
+
+    const map_str = std.os.mmap(null, keymap_size, std.os.PROT.READ, std.os.MAP.SHARED, fd, 0) catch unreachable;
+
+    const keymap = user_data.libxkbcommon.xkb_keymap_new_from_string(
+        user_data.xkb_context,
+        @alignCast(map_str), //align cast happening here, im sure its fine? TODO: figure out if this okay
+        c.XKB_KEYMAP_FORMAT_TEXT_V1,
+        0,
+    ).?;
+    log.debug("got keymap {*}", .{keymap});
+
+    //Unmap the keymap
+    std.os.munmap(map_str);
+    //Close the fd
+    std.os.close(fd);
+
+    const state = user_data.libxkbcommon.xkb_state_new(keymap).?;
+    // defer user_data.libxkbcommon.xkb_state_unref(state);
+
+    //this chain hurts me. why must C be this way.
+    const locale = std.os.getenv("LC_ALL") orelse std.os.getenv("LC_CTYPE") orelse std.os.getenv("LANG") orelse "C";
+
+    var compose_table = user_data.libxkbcommon.xkb_compose_table_new_from_locale(
+        user_data.xkb_context,
+        locale,
+        c.XKB_COMPOSE_COMPILE_NO_FLAGS,
+    );
+
+    //If creation failed, lets try the C locale
+    if (compose_table == null)
+        compose_table = user_data.libxkbcommon.xkb_compose_table_new_from_locale(
+            user_data.xkb_context,
+            "C",
+            c.XKB_COMPOSE_COMPILE_NO_FLAGS,
+        ).?;
+
+    defer user_data.libxkbcommon.xkb_compose_table_unref(compose_table);
+
+    user_data.keymap = keymap;
+    user_data.xkb_state = state;
+    user_data.compose_state = user_data.libxkbcommon.xkb_compose_state_new(compose_table, c.XKB_COMPOSE_STATE_NO_FLAGS).?;
+
+    user_data.control_index = user_data.libxkbcommon.xkb_keymap_mod_get_index(keymap, "Control");
+    user_data.alt_index = user_data.libxkbcommon.xkb_keymap_mod_get_index(keymap, "Mod1");
+    user_data.shift_index = user_data.libxkbcommon.xkb_keymap_mod_get_index(keymap, "Shift");
+    user_data.super_index = user_data.libxkbcommon.xkb_keymap_mod_get_index(keymap, "Mod4");
+    user_data.caps_lock_index = user_data.libxkbcommon.xkb_keymap_mod_get_index(keymap, "Lock");
+    user_data.num_lock_index = user_data.libxkbcommon.xkb_keymap_mod_get_index(keymap, "Mod2");
+}
+fn keyboardHandleEnter(user_data: *GlobalState, keyboard: ?*c.struct_wl_keyboard, serial: u32, surface: ?*c.struct_wl_surface, keys: [*c]c.struct_wl_array) callconv(.C) void {
+    _ = keyboard;
+    _ = serial;
+    _ = surface;
+    _ = keys;
+
+    user_data.pushEvent(.focus_gained);
+}
+fn keyboardHandleLeave(user_data: *GlobalState, keyboard: ?*c.struct_wl_keyboard, serial: u32, surface: ?*c.struct_wl_surface) callconv(.C) void {
+    _ = keyboard;
+    _ = serial;
+    _ = surface;
+
+    user_data.pushEvent(.focus_lost);
+}
+fn keyboardHandleKey(user_data: *GlobalState, keyboard: ?*c.struct_wl_keyboard, serial: u32, time: u32, scancode: u32, state: u32) callconv(.C) void {
+    _ = keyboard;
+    _ = serial;
+    _ = time;
+
+    const key = toMachKey(scancode);
+    const pressed = state == 1;
+
+    user_data.input_state.keys.setValue(@intFromEnum(key), pressed);
+
+    if (pressed) {
+        user_data.pushEvent(Event{ .key_press = .{
+            .key = key,
+            .mods = user_data.modifiers,
+        } });
+    } else {
+        user_data.pushEvent(Event{ .key_release = .{
+            .key = key,
+            .mods = user_data.modifiers,
+        } });
+    }
+}
+fn keyboardHandleModifiers(user_data: *GlobalState, keyboard: ?*c.struct_wl_keyboard, serial: u32, mods_depressed: u32, mods_latched: u32, mods_locked: u32, group: u32) callconv(.C) void {
+    _ = keyboard;
+    _ = serial;
+
+    if (user_data.keymap == null)
+        return;
+
+    //TODO: handle this return value
+    _ = user_data.libxkbcommon.xkb_state_update_mask(
+        user_data.xkb_state.?,
+        mods_depressed,
+        mods_latched,
+        mods_locked,
+        0,
+        0,
+        group,
+    );
+
+    //Iterate over all the modifiers
+    inline for (.{
+        .{ user_data.alt_index, "alt" },
+        .{ user_data.shift_index, "shift" },
+        .{ user_data.super_index, "super" },
+        .{ user_data.control_index, "control" },
+        .{ user_data.num_lock_index, "num_lock" },
+        .{ user_data.caps_lock_index, "caps_lock" },
+    }) |key| {
+        @field(user_data.modifiers, key[1]) = user_data.libxkbcommon.xkb_state_mod_index_is_active(
+            user_data.xkb_state,
+            key[0],
+            c.XKB_STATE_MODS_EFFECTIVE,
+        ) == 1;
+    }
+}
+fn keyboardHandleRepeatInfo(user_data: *GlobalState, keyboard: ?*c.struct_wl_keyboard, rate: i32, delay: i32) callconv(.C) void {
+    _ = user_data;
+    _ = keyboard;
+    _ = rate;
+    _ = delay;
+}
+
+fn wmBaseHandlePing(user_data: *GlobalState, wm_base: ?*c.struct_xdg_wm_base, serial: u32) callconv(.C) void {
+    _ = user_data;
+
+    log.debug("Got wm base ping {*} with serial {d}", .{ wm_base, serial });
+
+    c.xdg_wm_base_pong(wm_base, serial);
+}
+
+fn registryHandleGlobalRemove(user_data: *GlobalState, registry: ?*c.struct_wl_registry, name: u32) callconv(.C) void {
+    _ = user_data;
+    _ = registry;
+    _ = name;
+}
+
+const registry_listener = c.wl_registry_listener{
+    // ptrcast is for the [*:0] -> [*c] conversion, silly yes
+    .global = @ptrCast(&registryHandleGlobal),
+    // ptrcast is for the user_data param, which is guarenteed to be our type (and if its not, it should be caught by safety checks)
+    .global_remove = @ptrCast(&registryHandleGlobalRemove),
+};
+
+fn xdgSurfaceHandleConfigure(user_data: *GlobalState, xdg_surface: ?*c.struct_xdg_surface, serial: u32) callconv(.C) void {
+    c.xdg_surface_ack_configure(xdg_surface, serial);
+    if (user_data.configured) {
+        c.wl_surface_commit(user_data.surface);
+    } else {
+        log.debug("xdg surface configured", .{});
+        user_data.configured = true;
+    }
+}
+
+fn xdgToplevelHandleClose(user_data: *GlobalState, toplevel: ?*c.struct_xdg_toplevel) callconv(.C) void {
+    _ = user_data;
+    _ = toplevel;
+}
+
+fn xdgToplevelHandleConfigure(user_data: *GlobalState, toplevel: ?*c.struct_xdg_toplevel, width: i32, height: i32, states: [*c]c.struct_wl_array) callconv(.C) void {
+    _ = user_data;
+    _ = toplevel;
+    _ = width;
+    _ = height;
+    _ = states;
+}
+
 // Called on the main thread
 pub fn init(
     core: *Core,
@@ -762,24 +738,42 @@ pub fn init(
     input: *Frequency,
     options: Options,
 ) !void {
-    //Init `configured` so that its defined
-    core.configured = false;
-    core.interfaces = .{};
-    //clear out some stuff
-    core.keymap = null;
-    core.xkb_state = null;
-    core.compose_state = null;
+    core.global_state = .{
+        .interfaces = .{},
+        .configured = false,
+        .surface = null,
+        .events = EventQueue.init(allocator),
+        .libxkbcommon = try LibXkbCommon.load(),
+        .xkb_context = null,
+        .keymap = null,
+        .xkb_state = null,
+        .compose_state = null,
+        .alt_index = undefined,
+        .shift_index = undefined,
+        .super_index = undefined,
+        .control_index = undefined,
+        .caps_lock_index = undefined,
+        .num_lock_index = undefined,
+        .input_state = .{},
+        .modifiers = .{
+            .alt = false,
+            .caps_lock = false,
+            .control = false,
+            .num_lock = false,
+            .shift = false,
+            .super = false,
+        },
+    };
 
     libwaylandclient = try LibWaylandClient.load();
-    core.libxkbcommon = try LibXkbCommon.load();
 
-    core.xkb_context = core.libxkbcommon.xkb_context_new(0).?;
+    core.global_state.xkb_context = core.global_state.libxkbcommon.xkb_context_new(0).?;
 
     core.display = libwaylandclient.wl_display_connect(null) orelse return error.FailedToConnectToWaylandDisplay;
 
     const registry = c.wl_display_get_registry(core.display) orelse return error.FailedToGetDisplayRegistry;
     // TODO: handle error return value here
-    _ = c.wl_registry_add_listener(registry, &registry_listener, core);
+    _ = c.wl_registry_add_listener(registry, &registry_listener, &core.global_state);
 
     //Round trip to get all the registry objects
     _ = libwaylandclient.wl_display_roundtrip(core.display);
@@ -787,14 +781,14 @@ pub fn init(
     //Round trip to get all initial output events
     _ = libwaylandclient.wl_display_roundtrip(core.display);
 
-    core.surface = c.wl_compositor_create_surface(core.interfaces.wl_compositor) orelse return error.UnableToCreateSurface;
-    log.debug("Got surface {*}", .{core.surface});
+    core.global_state.surface = c.wl_compositor_create_surface(core.global_state.interfaces.wl_compositor) orelse return error.UnableToCreateSurface;
+    log.debug("Got surface {*}", .{core.global_state.surface});
 
     var tag: [*:0]c_char = undefined;
-    libwaylandclient.wl_proxy_set_tag(@ptrCast(core.surface), @ptrCast(&tag));
+    libwaylandclient.wl_proxy_set_tag(@ptrCast(core.global_state.surface), @ptrCast(&tag));
 
     {
-        const region = c.wl_compositor_create_region(core.interfaces.wl_compositor) orelse return error.CouldntCreateWaylandRegtion;
+        const region = c.wl_compositor_create_region(core.global_state.interfaces.wl_compositor) orelse return error.CouldntCreateWaylandRegtion;
 
         core.window_size = try @TypeOf(core.window_size).init(options.size, {});
 
@@ -805,11 +799,11 @@ pub fn init(
             @intCast(core.window_size.current.width),
             @intCast(core.window_size.current.height),
         );
-        c.wl_surface_set_opaque_region(core.surface, region);
+        c.wl_surface_set_opaque_region(core.global_state.surface, region);
         c.wl_region_destroy(region);
     }
 
-    const xdg_surface = c.xdg_wm_base_get_xdg_surface(core.interfaces.xdg_wm_base, core.surface) orelse return error.UnableToCreateXdgSurface;
+    const xdg_surface = c.xdg_wm_base_get_xdg_surface(core.global_state.interfaces.xdg_wm_base, core.global_state.surface) orelse return error.UnableToCreateXdgSurface;
     log.debug("Got xdg surface {*}", .{xdg_surface});
 
     const toplevel = c.xdg_surface_get_toplevel(xdg_surface) orelse return error.UnableToGetXdgTopLevel;
@@ -819,18 +813,18 @@ pub fn init(
     core.max_size = try @TypeOf(core.max_size).init(.{ .width = 0, .height = 0 }, {});
 
     //TODO: handle this return value
-    _ = c.xdg_surface_add_listener(xdg_surface, &.{ .configure = &xdgSurfaceHandleConfigure }, core);
+    _ = c.xdg_surface_add_listener(xdg_surface, &.{ .configure = @ptrCast(&xdgSurfaceHandleConfigure) }, &core.global_state);
 
     //TODO: handle this return value
     _ = c.xdg_toplevel_add_listener(toplevel, &.{
-        .configure = &xdgToplevelHandleConfigure,
-        .close = &xdgToplevelHandleClose,
+        .configure = @ptrCast(&xdgToplevelHandleConfigure),
+        .close = @ptrCast(&xdgToplevelHandleClose),
     }, null);
 
     //Commit changes to surface
-    c.wl_surface_commit(core.surface);
+    c.wl_surface_commit(core.global_state.surface);
 
-    while (libwaylandclient.wl_display_dispatch(core.display) != -1 and !core.configured) {
+    while (libwaylandclient.wl_display_dispatch(core.display) != -1 and !core.global_state.configured) {
         // This space intentionally left blank
     }
 
@@ -839,7 +833,7 @@ pub fn init(
     c.xdg_toplevel_set_title(toplevel, core.title.current);
 
     const decoration = c.zxdg_decoration_manager_v1_get_toplevel_decoration(
-        core.interfaces.zxdg_decoration_manager_v1,
+        core.global_state.interfaces.zxdg_decoration_manager_v1,
         toplevel,
     ) orelse return error.UnableToGetToplevelDecoration;
     log.debug("Got xdg toplevel decoration {*}", .{decoration});
@@ -850,7 +844,7 @@ pub fn init(
     );
 
     //Commit changes to surface
-    c.wl_surface_commit(core.surface);
+    c.wl_surface_commit(core.global_state.surface);
     //TODO: handle return value
     _ = libwaylandclient.wl_display_roundtrip(core.display);
 
@@ -862,7 +856,7 @@ pub fn init(
         .next_in_chain = .{
             .from_wayland_surface = &.{
                 .display = core.display,
-                .surface = core.surface,
+                .surface = core.global_state.surface.?,
             },
         },
     });
@@ -937,42 +931,18 @@ pub fn init(
     core.* = .{
         .display = core.display,
         .registry = registry,
-        .interfaces = core.interfaces,
-        .surface = core.surface,
         .tag = tag,
         .xdg_surface = xdg_surface,
         .toplevel = toplevel,
         .decoration = decoration,
-        .configured = core.configured,
         .gpu_device = gpu_device,
-        .events = EventQueue.init(allocator),
         .title = core.title,
         .window_size = core.window_size,
         .min_size = core.min_size,
         .max_size = core.max_size,
-        .keyboard = core.keyboard,
-        .libxkbcommon = core.libxkbcommon,
-        .xkb_context = core.xkb_context,
-        .compose_state = core.compose_state,
-        .keymap = core.keymap,
-        .xkb_state = core.xkb_state,
-        .control_index = core.control_index,
-        .alt_index = core.alt_index,
-        .shift_index = core.shift_index,
-        .super_index = core.super_index,
-        .caps_lock_index = core.caps_lock_index,
-        .num_lock_index = core.num_lock_index,
-        .modifiers = .{
-            .alt = false,
-            .caps_lock = false,
-            .control = false,
-            .num_lock = false,
-            .shift = false,
-            .super = false,
-        },
-        .input_state = .{},
         .frame = frame,
         .input = input,
+        .global_state = core.global_state,
     };
 }
 
@@ -1017,7 +987,7 @@ pub fn update(self: *Core, app: anytype) !bool {
         }
 
         if (need_surface_commit)
-            c.wl_surface_commit(self.surface);
+            c.wl_surface_commit(self.global_state.surface);
     }
 
     // while (libwaylandclient.wl_display_flush(self.display) == -1) {
@@ -1111,7 +1081,7 @@ pub fn appUpdateThread(self: *Core, app: anytype) void {
 
 // May be called from any thread.
 pub inline fn pollEvents(self: *Core) EventIterator {
-    return EventIterator{ .events_mu = &self.events_mu, .queue = &self.events };
+    return EventIterator{ .events_mu = &self.global_state.events_mu, .queue = &self.global_state.events };
 }
 
 // May be called from any thread.
