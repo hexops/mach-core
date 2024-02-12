@@ -73,6 +73,8 @@ const LibXkbCommon = struct {
     xkb_compose_state_new: *const @TypeOf(c.xkb_compose_state_new),
     xkb_compose_table_unref: *const @TypeOf(c.xkb_compose_table_unref),
     xkb_keymap_mod_get_index: *const @TypeOf(c.xkb_keymap_mod_get_index),
+    xkb_state_update_mask: *const @TypeOf(c.xkb_state_update_mask),
+    xkb_state_mod_index_is_active: *const @TypeOf(c.xkb_state_mod_index_is_active),
 
     pub fn load() !LibXkbCommon {
         var lib: LibXkbCommon = undefined;
@@ -313,7 +315,7 @@ fn keyboardHandleKeymap(user_data_ptr: ?*anyopaque, keyboard: ?*c.struct_wl_keyb
         c.XKB_KEYMAP_FORMAT_TEXT_V1,
         0,
     ).?;
-    defer log.debug("got keymap {*}", .{keymap});
+    log.debug("got keymap {*}", .{keymap});
 
     //Unmap the keymap
     std.os.munmap(map_str);
@@ -321,7 +323,7 @@ fn keyboardHandleKeymap(user_data_ptr: ?*anyopaque, keyboard: ?*c.struct_wl_keyb
     std.os.close(fd);
 
     const state = user_data.libxkbcommon.xkb_state_new(keymap).?;
-    defer user_data.libxkbcommon.xkb_state_unref(state);
+    // defer user_data.libxkbcommon.xkb_state_unref(state);
 
     //this chain hurts me. why must C be this way.
     const locale = std.os.getenv("LC_ALL") orelse std.os.getenv("LC_CTYPE") orelse std.os.getenv("LANG") orelse "C";
@@ -382,25 +384,50 @@ fn keyboardHandleKey(user_data_ptr: ?*anyopaque, keyboard: ?*c.struct_wl_keyboar
     if (state == 1) {
         user_data.pushEvent(Event{ .key_press = .{
             .key = toMachKey(scancode),
-            .mods = std.mem.zeroes(KeyMods),
+            .mods = user_data.modifiers,
         } });
     } else {
         user_data.pushEvent(Event{ .key_release = .{
             .key = toMachKey(scancode),
-            .mods = std.mem.zeroes(KeyMods),
+            .mods = user_data.modifiers,
         } });
     }
 }
 fn keyboardHandleModifiers(user_data_ptr: ?*anyopaque, keyboard: ?*c.struct_wl_keyboard, serial: u32, mods_depressed: u32, mods_latched: u32, mods_locked: u32, group: u32) callconv(.C) void {
     const user_data: *Core = @ptrCast(@alignCast(user_data_ptr));
 
-    _ = user_data;
     _ = keyboard;
     _ = serial;
-    _ = mods_depressed;
-    _ = mods_latched;
-    _ = mods_locked;
-    _ = group;
+
+    if (user_data.keymap == null)
+        return;
+
+    //TODO: handle this return value
+    _ = user_data.libxkbcommon.xkb_state_update_mask(
+        user_data.xkb_state.?,
+        mods_depressed,
+        mods_latched,
+        mods_locked,
+        0,
+        0,
+        group,
+    );
+
+    //Iterate over all the modifiers
+    inline for (.{
+        .{ user_data.alt_index, "alt" },
+        .{ user_data.shift_index, "shift" },
+        .{ user_data.super_index, "super" },
+        .{ user_data.control_index, "control" },
+        .{ user_data.num_lock_index, "num_lock" },
+        .{ user_data.caps_lock_index, "caps_lock" },
+    }) |key| {
+        @field(user_data.modifiers, key[1]) = user_data.libxkbcommon.xkb_state_mod_index_is_active(
+            user_data.xkb_state,
+            key[0],
+            c.XKB_STATE_MODS_EFFECTIVE,
+        ) == 1;
+    }
 }
 fn keyboardHandleRepeatInfo(user_data_ptr: ?*anyopaque, keyboard: ?*c.struct_wl_keyboard, rate: i32, delay: i32) callconv(.C) void {
     const user_data: *Core = @ptrCast(@alignCast(user_data_ptr));
@@ -560,6 +587,8 @@ shift_index: c.xkb_mod_index_t,
 super_index: c.xkb_mod_index_t,
 caps_lock_index: c.xkb_mod_index_t,
 num_lock_index: c.xkb_mod_index_t,
+
+modifiers: KeyMods,
 
 // Wayland objects/state
 display: *c.struct_wl_display,
@@ -797,6 +826,14 @@ pub fn init(
         .super_index = core.super_index,
         .caps_lock_index = core.caps_lock_index,
         .num_lock_index = core.num_lock_index,
+        .modifiers = .{
+            .alt = false,
+            .caps_lock = false,
+            .control = false,
+            .num_lock = false,
+            .shift = false,
+            .super = false,
+        },
     };
 }
 

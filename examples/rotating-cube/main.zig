@@ -126,11 +126,11 @@ pub fn update(app: *App) !bool {
             },
             .key_release => |ev| {
                 std.debug.print("key release {}\n", .{ev.key});
-                core.setCursorShape(switch (ev.key) {
-                    .a => .arrow,
-                    .n => .not_allowed,
-                    else => .ibeam,
-                });
+                // core.setCursorShape(switch (ev.key) {
+                //     .a => .arrow,
+                //     .n => .not_allowed,
+                //     else => .ibeam,
+                // });
                 switch (ev.key) {
                     .f => core.setDisplayMode(.fullscreen),
                     .w => core.setDisplayMode(.windowed),
