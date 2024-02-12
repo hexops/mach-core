@@ -211,7 +211,7 @@ fn wmBaseHandlePing(user_data_ptr: ?*anyopaque, wm_base: ?*c.struct_xdg_wm_base,
     const user_data: *Core = @ptrCast(@alignCast(user_data_ptr));
     _ = user_data;
 
-    log.debug("Got wm base {*} with serial {d}", .{ wm_base, serial });
+    log.debug("Got wm base ping {*} with serial {d}", .{ wm_base, serial });
 
     c.xdg_wm_base_pong(wm_base, serial);
 }
@@ -356,6 +356,8 @@ events: EventQueue,
 state_mu: std.Thread.RwLock = .{},
 title: Changable([:0]const u8, true),
 window_size: Changable(Size, false),
+min_size: Changable(Size, false),
+max_size: Changable(Size, false),
 
 // Called on the main thread
 pub fn init(
@@ -412,6 +414,9 @@ pub fn init(
 
     const toplevel = c.xdg_surface_get_toplevel(xdg_surface) orelse return error.UnableToGetXdgTopLevel;
     log.debug("Got xdg toplevel {*}", .{toplevel});
+
+    core.min_size = try @TypeOf(core.min_size).init(.{ .width = 0, .height = 0 }, {});
+    core.max_size = try @TypeOf(core.max_size).init(.{ .width = 0, .height = 0 }, {});
 
     //TODO: handle this return value
     _ = c.xdg_surface_add_listener(xdg_surface, &.{ .configure = &xdgSurfaceHandleConfigure }, core);
@@ -543,6 +548,8 @@ pub fn init(
         .events = EventQueue.init(allocator),
         .title = core.title,
         .window_size = core.window_size,
+        .min_size = core.min_size,
+        .max_size = core.max_size,
     };
 }
 
@@ -563,12 +570,31 @@ pub fn update(self: *Core, app: anytype) !bool {
         self.state_mu.lock();
         defer self.state_mu.unlock();
 
+        var need_surface_commit: bool = false;
+
         // Check if we have a new title
         if (self.title.read()) |new_title| {
             defer self.title.freeLast();
 
             c.xdg_toplevel_set_title(self.toplevel, new_title);
         }
+
+        // Check if we have a new min size
+        if (self.min_size.read()) |new_min_size| {
+            c.xdg_toplevel_set_min_size(self.toplevel, @intCast(new_min_size.width), @intCast(new_min_size.height));
+
+            need_surface_commit = true;
+        }
+
+        // Check if we have a new max size
+        if (self.max_size.read()) |new_max_size| {
+            c.xdg_toplevel_set_max_size(self.toplevel, @intCast(new_max_size.width), @intCast(new_max_size.height));
+
+            need_surface_commit = true;
+        }
+
+        if (need_surface_commit)
+            c.wl_surface_commit(self.surface);
     }
 
     while (libwaylandclient.wl_display_flush(self.display) == -1) {
@@ -727,13 +753,41 @@ pub fn size(self: *Core) Size {
 }
 
 // May be called from any thread.
-pub fn setSizeLimit(_: *Core, _: SizeLimit) void {
-    @panic("TODO: implement setSizeLimit for Wayland");
+pub fn setSizeLimit(self: *Core, limits: SizeLimit) void {
+    self.state_mu.lock();
+    defer self.state_mu.unlock();
+
+    if (limits.max.width) |width| if (width == 0) @panic("todo: what do we do here?");
+    if (limits.max.height) |height| if (height == 0) @panic("todo: what do we do here?");
+    if (limits.min.width) |width| if (width == 0) @panic("todo: what do we do here?");
+    if (limits.min.height) |height| if (height == 0) @panic("todo: what do we do here?");
+
+    //TODO: only set the changed one, not both!
+    self.min_size.set(.{
+        .width = limits.min.width orelse 0,
+        .height = limits.min.height orelse 0,
+    });
+    self.max_size.set(.{
+        .width = limits.max.width orelse 0,
+        .height = limits.max.height orelse 0,
+    });
 }
 
 // May be called from any thread.
-pub fn sizeLimit(_: *Core) SizeLimit {
-    @panic("TODO: implement sizeLimit for Wayland");
+pub fn sizeLimit(self: *Core) SizeLimit {
+    self.state_mu.lock();
+    defer self.state_mu.unlock();
+
+    return SizeLimit{
+        .max = .{
+            .width = if (self.max_size.current.width == 0) null else self.max_size.current.width,
+            .height = if (self.max_size.current.height == 0) null else self.max_size.current.height,
+        },
+        .min = .{
+            .width = if (self.min_size.current.width == 0) null else self.min_size.current.width,
+            .height = if (self.min_size.current.height == 0) null else self.min_size.current.height,
+        },
+    };
 }
 
 // May be called from any thread.
