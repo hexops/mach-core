@@ -212,6 +212,8 @@ fn wmBaseHandlePing(user_data_ptr: ?*anyopaque, wm_base: ?*c.struct_xdg_wm_base,
     _ = user_data;
 
     log.debug("Got wm base {*} with serial {d}", .{ wm_base, serial });
+
+    c.xdg_wm_base_pong(wm_base, serial);
 }
 
 fn registryHandleGlobalRemove(user_data: ?*anyopaque, registry: ?*c.struct_wl_registry, name: u32) callconv(.C) void {
@@ -587,6 +589,8 @@ pub fn update(self: *Core, app: anytype) !bool {
             return true;
         }
     }
+
+    _ = libwaylandclient.wl_display_roundtrip(self.display);
 
     return false;
 }
