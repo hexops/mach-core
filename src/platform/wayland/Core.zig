@@ -355,6 +355,7 @@ events: EventQueue,
 // changables
 state_mu: std.Thread.RwLock = .{},
 title: Changable([:0]const u8, true),
+window_size: Changable(Size, false),
 
 // Called on the main thread
 pub fn init(
@@ -393,7 +394,15 @@ pub fn init(
     {
         const region = c.wl_compositor_create_region(core.interfaces.wl_compositor) orelse return error.CouldntCreateWaylandRegtion;
 
-        c.wl_region_add(region, 0, 0, @intCast(options.size.width), @intCast(options.size.height));
+        core.window_size = try @TypeOf(core.window_size).init(options.size, {});
+
+        c.wl_region_add(
+            region,
+            0,
+            0,
+            @intCast(core.window_size.current.width),
+            @intCast(core.window_size.current.height),
+        );
         c.wl_surface_set_opaque_region(core.surface, region);
         c.wl_region_destroy(region);
     }
@@ -533,6 +542,7 @@ pub fn init(
         .gpu_device = gpu_device,
         .events = EventQueue.init(allocator),
         .title = core.title,
+        .window_size = core.window_size,
     };
 }
 
@@ -709,8 +719,11 @@ pub fn setSize(_: *Core, _: Size) void {
 }
 
 // May be called from any thread.
-pub fn size(_: *Core) Size {
-    @panic("TODO: implement size for Wayland");
+pub fn size(self: *Core) Size {
+    self.state_mu.lock();
+    defer self.state_mu.unlock();
+
+    return self.window_size.current;
 }
 
 // May be called from any thread.
