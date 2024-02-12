@@ -283,10 +283,31 @@ fn seatHandleCapabilities(user_data_ptr: ?*anyopaque, seat: ?*c.struct_wl_seat, 
             .modifiers = &keyboardHandleModifiers,
             .repeat_info = &keyboardHandleRepeatInfo,
         }, user_data_ptr);
-    } else if ((caps & c.WL_SEAT_CAPABILITY_TOUCH) != 0) {
+    }
+
+    if ((caps & c.WL_SEAT_CAPABILITY_TOUCH) != 0) {
         //TODO
-    } else if ((caps & c.WL_SEAT_CAPABILITY_POINTER) != 0) {
-        //TODO
+    }
+
+    if ((caps & c.WL_SEAT_CAPABILITY_POINTER) != 0) {
+        user_data.pointer = c.wl_seat_get_pointer(seat);
+
+        //TODO: handle return value
+        _ = c.wl_pointer_add_listener(user_data.pointer, &.{
+            .axis = &handlePointerAxis,
+            .axis_discrete = &handlePointerAxisDiscrete,
+            .axis_relative_direction = &handlePointerAxisRelativeDirection,
+            .axis_source = &handlePointerAxisSource,
+            .axis_stop = &handlePointerAxisStop,
+            .axis_value120 = &handlePointerAxisValue120,
+            .button = &handlePointerButton,
+            .enter = &handlePointerEnter,
+            .frame = &handlePointerFrame,
+            .leave = &handlePointerLeave,
+            .motion = &handlePointerMotion,
+        }, user_data_ptr);
+
+        log.debug("added curser listener", .{});
     }
 
     // Delete keyboard if its no longer in the seat
@@ -296,6 +317,118 @@ fn seatHandleCapabilities(user_data_ptr: ?*anyopaque, seat: ?*c.struct_wl_seat, 
             user_data.keyboard = null;
         }
     }
+
+    if (user_data.pointer) |pointer| {
+        if ((caps & c.WL_SEAT_CAPABILITY_POINTER) == 0) {
+            c.wl_pointer_destroy(pointer);
+            user_data.pointer = null;
+        }
+    }
+}
+
+fn handlePointerEnter(user_data_ptr: ?*anyopaque, pointer: ?*c.struct_wl_pointer, serial: u32, surface: ?*c.struct_wl_surface, fixed_x: c.wl_fixed_t, fixed_y: c.wl_fixed_t) callconv(.C) void {
+    const user_data: *Core = @ptrCast(@alignCast(user_data_ptr));
+    _ = user_data; // autofix
+    _ = pointer; // autofix
+    _ = serial; // autofix
+    _ = surface; // autofix
+
+    const x = c.wl_fixed_to_double(fixed_x);
+    const y = c.wl_fixed_to_double(fixed_y);
+
+    log.debug("enter {d}x{d}", .{ x, y });
+}
+fn handlePointerLeave(user_data_ptr: ?*anyopaque, pointer: ?*c.struct_wl_pointer, serial: u32, surface: ?*c.struct_wl_surface) callconv(.C) void {
+    const user_data: *Core = @ptrCast(@alignCast(user_data_ptr));
+    _ = user_data; // autofix
+    _ = pointer; // autofix
+    _ = serial; // autofix
+    _ = surface; // autofix
+
+    log.debug("leave", .{});
+}
+fn handlePointerMotion(user_data_ptr: ?*anyopaque, pointer: ?*c.struct_wl_pointer, serial: u32, fixed_x: c.wl_fixed_t, fixed_y: c.wl_fixed_t) callconv(.C) void {
+    const user_data: *Core = @ptrCast(@alignCast(user_data_ptr));
+    _ = pointer; // autofix
+    _ = serial; // autofix
+
+    const x = c.wl_fixed_to_double(fixed_x);
+    const y = c.wl_fixed_to_double(fixed_y);
+
+    user_data.pushEvent(.{ .mouse_motion = .{ .pos = .{ .x = x, .y = y } } });
+    user_data.input_state.mouse_position = .{ .x = x, .y = y };
+}
+fn handlePointerButton(user_data_ptr: ?*anyopaque, pointer: ?*c.struct_wl_pointer, serial: u32, time: u32, button: u32, state: u32) callconv(.C) void {
+    const user_data: *Core = @ptrCast(@alignCast(user_data_ptr));
+    _ = pointer; // autofix
+    _ = serial; // autofix
+    _ = time; // autofix
+
+    const mouse_button: MouseButton = @enumFromInt(button - c.BTN_LEFT);
+    const pressed = state == c.WL_POINTER_BUTTON_STATE_PRESSED;
+
+    user_data.input_state.mouse_buttons.setValue(@intFromEnum(mouse_button), pressed);
+
+    if (pressed) {
+        user_data.pushEvent(Event{ .mouse_press = .{
+            .button = mouse_button,
+            .mods = user_data.modifiers,
+            .pos = user_data.input_state.mouse_position,
+        } });
+    } else {
+        user_data.pushEvent(Event{ .mouse_release = .{
+            .button = mouse_button,
+            .mods = user_data.modifiers,
+            .pos = user_data.input_state.mouse_position,
+        } });
+    }
+}
+fn handlePointerAxis(user_data_ptr: ?*anyopaque, pointer: ?*c.struct_wl_pointer, time: u32, axis: u32, value: c.wl_fixed_t) callconv(.C) void {
+    const user_data: *Core = @ptrCast(@alignCast(user_data_ptr));
+    _ = user_data; // autofix
+    _ = pointer; // autofix
+    _ = time; // autofix
+    _ = axis; // autofix
+    _ = value; // autofix
+}
+fn handlePointerFrame(user_data_ptr: ?*anyopaque, pointer: ?*c.struct_wl_pointer) callconv(.C) void {
+    const user_data: *Core = @ptrCast(@alignCast(user_data_ptr));
+    _ = user_data; // autofix
+    _ = pointer; // autofix
+}
+fn handlePointerAxisSource(user_data_ptr: ?*anyopaque, pointer: ?*c.struct_wl_pointer, axis_source: u32) callconv(.C) void {
+    const user_data: *Core = @ptrCast(@alignCast(user_data_ptr));
+    _ = user_data; // autofix
+    _ = pointer; // autofix
+    _ = axis_source; // autofix
+}
+fn handlePointerAxisStop(user_data_ptr: ?*anyopaque, pointer: ?*c.struct_wl_pointer, time: u32, axis: u32) callconv(.C) void {
+    const user_data: *Core = @ptrCast(@alignCast(user_data_ptr));
+    _ = user_data; // autofix
+    _ = pointer; // autofix
+    _ = time; // autofix
+    _ = axis; // autofix
+}
+fn handlePointerAxisDiscrete(user_data_ptr: ?*anyopaque, pointer: ?*c.struct_wl_pointer, axis: u32, discrete: i32) callconv(.C) void {
+    const user_data: *Core = @ptrCast(@alignCast(user_data_ptr));
+    _ = user_data; // autofix
+    _ = pointer; // autofix
+    _ = axis; // autofix
+    _ = discrete; // autofix
+}
+fn handlePointerAxisValue120(user_data_ptr: ?*anyopaque, pointer: ?*c.struct_wl_pointer, axis: u32, value_120: i32) callconv(.C) void {
+    const user_data: *Core = @ptrCast(@alignCast(user_data_ptr));
+    _ = user_data; // autofix
+    _ = pointer; // autofix
+    _ = axis; // autofix
+    _ = value_120; // autofix
+}
+fn handlePointerAxisRelativeDirection(user_data_ptr: ?*anyopaque, pointer: ?*c.struct_wl_pointer, axis: u32, direction: u32) callconv(.C) void {
+    const user_data: *Core = @ptrCast(@alignCast(user_data_ptr));
+    _ = user_data; // autofix
+    _ = pointer; // autofix
+    _ = axis; // autofix
+    _ = direction; // autofix
 }
 
 fn keyboardHandleKeymap(user_data_ptr: ?*anyopaque, keyboard: ?*c.struct_wl_keyboard, format: u32, fd: i32, keymap_size: u32) callconv(.C) void {
@@ -381,14 +514,19 @@ fn keyboardHandleKey(user_data_ptr: ?*anyopaque, keyboard: ?*c.struct_wl_keyboar
     _ = serial;
     _ = time;
 
-    if (state == 1) {
+    const key = toMachKey(scancode);
+    const pressed = state == 1;
+
+    user_data.input_state.keys.setValue(@intFromEnum(key), pressed);
+
+    if (pressed) {
         user_data.pushEvent(Event{ .key_press = .{
-            .key = toMachKey(scancode),
+            .key = key,
             .mods = user_data.modifiers,
         } });
     } else {
         user_data.pushEvent(Event{ .key_release = .{
-            .key = toMachKey(scancode),
+            .key = key,
             .mods = user_data.modifiers,
         } });
     }
@@ -590,6 +728,8 @@ num_lock_index: c.xkb_mod_index_t,
 
 modifiers: KeyMods,
 
+input_state: InputState,
+
 // Wayland objects/state
 display: *c.struct_wl_display,
 registry: *c.struct_wl_registry,
@@ -606,6 +746,7 @@ app_update_thread_started: bool = false,
 
 // Event stuff
 keyboard: ?*c.wl_keyboard = null,
+pointer: ?*c.wl_pointer = null,
 events_mu: std.Thread.RwLock = .{},
 events: EventQueue,
 
@@ -834,6 +975,7 @@ pub fn init(
             .shift = false,
             .super = false,
         },
+        .input_state = .{},
     };
 }
 
@@ -1115,28 +1257,28 @@ pub fn joystickAxes(_: *Core, _: Joystick) ?[]const f32 {
 }
 
 // May be called from any thread.
-pub fn keyPressed(_: *Core, _: Key) bool {
-    @panic("TODO: implement keyPressed for Wayland");
+pub fn keyPressed(self: *Core, key: Key) bool {
+    self.input_state.isKeyPressed(key);
 }
 
 // May be called from any thread.
-pub fn keyReleased(_: *Core, _: Key) bool {
-    @panic("TODO: implement keyReleased for Wayland");
+pub fn keyReleased(self: *Core, key: Key) bool {
+    self.input_state.isKeyReleased(key);
 }
 
 // May be called from any thread.
-pub fn mousePressed(_: *Core, _: MouseButton) bool {
-    @panic("TODO: implement mousePressed for Wayland");
+pub fn mousePressed(self: *Core, button: MouseButton) bool {
+    return self.input_state.isMouseButtonPressed(button);
 }
 
 // May be called from any thread.
-pub fn mouseReleased(_: *Core, _: MouseButton) bool {
-    @panic("TODO: implement mouseReleased for Wayland");
+pub fn mouseReleased(self: *Core, button: MouseButton) bool {
+    return self.input_state.isMouseButtonReleased(button);
 }
 
 // May be called from any thread.
-pub fn mousePosition(_: *Core) mach_core.Position {
-    @panic("TODO: implement mousePosition for Wayland");
+pub fn mousePosition(self: *Core) mach_core.Position {
+    return self.mouse_pos;
 }
 
 // May be called from any thread.
