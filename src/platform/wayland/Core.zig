@@ -35,6 +35,9 @@ pub const c = @cImport({
     @cInclude("wayland-relative-pointer-unstable-v1-client-protocol.h");
     @cInclude("wayland-pointer-constraints-unstable-v1-client-protocol.h");
     @cInclude("wayland-idle-inhibit-unstable-v1-client-protocol.h");
+    @cInclude("xkbcommon/xkbcommon.h");
+    @cInclude("xkbcommon/xkbcommon-compose.h");
+    @cInclude("linux/input-event-codes.h");
 });
 
 var libwaylandclient: LibWaylandClient = undefined;
@@ -54,6 +57,38 @@ export fn wl_proxy_marshal_flags(proxy: ?*c.struct_wl_proxy, opcode: u32, interf
     return @call(.always_tail, libwaylandclient.wl_proxy_marshal_flags, .{ proxy, opcode, interface, version, flags, arg_list });
 }
 
+export fn wl_proxy_destroy(proxy: ?*c.struct_wl_proxy) void {
+    return @call(.always_tail, libwaylandclient.wl_proxy_destroy, .{proxy});
+}
+
+const LibXkbCommon = struct {
+    handle: std.DynLib,
+
+    xkb_context_new: *const @TypeOf(c.xkb_context_new),
+    xkb_keymap_new_from_string: *const @TypeOf(c.xkb_keymap_new_from_string),
+    xkb_state_new: *const @TypeOf(c.xkb_state_new),
+    xkb_keymap_unref: *const @TypeOf(c.xkb_keymap_unref),
+    xkb_state_unref: *const @TypeOf(c.xkb_state_unref),
+    xkb_compose_table_new_from_locale: *const @TypeOf(c.xkb_compose_table_new_from_locale),
+    xkb_compose_state_new: *const @TypeOf(c.xkb_compose_state_new),
+    xkb_compose_table_unref: *const @TypeOf(c.xkb_compose_table_unref),
+    xkb_keymap_mod_get_index: *const @TypeOf(c.xkb_keymap_mod_get_index),
+
+    pub fn load() !LibXkbCommon {
+        var lib: LibXkbCommon = undefined;
+        lib.handle = std.DynLib.openZ("libxkbcommon.so.0") catch return error.LibraryNotFound;
+        inline for (@typeInfo(LibXkbCommon).Struct.fields[1..]) |field| {
+            const name = std.fmt.comptimePrint("{s}\x00", .{field.name});
+            const name_z: [:0]const u8 = @ptrCast(name[0 .. name.len - 1]);
+            @field(lib, field.name) = lib.handle.lookup(field.type, name_z) orelse {
+                log.err("Symbol lookup failed for {s}", .{name});
+                return error.SymbolLookup;
+            };
+        }
+        return lib;
+    }
+};
+
 const LibWaylandClient = struct {
     handle: std.DynLib,
 
@@ -62,6 +97,7 @@ const LibWaylandClient = struct {
     wl_proxy_get_version: *const @TypeOf(c.wl_proxy_get_version),
     wl_proxy_marshal_flags: *const @TypeOf(c.wl_proxy_marshal_flags),
     wl_proxy_set_tag: *const @TypeOf(c.wl_proxy_set_tag),
+    wl_proxy_destroy: *const @TypeOf(c.wl_proxy_destroy),
     wl_display_roundtrip: *const @TypeOf(c.wl_display_roundtrip),
     wl_display_dispatch: *const @TypeOf(c.wl_display_dispatch),
     wl_display_flush: *const @TypeOf(c.wl_display_flush),
@@ -126,8 +162,7 @@ const Interfaces = struct {
     wl_subcompositor: ?*c.wl_subcompositor = null,
     wl_shm: ?*c.wl_shm = null,
     wl_output: ?*c.wl_output = null,
-    // TODO
-    // wl_seat: *c.wl_seat,
+    wl_seat: ?*c.wl_seat = null,
     wl_data_device_manager: ?*c.wl_data_device_manager = null,
     xdg_wm_base: ?*c.xdg_wm_base = null,
     zxdg_decoration_manager_v1: ?*c.zxdg_decoration_manager_v1 = null,
@@ -204,7 +239,176 @@ fn registryHandleGlobal(user_data_ptr: ?*anyopaque, registry: ?*c.struct_wl_regi
             @min(3, version),
         ) orelse @panic("uh idk how to proceed"));
         log.debug("Bound zxdg_decoration_manager_v1 :)", .{});
+    } else if (std.mem.eql(u8, "wl_seat", interface)) {
+        user_data.interfaces.wl_seat = @ptrCast(c.wl_registry_bind(
+            registry,
+            name,
+            libwaylandclient.wl_seat_interface,
+            @min(3, version),
+        ) orelse @panic("uh idk how to proceed"));
+        log.debug("Bound wl_seat :)", .{});
+
+        //TODO: handle return value
+        _ = c.wl_seat_add_listener(user_data.interfaces.wl_seat, &.{
+            .capabilities = &seatHandleCapabilities,
+            .name = @ptrCast(&seatHandleName), //ptrCast for the `[*:0]const u8`
+        }, user_data_ptr);
     }
+}
+
+fn seatHandleName(user_data_ptr: ?*anyopaque, seat: ?*c.struct_wl_seat, name_ptr: [*:0]const u8) callconv(.C) void {
+    const user_data: *Core = @ptrCast(@alignCast(user_data_ptr));
+    _ = user_data;
+    const name = std.mem.span(name_ptr);
+
+    log.info("seat {*} has name {s}", .{ seat, name });
+}
+
+fn seatHandleCapabilities(user_data_ptr: ?*anyopaque, seat: ?*c.struct_wl_seat, caps: c.wl_seat_capability) callconv(.C) void {
+    const user_data: *Core = @ptrCast(@alignCast(user_data_ptr));
+
+    log.info("seat {*} has caps {d}", .{ seat, caps });
+
+    if ((caps & c.WL_SEAT_CAPABILITY_KEYBOARD) != 0) {
+        user_data.keyboard = c.wl_seat_get_keyboard(seat);
+
+        //TODO: handle return value
+        _ = c.wl_keyboard_add_listener(user_data.keyboard, &.{
+            .keymap = &keyboardHandleKeymap,
+            .enter = &keyboardHandleEnter,
+            .leave = &keyboardHandleLeave,
+            .key = &keyboardHandleKey,
+            .modifiers = &keyboardHandleModifiers,
+            .repeat_info = &keyboardHandleRepeatInfo,
+        }, user_data_ptr);
+    } else if ((caps & c.WL_SEAT_CAPABILITY_TOUCH) != 0) {
+        //TODO
+    } else if ((caps & c.WL_SEAT_CAPABILITY_POINTER) != 0) {
+        //TODO
+    }
+
+    // Delete keyboard if its no longer in the seat
+    if (user_data.keyboard) |keyboard| {
+        if ((caps & c.WL_SEAT_CAPABILITY_KEYBOARD) == 0) {
+            c.wl_keyboard_destroy(keyboard);
+            user_data.keyboard = null;
+        }
+    }
+}
+
+fn keyboardHandleKeymap(user_data_ptr: ?*anyopaque, keyboard: ?*c.struct_wl_keyboard, format: u32, fd: i32, keymap_size: u32) callconv(.C) void {
+    const user_data: *Core = @ptrCast(@alignCast(user_data_ptr));
+
+    _ = keyboard;
+
+    if (format != c.WL_KEYBOARD_KEYMAP_FORMAT_XKB_V1) {
+        @panic("TODO");
+    }
+
+    const map_str = std.os.mmap(null, keymap_size, std.os.PROT.READ, std.os.MAP.SHARED, fd, 0) catch unreachable;
+
+    const keymap = user_data.libxkbcommon.xkb_keymap_new_from_string(
+        user_data.xkb_context,
+        @alignCast(map_str), //align cast happening here, im sure its fine? TODO: figure out if this okay
+        c.XKB_KEYMAP_FORMAT_TEXT_V1,
+        0,
+    ).?;
+    defer log.debug("got keymap {*}", .{keymap});
+
+    //Unmap the keymap
+    std.os.munmap(map_str);
+    //Close the fd
+    std.os.close(fd);
+
+    const state = user_data.libxkbcommon.xkb_state_new(keymap).?;
+    defer user_data.libxkbcommon.xkb_state_unref(state);
+
+    //this chain hurts me. why must C be this way.
+    const locale = std.os.getenv("LC_ALL") orelse std.os.getenv("LC_CTYPE") orelse std.os.getenv("LANG") orelse "C";
+
+    var compose_table = user_data.libxkbcommon.xkb_compose_table_new_from_locale(
+        user_data.xkb_context,
+        locale,
+        c.XKB_COMPOSE_COMPILE_NO_FLAGS,
+    );
+
+    //If creation failed, lets try the C locale
+    if (compose_table == null)
+        compose_table = user_data.libxkbcommon.xkb_compose_table_new_from_locale(
+            user_data.xkb_context,
+            "C",
+            c.XKB_COMPOSE_COMPILE_NO_FLAGS,
+        ).?;
+
+    defer user_data.libxkbcommon.xkb_compose_table_unref(compose_table);
+
+    user_data.keymap = keymap;
+    user_data.xkb_state = state;
+    user_data.compose_state = user_data.libxkbcommon.xkb_compose_state_new(compose_table, c.XKB_COMPOSE_STATE_NO_FLAGS).?;
+
+    user_data.control_index = user_data.libxkbcommon.xkb_keymap_mod_get_index(keymap, "Control");
+    user_data.alt_index = user_data.libxkbcommon.xkb_keymap_mod_get_index(keymap, "Mod1");
+    user_data.shift_index = user_data.libxkbcommon.xkb_keymap_mod_get_index(keymap, "Shift");
+    user_data.super_index = user_data.libxkbcommon.xkb_keymap_mod_get_index(keymap, "Mod4");
+    user_data.caps_lock_index = user_data.libxkbcommon.xkb_keymap_mod_get_index(keymap, "Lock");
+    user_data.num_lock_index = user_data.libxkbcommon.xkb_keymap_mod_get_index(keymap, "Mod2");
+}
+fn keyboardHandleEnter(user_data_ptr: ?*anyopaque, keyboard: ?*c.struct_wl_keyboard, serial: u32, surface: ?*c.struct_wl_surface, keys: [*c]c.struct_wl_array) callconv(.C) void {
+    const user_data: *Core = @ptrCast(@alignCast(user_data_ptr));
+
+    _ = keyboard;
+    _ = serial;
+    _ = surface;
+    _ = keys;
+
+    user_data.pushEvent(.focus_gained);
+}
+fn keyboardHandleLeave(user_data_ptr: ?*anyopaque, keyboard: ?*c.struct_wl_keyboard, serial: u32, surface: ?*c.struct_wl_surface) callconv(.C) void {
+    const user_data: *Core = @ptrCast(@alignCast(user_data_ptr));
+
+    _ = keyboard;
+    _ = serial;
+    _ = surface;
+
+    user_data.pushEvent(.focus_lost);
+}
+fn keyboardHandleKey(user_data_ptr: ?*anyopaque, keyboard: ?*c.struct_wl_keyboard, serial: u32, time: u32, scancode: u32, state: u32) callconv(.C) void {
+    const user_data: *Core = @ptrCast(@alignCast(user_data_ptr));
+
+    _ = keyboard;
+    _ = serial;
+    _ = time;
+
+    if (state == 1) {
+        user_data.pushEvent(Event{ .key_press = .{
+            .key = toMachKey(scancode),
+            .mods = std.mem.zeroes(KeyMods),
+        } });
+    } else {
+        user_data.pushEvent(Event{ .key_release = .{
+            .key = toMachKey(scancode),
+            .mods = std.mem.zeroes(KeyMods),
+        } });
+    }
+}
+fn keyboardHandleModifiers(user_data_ptr: ?*anyopaque, keyboard: ?*c.struct_wl_keyboard, serial: u32, mods_depressed: u32, mods_latched: u32, mods_locked: u32, group: u32) callconv(.C) void {
+    const user_data: *Core = @ptrCast(@alignCast(user_data_ptr));
+
+    _ = user_data;
+    _ = keyboard;
+    _ = serial;
+    _ = mods_depressed;
+    _ = mods_latched;
+    _ = mods_locked;
+    _ = group;
+}
+fn keyboardHandleRepeatInfo(user_data_ptr: ?*anyopaque, keyboard: ?*c.struct_wl_keyboard, rate: i32, delay: i32) callconv(.C) void {
+    const user_data: *Core = @ptrCast(@alignCast(user_data_ptr));
+
+    _ = user_data;
+    _ = keyboard;
+    _ = rate;
+    _ = delay;
 }
 
 fn wmBaseHandlePing(user_data_ptr: ?*anyopaque, wm_base: ?*c.struct_xdg_wm_base, serial: u32) callconv(.C) void {
@@ -332,8 +536,32 @@ fn Changable(comptime T: type, comptime uses_allocator: bool) type {
     };
 }
 
+fn pushEvent(self: *Core, event: Event) void {
+    self.events_mu.lock();
+    defer self.events_mu.unlock();
+
+    self.events.writeItem(event) catch @panic("TODO");
+}
+
 pub const Core = @This();
 
+gpu_device: *gpu.Device,
+
+// xkb
+xkb_context: *c.xkb_context,
+libxkbcommon: LibXkbCommon,
+keymap: ?*c.xkb_keymap,
+xkb_state: ?*c.xkb_state,
+compose_state: ?*c.xkb_compose_state,
+
+control_index: c.xkb_mod_index_t,
+alt_index: c.xkb_mod_index_t,
+shift_index: c.xkb_mod_index_t,
+super_index: c.xkb_mod_index_t,
+caps_lock_index: c.xkb_mod_index_t,
+num_lock_index: c.xkb_mod_index_t,
+
+// Wayland objects/state
 display: *c.struct_wl_display,
 registry: *c.struct_wl_registry,
 interfaces: Interfaces,
@@ -344,11 +572,11 @@ tag: [*]c_char,
 decoration: *c.zxdg_toplevel_decoration_v1,
 configured: bool,
 
+// internal tracking state
 app_update_thread_started: bool = false,
 
-gpu_device: *gpu.Device,
-
-// Event queue; written from main thread; read from any
+// Event stuff
+keyboard: ?*c.wl_keyboard = null,
 events_mu: std.Thread.RwLock = .{},
 events: EventQueue,
 
@@ -370,10 +598,17 @@ pub fn init(
     //Init `configured` so that its defined
     core.configured = false;
     core.interfaces = .{};
+    //clear out some stuff
+    core.keymap = null;
+    core.xkb_state = null;
+    core.compose_state = null;
 
     libwaylandclient = try LibWaylandClient.load();
+    core.libxkbcommon = try LibXkbCommon.load();
     _ = frame;
     _ = input;
+
+    core.xkb_context = core.libxkbcommon.xkb_context_new(0).?;
 
     core.display = libwaylandclient.wl_display_connect(null) orelse return error.FailedToConnectToWaylandDisplay;
 
@@ -550,6 +785,18 @@ pub fn init(
         .window_size = core.window_size,
         .min_size = core.min_size,
         .max_size = core.max_size,
+        .keyboard = core.keyboard,
+        .libxkbcommon = core.libxkbcommon,
+        .xkb_context = core.xkb_context,
+        .compose_state = core.compose_state,
+        .keymap = core.keymap,
+        .xkb_state = core.xkb_state,
+        .control_index = core.control_index,
+        .alt_index = core.alt_index,
+        .shift_index = core.shift_index,
+        .super_index = core.super_index,
+        .caps_lock_index = core.caps_lock_index,
+        .num_lock_index = core.num_lock_index,
     };
 }
 
@@ -867,4 +1114,126 @@ fn deviceLostCallback(reason: gpu.Device.LostReason, msg: [*:0]const u8, userdat
     _ = reason;
     log.err("mach: device lost: {s}", .{msg});
     @panic("mach: device lost");
+}
+
+fn toMachKey(key: u32) Key {
+    return switch (key) {
+        c.KEY_GRAVE => .grave,
+        c.KEY_1 => .one,
+        c.KEY_2 => .two,
+        c.KEY_3 => .three,
+        c.KEY_4 => .four,
+        c.KEY_5 => .five,
+        c.KEY_6 => .six,
+        c.KEY_7 => .seven,
+        c.KEY_8 => .eight,
+        c.KEY_9 => .nine,
+        c.KEY_0 => .zero,
+        c.KEY_SPACE => .space,
+        c.KEY_MINUS => .minus,
+        c.KEY_EQUAL => .equal,
+        c.KEY_Q => .q,
+        c.KEY_W => .w,
+        c.KEY_E => .e,
+        c.KEY_R => .r,
+        c.KEY_T => .t,
+        c.KEY_Y => .y,
+        c.KEY_U => .u,
+        c.KEY_I => .i,
+        c.KEY_O => .o,
+        c.KEY_P => .p,
+        c.KEY_LEFTBRACE => .left_bracket,
+        c.KEY_RIGHTBRACE => .right_bracket,
+        c.KEY_A => .a,
+        c.KEY_S => .s,
+        c.KEY_D => .d,
+        c.KEY_F => .f,
+        c.KEY_G => .g,
+        c.KEY_H => .h,
+        c.KEY_J => .j,
+        c.KEY_K => .k,
+        c.KEY_L => .l,
+        c.KEY_SEMICOLON => .semicolon,
+        c.KEY_APOSTROPHE => .apostrophe,
+        c.KEY_Z => .z,
+        c.KEY_X => .x,
+        c.KEY_C => .c,
+        c.KEY_V => .v,
+        c.KEY_B => .b,
+        c.KEY_N => .n,
+        c.KEY_M => .m,
+        c.KEY_COMMA => .comma,
+        c.KEY_DOT => .period,
+        c.KEY_SLASH => .slash,
+        c.KEY_BACKSLASH => .backslash,
+        c.KEY_ESC => .escape,
+        c.KEY_TAB => .tab,
+        c.KEY_LEFTSHIFT => .left_shift,
+        c.KEY_RIGHTSHIFT => .right_shift,
+        c.KEY_LEFTCTRL => .left_control,
+        c.KEY_RIGHTCTRL => .right_control,
+        c.KEY_LEFTALT => .left_alt,
+        c.KEY_RIGHTALT => .right_alt,
+        c.KEY_LEFTMETA => .left_super,
+        c.KEY_RIGHTMETA => .right_super,
+        c.KEY_NUMLOCK => .num_lock,
+        c.KEY_CAPSLOCK => .caps_lock,
+        c.KEY_PRINT => .print,
+        c.KEY_SCROLLLOCK => .scroll_lock,
+        c.KEY_PAUSE => .pause,
+        c.KEY_DELETE => .delete,
+        c.KEY_BACKSPACE => .backspace,
+        c.KEY_ENTER => .enter,
+        c.KEY_HOME => .home,
+        c.KEY_END => .end,
+        c.KEY_PAGEUP => .page_up,
+        c.KEY_PAGEDOWN => .page_down,
+        c.KEY_INSERT => .insert,
+        c.KEY_LEFT => .left,
+        c.KEY_RIGHT => .right,
+        c.KEY_DOWN => .down,
+        c.KEY_UP => .up,
+        c.KEY_F1 => .f1,
+        c.KEY_F2 => .f2,
+        c.KEY_F3 => .f3,
+        c.KEY_F4 => .f4,
+        c.KEY_F5 => .f5,
+        c.KEY_F6 => .f6,
+        c.KEY_F7 => .f7,
+        c.KEY_F8 => .f8,
+        c.KEY_F9 => .f9,
+        c.KEY_F10 => .f10,
+        c.KEY_F11 => .f11,
+        c.KEY_F12 => .f12,
+        c.KEY_F13 => .f13,
+        c.KEY_F14 => .f14,
+        c.KEY_F15 => .f15,
+        c.KEY_F16 => .f16,
+        c.KEY_F17 => .f17,
+        c.KEY_F18 => .f18,
+        c.KEY_F19 => .f19,
+        c.KEY_F20 => .f20,
+        c.KEY_F21 => .f21,
+        c.KEY_F22 => .f22,
+        c.KEY_F23 => .f23,
+        c.KEY_F24 => .f24,
+        c.KEY_KPSLASH => .kp_divide,
+        c.KEY_KPASTERISK => .kp_multiply,
+        c.KEY_KPMINUS => .kp_subtract,
+        c.KEY_KPPLUS => .kp_add,
+        c.KEY_KP0 => .kp_0,
+        c.KEY_KP1 => .kp_1,
+        c.KEY_KP2 => .kp_2,
+        c.KEY_KP3 => .kp_3,
+        c.KEY_KP4 => .kp_4,
+        c.KEY_KP5 => .kp_5,
+        c.KEY_KP6 => .kp_6,
+        c.KEY_KP7 => .kp_7,
+        c.KEY_KP8 => .kp_8,
+        c.KEY_KP9 => .kp_9,
+        c.KEY_KPDOT => .kp_decimal,
+        c.KEY_KPEQUAL => .kp_equal,
+        c.KEY_KPENTER => .kp_enter,
+        else => .unknown,
+    };
 }
