@@ -251,6 +251,85 @@ fn xdgToplevelHandleConfigure(user_data: ?*anyopaque, toplevel: ?*c.struct_xdg_t
     _ = states;
 }
 
+fn Changable(comptime T: type, comptime uses_allocator: bool) type {
+    return struct {
+        current: T,
+        last: if (uses_allocator) ?T else void,
+        allocator: if (uses_allocator) std.mem.Allocator else void,
+        changed: bool = false,
+
+        const Self = @This();
+
+        ///Initialize with a default value
+        pub fn init(value: T, allocator: if (uses_allocator) std.mem.Allocator else void) !Self {
+            if (uses_allocator) {
+                return .{
+                    .allocator = allocator,
+                    .last = null,
+                    .current = try allocator.dupeZ(std.meta.Child(T), value),
+                };
+            } else {
+                return .{
+                    .allocator = {},
+                    .last = {},
+                    .current = value,
+                };
+            }
+        }
+
+        /// Set a new value for the changable
+        pub fn set(self: *Self, value: T) !void {
+            if (uses_allocator) {
+                //If we have a last value, free it
+                if (self.last) |last_value| {
+                    self.allocator.free(last_value);
+
+                    self.last = null;
+                }
+
+                self.last = self.current;
+
+                self.current = try self.allocator.dupeZ(std.meta.Child(T), value);
+            } else {
+                self.current = value;
+            }
+            self.changed = true;
+        }
+
+        /// Read the current value out, resetting the changed flag
+        pub fn read(self: *Self) ?T {
+            if (!self.changed)
+                return null;
+
+            self.changed = false;
+            return self.current;
+        }
+
+        /// Free's the last allocation and resets the `last` value
+        pub fn freeLast(self: *Self) void {
+            if (uses_allocator) {
+                if (self.last) |last_value| {
+                    self.allocator.free(last_value);
+                }
+
+                self.last = null;
+            }
+        }
+
+        pub fn deinit(self: *Self) void {
+            if (uses_allocator) {
+                if (self.last) |last_value| {
+                    self.allocator.free(last_value);
+                }
+
+                self.allocator.free(self.current);
+            }
+
+            self.* = undefined;
+        }
+    };
+}
+
 pub const Core = @This();
 
 display: *c.struct_wl_display,
@@ -270,6 +349,10 @@ gpu_device: *gpu.Device,
 // Event queue; written from main thread; read from any
 events_mu: std.Thread.RwLock = .{},
 events: EventQueue,
+
+// changables
+state_mu: std.Thread.RwLock = .{},
+title: Changable([:0]const u8, true),
 
 // Called on the main thread
 pub fn init(
@@ -335,7 +418,9 @@ pub fn init(
         // This space intentionally left blank
     }
 
-    c.xdg_toplevel_set_title(toplevel, options.title);
+    core.title = try @TypeOf(core.title).init(options.title, allocator);
+
+    c.xdg_toplevel_set_title(toplevel, core.title.current);
 
     const decoration = c.zxdg_decoration_manager_v1_get_toplevel_decoration(
         core.interfaces.zxdg_decoration_manager_v1,
@@ -445,6 +530,7 @@ pub fn init(
         .configured = core.configured,
         .gpu_device = gpu_device,
         .events = EventQueue.init(allocator),
+        .title = core.title,
     };
 }
 
@@ -454,11 +540,23 @@ pub fn deinit(self: *Core) void {
 
 // Called on the main thread
 pub fn update(self: *Core, app: anytype) !bool {
-    // log.info("update", .{});
     if (!self.app_update_thread_started) {
         self.app_update_thread_started = true;
         const thread = try std.Thread.spawn(.{}, appUpdateThread, .{ self, app });
         thread.detach();
+    }
+
+    //State updates
+    {
+        self.state_mu.lock();
+        defer self.state_mu.unlock();
+
+        // Check if we have a new title
+        if (self.title.read()) |new_title| {
+            defer self.title.freeLast();
+
+            c.xdg_toplevel_set_title(self.toplevel, new_title);
+        }
     }
 
     while (libwaylandclient.wl_display_flush(self.display) == -1) {
@@ -554,8 +652,11 @@ pub inline fn pollEvents(self: *Core) EventIterator {
 }
 
 // May be called from any thread.
-pub fn setTitle(_: *Core, _: [:0]const u8) void {
-    @panic("TODO: implement setTitle for Wayland");
+pub fn setTitle(self: *Core, title: [:0]const u8) void {
+    self.state_mu.lock();
+    defer self.state_mu.unlock();
+
+    self.title.set(title) catch unreachable;
 }
 
 // May be called from any thread.
