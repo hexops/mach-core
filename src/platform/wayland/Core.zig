@@ -312,6 +312,7 @@ global_state: GlobalState,
 
 // internal tracking state
 app_update_thread_started: bool = false,
+done: std.Thread.ResetEvent = .{},
 
 //timings
 frame: *Frequency,
@@ -978,11 +979,13 @@ pub fn init(
 }
 
 pub fn deinit(self: *Core) void {
-    _ = self;
+    self.title.deinit();
 }
 
 // Called on the main thread
 pub fn update(self: *Core, app: anytype) !bool {
+    if (self.done.isSet()) return true;
+
     if (!self.app_update_thread_started) {
         self.app_update_thread_started = true;
         const thread = try std.Thread.spawn(.{}, appUpdateThread, .{ self, app });
@@ -1045,7 +1048,7 @@ pub fn update(self: *Core, app: anytype) !bool {
 
     if (@hasDecl(std.meta.Child(@TypeOf(app)), "updateMainThread")) {
         if (app.updateMainThread() catch unreachable) {
-            // self.done.set();
+            self.done.set();
             return true;
         }
     }
@@ -1094,13 +1097,12 @@ pub fn appUpdateThread(self: *Core, app: anytype) void {
         // }
 
         if (app.update() catch unreachable) {
-            // self.done.set();
+            self.done.set();
 
             // Wake the main thread from any event handling, so there is not e.g. a one second delay
             // in exiting the application.
             // self.wakeMainThread();
-            @panic("TODO");
-            // return;
+            return;
         }
         self.gpu_device.tick();
         self.gpu_device.machWaitForCommandsToBeScheduled();
