@@ -762,14 +762,8 @@ fn xdgSurfaceHandleConfigure(user_data: *GlobalState, xdg_surface: ?*c.struct_xd
     user_data.state_mu.lock();
     defer user_data.state_mu.unlock();
 
-    if (user_data.window_size.read()) |new_window_size| blk: {
-        const region = c.wl_compositor_create_region(user_data.interfaces.wl_compositor) orelse break :blk;
-
-        c.wl_region_add(region, 0, 0, @intCast(new_window_size.width), @intCast(new_window_size.height));
-        c.wl_surface_set_opaque_region(user_data.surface, region);
-        c.wl_region_destroy(region);
-
-        user_data.swap_chain_update.set();
+    if (user_data.window_size.read()) |new_window_size| {
+        setContentAreaOpaque(user_data, new_window_size);
     }
 }
 
@@ -790,6 +784,16 @@ fn xdgToplevelHandleConfigure(user_data: *GlobalState, toplevel: ?*c.struct_xdg_
 
         try user_data.window_size.set(.{ .width = @intCast(width), .height = @intCast(height) });
     }
+}
+
+fn setContentAreaOpaque(state: *GlobalState, new_size: Size) void {
+    const region = c.wl_compositor_create_region(state.interfaces.wl_compositor) orelse return;
+
+    c.wl_region_add(region, 0, 0, @intCast(new_size.width), @intCast(new_size.height));
+    c.wl_surface_set_opaque_region(state.surface, region);
+    c.wl_region_destroy(region);
+
+    state.swap_chain_update.set();
 }
 
 // Called on the main thread
@@ -857,8 +861,8 @@ pub fn init(
             region,
             0,
             0,
-            @intCast(core.global_state.window_size.current.width),
-            @intCast(core.global_state.window_size.current.height),
+            @intCast(options.size.width),
+            @intCast(options.size.height),
         );
         c.wl_surface_set_opaque_region(core.global_state.surface, region);
         c.wl_region_destroy(region);
@@ -1199,8 +1203,12 @@ pub fn vsync(_: *Core) VSyncMode {
 }
 
 // May be called from any thread.
-pub fn setSize(_: *Core, _: Size) void {
-    @panic("TODO: implement setSize for Wayland");
+pub fn setSize(self: *Core, new_size: Size) void {
+    self.global_state.window_size_mu.lock();
+    defer self.global_state.window_size_mu.unlock();
+
+    setContentAreaOpaque(&self.global_state, new_size);
+    self.global_state.window_size.set(new_size) catch unreachable;
 }
 
 // May be called from any thread.
