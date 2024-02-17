@@ -289,6 +289,15 @@ const GlobalState = struct {
     input_state: InputState,
     modifiers: KeyMods,
 
+    //changables
+    state_mu: std.Thread.RwLock = .{},
+    window_size_mu: std.Thread.RwLock = .{},
+    window_size: Changable(Size, false),
+    swap_chain_update: std.Thread.ResetEvent = .{},
+
+    // Mutable fields; written by the App.update thread, read from any
+    swap_chain_mu: std.Thread.RwLock = .{},
+
     fn pushEvent(self: *GlobalState, event: Event) void {
         self.events_mu.lock();
         defer self.events_mu.unlock();
@@ -300,6 +309,9 @@ const GlobalState = struct {
 pub const Core = @This();
 
 gpu_device: *gpu.Device,
+surface: *gpu.Surface,
+swap_chain: *gpu.SwapChain,
+swap_chain_desc: gpu.SwapChain.Descriptor,
 
 // Wayland objects/state
 display: *c.struct_wl_display,
@@ -319,9 +331,7 @@ frame: *Frequency,
 input: *Frequency,
 
 // changables
-state_mu: std.Thread.RwLock = .{},
 title: Changable([:0]const u8, true),
-window_size: Changable(Size, false),
 min_size: Changable(Size, false),
 max_size: Changable(Size, false),
 
@@ -741,11 +751,25 @@ const registry_listener = c.wl_registry_listener{
 
 fn xdgSurfaceHandleConfigure(user_data: *GlobalState, xdg_surface: ?*c.struct_xdg_surface, serial: u32) callconv(.C) void {
     c.xdg_surface_ack_configure(xdg_surface, serial);
+
     if (user_data.configured) {
         c.wl_surface_commit(user_data.surface);
     } else {
         log.debug("xdg surface configured", .{});
         user_data.configured = true;
+    }
+
+    user_data.state_mu.lock();
+    defer user_data.state_mu.unlock();
+
+    if (user_data.window_size.read()) |new_window_size| blk: {
+        const region = c.wl_compositor_create_region(user_data.interfaces.wl_compositor) orelse break :blk;
+
+        c.wl_region_add(region, 0, 0, @intCast(new_window_size.width), @intCast(new_window_size.height));
+        c.wl_surface_set_opaque_region(user_data.surface, region);
+        c.wl_region_destroy(region);
+
+        user_data.swap_chain_update.set();
     }
 }
 
@@ -755,11 +779,17 @@ fn xdgToplevelHandleClose(user_data: *GlobalState, toplevel: ?*c.struct_xdg_topl
 }
 
 fn xdgToplevelHandleConfigure(user_data: *GlobalState, toplevel: ?*c.struct_xdg_toplevel, width: i32, height: i32, states: [*c]c.struct_wl_array) callconv(.C) void {
-    _ = user_data;
     _ = toplevel;
-    _ = width;
-    _ = height;
     _ = states;
+
+    log.debug("{d}/{d}", .{ width, height });
+
+    if (width > 0 and height > 0) {
+        user_data.state_mu.lock();
+        defer user_data.state_mu.unlock();
+
+        try user_data.window_size.set(.{ .width = @intCast(width), .height = @intCast(height) });
+    }
 }
 
 // Called on the main thread
@@ -795,6 +825,7 @@ pub fn init(
             .shift = false,
             .super = false,
         },
+        .window_size = try @TypeOf(core.global_state.window_size).init(options.size, {}),
     };
 
     libwaylandclient = try LibWaylandClient.load();
@@ -822,14 +853,12 @@ pub fn init(
     {
         const region = c.wl_compositor_create_region(core.global_state.interfaces.wl_compositor) orelse return error.CouldntCreateWaylandRegtion;
 
-        core.window_size = try @TypeOf(core.window_size).init(options.size, {});
-
         c.wl_region_add(
             region,
             0,
             0,
-            @intCast(core.window_size.current.width),
-            @intCast(core.window_size.current.height),
+            @intCast(core.global_state.window_size.current.width),
+            @intCast(core.global_state.window_size.current.height),
         );
         c.wl_surface_set_opaque_region(core.global_state.surface, region);
         c.wl_region_destroy(region);
@@ -851,7 +880,7 @@ pub fn init(
     _ = c.xdg_toplevel_add_listener(toplevel, &.{
         .configure = @ptrCast(&xdgToplevelHandleConfigure),
         .close = @ptrCast(&xdgToplevelHandleClose),
-    }, null);
+    }, &core.global_state);
 
     //Commit changes to surface
     c.wl_surface_commit(core.global_state.surface);
@@ -969,12 +998,14 @@ pub fn init(
         .decoration = decoration,
         .gpu_device = gpu_device,
         .title = core.title,
-        .window_size = core.window_size,
         .min_size = core.min_size,
         .max_size = core.max_size,
         .frame = frame,
         .input = input,
         .global_state = core.global_state,
+        .swap_chain = swap_chain,
+        .swap_chain_desc = swap_chain_desc,
+        .surface = surface,
     };
 }
 
@@ -994,8 +1025,8 @@ pub fn update(self: *Core, app: anytype) !bool {
 
     //State updates
     {
-        self.state_mu.lock();
-        defer self.state_mu.unlock();
+        self.global_state.state_mu.lock();
+        defer self.global_state.state_mu.unlock();
 
         var need_surface_commit: bool = false;
 
@@ -1065,36 +1096,38 @@ pub fn appUpdateThread(self: *Core, app: anytype) void {
 
     self.frame.start() catch unreachable;
     while (true) {
-        // if (self.swap_chain_update.isSet()) blk: {
-        //     self.swap_chain_update.reset();
+        if (self.global_state.swap_chain_update.isSet()) { // blk: {
+            self.global_state.swap_chain_update.reset();
 
-        //     if (self.current_vsync_mode != self.last_vsync_mode) {
-        //         self.last_vsync_mode = self.current_vsync_mode;
-        //         switch (self.current_vsync_mode) {
-        //             .triple => self.frame.target = 2 * self.refresh_rate,
-        //             else => self.frame.target = 0,
-        //         }
-        //     }
+            //TODO
+            // if (self.current_vsync_mode != self.last_vsync_mode) {
+            //     self.last_vsync_mode = self.current_vsync_mode;
+            //     switch (self.current_vsync_mode) {
+            //         .triple => self.frame.target = 2 * self.refresh_rate,
+            //         else => self.frame.target = 0,
+            //     }
+            // }
 
-        //     if (self.current_size.width == 0 or self.current_size.height == 0) break :blk;
+            //TODO
+            // if (self.current_size.width == 0 or self.current_size.height == 0) break :blk;
 
-        //     self.swap_chain_mu.lock();
-        //     defer self.swap_chain_mu.unlock();
-        //     mach_core.swap_chain.release();
-        //     self.swap_chain_desc.width = self.current_size.width;
-        //     self.swap_chain_desc.height = self.current_size.height;
-        //     self.swap_chain = self.gpu_device.createSwapChain(self.surface, &self.swap_chain_desc);
+            self.global_state.swap_chain_mu.lock();
+            defer self.global_state.swap_chain_mu.unlock();
+            mach_core.swap_chain.release();
+            self.swap_chain_desc.width = self.global_state.window_size.current.width;
+            self.swap_chain_desc.height = self.global_state.window_size.current.height;
+            self.swap_chain = self.gpu_device.createSwapChain(self.surface, &self.swap_chain_desc);
 
-        //     mach_core.swap_chain = self.swap_chain;
-        //     mach_core.descriptor = self.swap_chain_desc;
+            mach_core.swap_chain = self.swap_chain;
+            mach_core.descriptor = self.swap_chain_desc;
 
-        //     self.pushEvent(.{
-        //         .framebuffer_resize = .{
-        //             .width = self.current_size.width,
-        //             .height = self.current_size.height,
-        //         },
-        //     });
-        // }
+            self.global_state.pushEvent(.{
+                .framebuffer_resize = .{
+                    .width = self.global_state.window_size.current.width,
+                    .height = self.global_state.window_size.current.height,
+                },
+            });
+        }
 
         if (app.update() catch unreachable) {
             self.done.set();
@@ -1119,8 +1152,8 @@ pub inline fn pollEvents(self: *Core) EventIterator {
 
 // May be called from any thread.
 pub fn setTitle(self: *Core, title: [:0]const u8) void {
-    self.state_mu.lock();
-    defer self.state_mu.unlock();
+    self.global_state.state_mu.lock();
+    defer self.global_state.state_mu.unlock();
 
     self.title.set(title) catch unreachable;
 }
