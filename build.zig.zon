@@ -33,8 +33,8 @@
             .hash = "12203aaefcb85324476a6d3d277451ea1feaac3549641d717c631a3cffd38eecfbda",
         },
         .mach_sysgpu = .{
-            .url = "https://pkg.machengine.org/mach-sysgpu/df42bc81173adfa97945c483cf2d0ff71db8bb51.tar.gz",
-            .hash = "1220123655c38b2f967d75cce52485697606b4621c0084c51f1c7872ee5360e77bde",
+            .url = "https://pkg.machengine.org/mach-sysgpu/d6ed118f54c4784f7ce01b70fc1b94f887fae1a8.tar.gz",
+            .hash = "1220fba810cecf1e1f9ff89a0a08d4eca64fa682e52e0480d3e8dfbf0dd91746ae51",
         },
         .mach_gpu = .{
             .url = "https://pkg.machengine.org/mach-gpu/47244d1e216284a3389bd42af431f59f39a8f67e.tar.gz",
