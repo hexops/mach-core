@@ -1,13 +1,13 @@
 const builtin = @import("builtin");
+const options = @import("platform_options");
 
-const use_glfw = false;
+const use_glfw = true;
 const use_x11 = false;
-const platform = switch (builtin.target.os.tag) {
-    .linux => if (use_glfw) @import("platform/glfw.zig") else if (use_x11) @import("platform/x11.zig") else @import("platform/wayland.zig"),
-    else => if (builtin.target.cpu.arch == .wasm32)
-        @import("platform/wasm.zig")
-    else
-        @import("platform/glfw.zig"),
+const platform = switch (options.platform) {
+    .glfw => @import("platform/glfw.zig"),
+    .x11 => @import("platform/x11.zig"),
+    .wayland => @import("platform/wayland.zig"),
+    .web => @import("platform/wasm.zig"),
 };
 
 pub const Core = platform.Core;

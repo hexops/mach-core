@@ -11,6 +11,8 @@ pub fn build(
 ) !void {
     try ensureDependencies(b.allocator);
 
+    const platform = b.option(core.App.Platform, "platform", "The mach core platform to use");
+
     const Dependency = enum {
         zigimg,
         model3d,
@@ -142,6 +144,7 @@ pub fn build(
                 else
                     &.{"examples/" ++ example.name},
                 .mach_core_mod = mach_core_mod,
+                .platform = platform,
             },
         );
 

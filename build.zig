@@ -84,12 +84,14 @@ pub const App = struct {
     watch_paths: ?[]const []const u8,
 
     pub const Platform = enum {
-        native,
+        glfw,
+        x11,
+        wayland,
         web,
 
         pub fn fromTarget(target: std.Target) Platform {
             if (target.cpu.arch == .wasm32) return .web;
-            return .native;
+            return .glfw;
         }
     };
 
@@ -106,10 +108,11 @@ pub const App = struct {
             res_dirs: ?[]const []const u8 = null,
             watch_paths: ?[]const []const u8 = null,
             mach_core_mod: ?*std.Build.Module = null,
+            platform: ?Platform,
         },
     ) !App {
         const target = options.target.result;
-        const platform = Platform.fromTarget(target);
+        const platform = options.platform orelse Platform.fromTarget(target);
 
         var imports = std.ArrayList(std.Build.Module.Import).init(app_builder.allocator);
 
@@ -128,6 +131,11 @@ pub const App = struct {
             .root_source_file = .{ .path = options.src },
             .imports = try imports.toOwnedSlice(),
         });
+
+        //Tell mach-core about the chosen platform
+        const platform_options = app_builder.addOptions();
+        platform_options.addOption(Platform, "platform", platform);
+        mach_core_mod.addOptions("platform_options", platform_options);
 
         const compile = blk: {
             if (platform == .web) {
@@ -152,6 +160,7 @@ pub const App = struct {
                 });
                 // TODO(core): figure out why we need to disable LTO: https://github.com/hexops/mach/issues/597
                 exe.want_lto = false;
+
                 break :blk exe;
             }
         };
