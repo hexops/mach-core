@@ -42,6 +42,8 @@ pub fn build(b: *std.Build) !void {
         module.linkLibrary(wayland_headers.artifact("wayland-headers"));
         module.addCSourceFile(.{ .file = .{ .path = "src/platform/wayland/wayland.c" } });
 
+        const test_platform = b.option(App.Platform, "test_platform", "The mach core platform to use when running tests");
+
         const main_tests = b.addTest(.{
             .name = "core-tests",
             .root_source_file = .{ .path = "src/main.zig" },
@@ -54,6 +56,10 @@ pub fn build(b: *std.Build) !void {
         }
         link(b, main_tests);
         b.installArtifact(main_tests);
+
+        const platform_options = b.addOptions();
+        platform_options.addOption(App.Platform, "platform", test_platform orelse App.Platform.fromTarget(target.result));
+        main_tests.root_module.addOptions("platform_options", platform_options);
 
         const test_step = b.step("test", "run tests");
         test_step.dependOn(&b.addRunArtifact(main_tests).step);
