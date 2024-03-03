@@ -79,6 +79,14 @@ pub fn build(b: *std.Build) !void {
     try @import("build_examples.zig").build(b, optimize, target, module);
 }
 
+fn sdkPath(comptime suffix: []const u8) []const u8 {
+    if (suffix[0] != '/') @compileError("suffix must be an absolute path");
+    return comptime blk: {
+        const root_dir = std.fs.path.dirname(@src().file) orelse ".";
+        break :blk root_dir ++ suffix;
+    };
+}
+
 pub const App = struct {
     b: *std.Build,
     name: []const u8,
@@ -150,7 +158,7 @@ pub const App = struct {
 
                 const lib = app_builder.addStaticLibrary(.{
                     .name = options.name,
-                    .root_source_file = .{ .path = options.custom_entrypoint orelse "src/platform/wasm/entrypoint.zig" },
+                    .root_source_file = .{ .path = options.custom_entrypoint orelse sdkPath("/src/platform/wasm/entrypoint.zig") },
                     .target = options.target,
                     .optimize = options.optimize,
                 });
@@ -160,7 +168,7 @@ pub const App = struct {
             } else {
                 const exe = app_builder.addExecutable(.{
                     .name = options.name,
-                    .root_source_file = .{ .path = options.custom_entrypoint orelse "src/platform/native_entrypoint.zig" },
+                    .root_source_file = .{ .path = options.custom_entrypoint orelse sdkPath("/src/platform/native_entrypoint.zig") },
                     .target = options.target,
                     .optimize = options.optimize,
                 });
@@ -189,7 +197,7 @@ pub const App = struct {
             }
         }
         if (platform == .web) {
-            inline for (.{ "src/platform/wasm/mach.js", @import("mach_sysjs").getJSPath() }) |js| {
+            inline for (.{ sdkPath("/src/platform/wasm/mach.js"), @import("mach_sysjs").getJSPath() }) |js| {
                 const install_js = app_builder.addInstallFileWithDir(
                     .{ .path = js },
                     std.Build.InstallDir{ .custom = "www" },
