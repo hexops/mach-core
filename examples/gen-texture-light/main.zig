@@ -83,9 +83,9 @@ pub fn update(app: *App) !bool {
                 .d, .right => {
                     app.keys |= Dir.right;
                 },
-                .one => core.setDisplayMode(.windowed, null),
-                .two => core.setDisplayMode(.fullscreen, null),
-                .three => core.setDisplayMode(.borderless, null),
+                .one => core.setDisplayMode(.windowed),
+                .two => core.setDisplayMode(.fullscreen),
+                .three => core.setDisplayMode(.borderless),
                 else => {},
             },
             .key_release => |ev| switch (ev.key) {

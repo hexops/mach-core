@@ -32,20 +32,21 @@ pub fn build(b: *std.Build) !void {
         });
         module.addImport("mach-sysjs", sysjs_dep.module("mach-sysjs"));
     } else {
-        const mach_glfw_dep = b.dependency("mach_glfw", .{
-            .target = target,
-            .optimize = optimize,
-        });
-        const gamemode_dep = b.dependency("mach_gamemode", .{
-            .target = target,
-            .optimize = optimize,
-        });
+        const mach_glfw_dep = b.dependency("mach_glfw", .{ .target = target, .optimize = optimize });
+        const gamemode_dep = b.dependency("mach_gamemode", .{ .target = target, .optimize = optimize });
+        const x11_headers = b.dependency("x11_headers", .{ .target = target, .optimize = optimize });
+        const wayland_headers = b.dependency("wayland_headers", .{ .target = target, .optimize = optimize });
         module.addImport("mach-glfw", mach_glfw_dep.module("mach-glfw"));
         module.addImport("mach-gamemode", gamemode_dep.module("mach-gamemode"));
+        module.linkLibrary(x11_headers.artifact("x11-headers"));
+        module.linkLibrary(wayland_headers.artifact("wayland-headers"));
+        module.addCSourceFile(.{ .file = .{ .path = "src/platform/wayland/wayland.c" } });
+
+        const test_platform = b.option(App.Platform, "test_platform", "The mach core platform to use when running tests");
 
         const main_tests = b.addTest(.{
             .name = "core-tests",
-            .root_source_file = .{ .path = sdkPath("/src/main.zig") },
+            .root_source_file = .{ .path = "src/main.zig" },
             .target = target,
             .optimize = optimize,
         });
@@ -55,6 +56,10 @@ pub fn build(b: *std.Build) !void {
         }
         link(b, main_tests, &main_tests.root_module);
         b.installArtifact(main_tests);
+
+        const platform_options = b.addOptions();
+        platform_options.addOption(App.Platform, "platform", test_platform orelse App.Platform.fromTarget(target.result));
+        main_tests.root_module.addOptions("platform_options", platform_options);
 
         const test_step = b.step("test", "run tests");
         test_step.dependOn(&b.addRunArtifact(main_tests).step);
@@ -93,12 +98,14 @@ pub const App = struct {
     watch_paths: ?[]const []const u8,
 
     pub const Platform = enum {
-        native,
+        glfw,
+        x11,
+        wayland,
         web,
 
         pub fn fromTarget(target: std.Target) Platform {
             if (target.cpu.arch == .wasm32) return .web;
-            return .native;
+            return .glfw;
         }
     };
 
@@ -115,10 +122,11 @@ pub const App = struct {
             res_dirs: ?[]const []const u8 = null,
             watch_paths: ?[]const []const u8 = null,
             mach_core_mod: ?*std.Build.Module = null,
+            platform: ?Platform,
         },
     ) !App {
         const target = options.target.result;
-        const platform = Platform.fromTarget(target);
+        const platform = options.platform orelse Platform.fromTarget(target);
 
         var imports = std.ArrayList(std.Build.Module.Import).init(app_builder.allocator);
 
@@ -138,6 +146,11 @@ pub const App = struct {
             .imports = try imports.toOwnedSlice(),
         });
 
+        //Tell mach-core about the chosen platform
+        const platform_options = app_builder.addOptions();
+        platform_options.addOption(Platform, "platform", platform);
+        mach_core_mod.addOptions("platform_options", platform_options);
+
         const compile = blk: {
             if (platform == .web) {
                 // wasm libraries should go into zig-out/www/
@@ -145,7 +158,7 @@ pub const App = struct {
 
                 const lib = app_builder.addStaticLibrary(.{
                     .name = options.name,
-                    .root_source_file = .{ .path = options.custom_entrypoint orelse sdkPath("/src/platform/wasm/main.zig") },
+                    .root_source_file = .{ .path = options.custom_entrypoint orelse sdkPath("/src/platform/wasm/entrypoint.zig") },
                     .target = options.target,
                     .optimize = options.optimize,
                 });
@@ -155,12 +168,13 @@ pub const App = struct {
             } else {
                 const exe = app_builder.addExecutable(.{
                     .name = options.name,
-                    .root_source_file = .{ .path = options.custom_entrypoint orelse sdkPath("/src/platform/native/main.zig") },
+                    .root_source_file = .{ .path = options.custom_entrypoint orelse sdkPath("/src/platform/native_entrypoint.zig") },
                     .target = options.target,
                     .optimize = options.optimize,
                 });
                 // TODO(core): figure out why we need to disable LTO: https://github.com/hexops/mach/issues/597
                 exe.want_lto = false;
+
                 break :blk exe;
             }
         };

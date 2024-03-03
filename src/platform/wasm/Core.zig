@@ -289,8 +289,7 @@ pub fn setTitle(self: *Core, title: [:0]const u8) void {
     js.machCanvasSetTitle(self.id, title.ptr, title.len);
 }
 
-pub fn setDisplayMode(self: *Core, _mode: DisplayMode, monitor: ?usize) void {
-    _ = monitor;
+pub fn setDisplayMode(self: *Core, _mode: DisplayMode) void {
     var mode = _mode;
     if (mode == .borderless) {
         // borderless fullscreen window has no meaning in web
