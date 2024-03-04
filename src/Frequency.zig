@@ -10,8 +10,7 @@ target: u32 = 0,
 /// The estimated delay that is needed to achieve the target frequency. Updated during tick()
 delay_ns: u64 = 0,
 
-/// The actual measured frequency. This is updated every 1/10th second (the number of actual ticks
-/// measured every 1/10th second, multiplied by 10.)
+/// The actual measured frequency. This is updated every second.
 rate: u32 = 0,
 
 delta_time: ?*f32 = null,
@@ -37,21 +36,23 @@ pub fn start(f: *Frequency) !void {
 /// Tick should be called at each occurrence (e.g. frame)
 pub inline fn tick(f: *Frequency) void {
     var current_time = f.internal.timer.readPrecise();
+
+    if (f.delta_time) |delta_time| {
+        f.delta_time_ns.* = current_time -| f.internal.last_time;
+        delta_time.* = @as(f32, @floatFromInt(f.delta_time_ns.*)) / @as(f32, @floatFromInt(std.time.ns_per_s));
+    }
+
     if (current_time >= std.time.ns_per_s) {
         f.rate = f.internal.count;
         f.internal.count = 0;
         f.internal.timer.reset();
-        current_time = f.internal.timer.readPrecise();
-    }
-
-    if (f.delta_time) |delta_time| {
-        f.delta_time_ns.* = if (f.internal.last_time < current_time) current_time - f.internal.last_time else 0;
-        delta_time.* = @as(f32, @floatFromInt(f.delta_time_ns.*)) / @as(f32, @floatFromInt(std.time.ns_per_s));
+        current_time -= std.time.ns_per_s;
     }
     f.internal.last_time = current_time;
+    f.internal.count += 1;
 
     if (f.target != 0) {
-        const limited_count = if (f.internal.count > f.target) f.target else f.internal.count + 1;
+        const limited_count = @min(f.target, f.internal.count);
         const target_time_per_tick: u64 = (std.time.ns_per_s / f.target);
         const target_time = target_time_per_tick * limited_count;
         if (current_time > target_time) {
@@ -62,5 +63,4 @@ pub inline fn tick(f: *Frequency) void {
     } else {
         f.delay_ns = 0;
     }
-    f.internal.count += 1;
 }
